@@ -27,7 +27,12 @@ interface Props { kitchen: string; }
 
 export default function RecipesIndexPage({ kitchen }: Props) {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('search') ?? '';
+    }
+    return '';
+  });
 
   const base = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
 

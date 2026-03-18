@@ -64,5 +64,6 @@ CREATE TABLE recipe_ingredients (
   quantity         DECIMAL,
   unit             VARCHAR(50),
   -- Optionally links to another recipe used as an ingredient (e.g. homemade Almond Milk)
-  source_recipe_id UUID REFERENCES recipes(id) ON DELETE SET NULL
+  source_recipe_id UUID REFERENCES recipes(id) ON DELETE SET NULL,
+  sort_order       INTEGER DEFAULT 0
 );

@@ -2,18 +2,32 @@ import Head from 'next/head';
 import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
 import GenerateButton from '@/components/GenerateButton';
+import RecipeCard from '@/components/RecipeCard';
+
+interface HomeRecipe {
+  id: string;
+  slug: string | null;
+  title: string;
+  cookTime: number | null;
+  prepTime: number | null;
+  servings: number | null;
+  source: string;
+  tags: string[];
+  photoUrl: string | null;
+  queued: boolean;
+}
 
 interface HomeData {
   ingredients: { id: string; category: string | null }[];
   cookware: { name: string }[];
-  recipes: { id: string; title: string; cookTime: number | null; source: string }[];
+  recipes: HomeRecipe[];
   kitchens: { id: string; slug: string; name: string }[];
 }
 
 const HOME_QUERY = `{
   ingredients { id category }
   cookware { name }
-  recipes { id title cookTime source }
+  recipes { id slug title cookTime prepTime servings source tags photoUrl queued }
   kitchens { id slug name }
 }`;
 
@@ -27,10 +41,20 @@ export default function HomePage() {
     setIsSecure(isDev || window.location.protocol === 'https:');
   }, []);
 
+  const [recipeLimit, setRecipeLimit] = useState(6);
+  const [seasonalLimit, setSeasonalLimit] = useState(2);
+
   const ingredientCount = data?.ingredients.length ?? 0;
   const cookwareList = data?.cookware ?? [];
-  const recentRecipes = (data?.recipes ?? []).slice(0, 5);
+  const allRecipes = data?.recipes ?? [];
+  const recentRecipes = allRecipes.slice(0, recipeLimit);
+  const hasMore = allRecipes.length > recipeLimit;
   const kitchens = data?.kitchens ?? [];
+
+  const season = currentSeason();
+  const seasonalAll = allRecipes.filter((r) => r.tags.some((t) => t.toLowerCase() === season));
+  const seasonalRecipes = seasonalAll.slice(0, seasonalLimit);
+  const hasMoreSeasonal = seasonalAll.length > seasonalLimit;
 
   const categoryCounts = data
     ? Object.entries(
@@ -123,8 +147,39 @@ export default function HomePage() {
 
         {/* Generate CTA — owner only (requires localhost or HTTPS) */}
         {isSecure && (
-          <section aria-label="Generate recipes" className="mb-12">
+          <section aria-labelledby="ai-heading" className="mb-12">
+            <h2 id="ai-heading" className="text-xl font-bold mb-2">Artificial Intelligence</h2>
+            <p className="legible text-sm text-zinc-500 dark:text-zinc-400 mb-4">Generate a recipe based on the ingredients and cookware in your kitchen.<br />Your ingredient list is sent to the Anthropic API. Anthropic does not use API data to train models or sell it to third parties.</p>
             <GenerateButton ingredientCount={ingredientCount} />
+          </section>
+        )}
+
+        {/* Seasonal recipes */}
+        {seasonalRecipes.length > 0 && (
+          <section aria-labelledby="seasonal-heading" className="mb-12">
+            <div className="flex items-center justify-between mb-4">
+              <h2 id="seasonal-heading" className="text-xl font-bold">{capitalize(season)} Recipes</h2>
+              <a href={`/recipes?search=${season}#stage`} className="text-sm font-semibold text-amber-600 dark:text-amber-400 hover:underline">
+                All {season} recipes &rarr;
+              </a>
+            </div>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {seasonalRecipes.map((r) => (
+                <RecipeCard key={r.id} recipe={r} />
+              ))}
+            </div>
+            {hasMoreSeasonal && (
+              <div className="mt-6 text-center">
+                <button
+                  type="button"
+                  onClick={() => setSeasonalLimit((n) => n + 6)}
+                  className="text-sm font-semibold text-amber-600 dark:text-amber-400 hover:underline"
+                  aria-describedby="seasonal-heading"
+                >
+                  Load more {season} recipes
+                </button>
+              </div>
+            )}
           </section>
         )}
 
@@ -134,25 +189,26 @@ export default function HomePage() {
             <div className="flex items-center justify-between mb-4">
               <h2 id="recent-heading" className="text-xl font-bold">Recent Recipes</h2>
               <a href="/recipes#stage" className="text-sm font-semibold text-amber-600 dark:text-amber-400 hover:underline">
-                All recipes →
+                All recent recipes &rarr;
               </a>
             </div>
-            <ul className="divide-y divide-zinc-200 dark:divide-zinc-800" role="list">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {recentRecipes.map((r) => (
-                <li key={r.id}>
-                  <a
-                    href={`/recipes/${r.id}#stage`}
-                    className="flex items-center justify-between py-3 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
-                  >
-                    <span className="font-medium">{r.title}</span>
-                    <span className="text-sm text-zinc-500 dark:text-zinc-400 shrink-0 ml-4">
-                      {r.cookTime != null ? `${r.cookTime} min` : ''}
-                      {r.source === 'ai-generated' && <span className="ml-2 tag">AI</span>}
-                    </span>
-                  </a>
-                </li>
+                <RecipeCard key={r.id} recipe={r} />
               ))}
-            </ul>
+            </div>
+            {hasMore && (
+              <div className="mt-6 text-center">
+                <button
+                  type="button"
+                  onClick={() => setRecipeLimit((n) => n + 6)}
+                  className="text-sm font-semibold text-amber-600 dark:text-amber-400 hover:underline"
+                  aria-describedby="recent-heading"
+                >
+                  Load more recent recipes
+                </button>
+              </div>
+            )}
           </section>
         )}
 
@@ -179,6 +235,14 @@ function categoryLabel(s: string) {
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function currentSeason(): string {
+  const m = new Date().getMonth(); // 0-indexed
+  if (m >= 2 && m <= 4) return 'spring';
+  if (m >= 5 && m <= 7) return 'summer';
+  if (m >= 8 && m <= 10) return 'fall';
+  return 'winter';
 }
 
 /* Font Awesome Pro 5.15.4 (light) — icon components */

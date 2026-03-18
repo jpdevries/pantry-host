@@ -139,8 +139,8 @@ function parseIngredientLine(line: string): { ingredientName: string; quantity: 
     }
   }
 
-  // No unit matched (or no quantity) — return the whole line as the name
-  return { ingredientName: line.trim(), quantity, unit: null };
+  // No unit matched — return stripped string if we found a quantity, otherwise the original line
+  return { ingredientName: quantity !== null ? s.trim() : line.trim(), quantity, unit: null };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

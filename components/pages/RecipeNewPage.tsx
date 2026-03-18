@@ -6,14 +6,14 @@ import RecipeForm from '@/components/RecipeForm';
 interface Props { kitchen: string; }
 
 export default function RecipeNewPage({ kitchen }: Props) {
-  const [existingRecipes, setExistingRecipes] = useState<{ id: string; title: string }[]>([]);
+  const [existingRecipes, setExistingRecipes] = useState<{ id: string; title: string; source: string }[]>([]);
   const [cookwareItems, setCookwareItems] = useState<string[]>([]);
   const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
 
   useEffect(() => {
     const slug = kitchen || 'home';
     Promise.all([
-      gql<{ recipes: { id: string; title: string }[] }>('{ recipes { id title } }'),
+      gql<{ recipes: { id: string; title: string; source: string }[] }>('{ recipes { id title source } }'),
       gql<{ cookware: { name: string }[] }>(`query Cookware($kitchenSlug: String) { cookware(kitchenSlug: $kitchenSlug) { name } }`, { kitchenSlug: slug }),
     ]).then(([r, c]) => {
       setExistingRecipes(r.recipes);

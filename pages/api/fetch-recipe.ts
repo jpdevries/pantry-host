@@ -12,6 +12,20 @@ interface ParsedRecipe {
   ingredients?: { ingredientName: string; quantity: number | null; unit: string | null }[];
 }
 
+/** Decode common HTML entities that sneak into LD+JSON or scraped text. */
+function decodeEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+
 function parseDuration(iso: string): number | undefined {
   // Parse ISO 8601 duration like PT30M, PT1H30M
   const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
@@ -66,24 +80,24 @@ function extractFromLdJson(data: any): ParsedRecipe {
   }
 
   return {
-    title: data.name,
-    description: typeof data.description === 'string' ? data.description : undefined,
+    title: typeof data.name === 'string' ? decodeEntities(data.name) : data.name,
+    description: typeof data.description === 'string' ? decodeEntities(data.description) : undefined,
     instructions: parseInstructions(data.recipeInstructions),
     servings: parseServings(data.recipeYield),
     prepTime: data.prepTime ? parseDuration(data.prepTime) : undefined,
     cookTime: data.cookTime ? parseDuration(data.cookTime) : undefined,
     tags: [
       ...(Array.isArray(data.keywords)
-        ? data.keywords
+        ? data.keywords.map((k: string) => typeof k === 'string' ? decodeEntities(k) : k)
         : typeof data.keywords === 'string'
-          ? data.keywords.split(',').map((k: string) => k.trim())
+          ? decodeEntities(data.keywords).split(',').map((k: string) => k.trim())
           : []),
-      ...(data.recipeCategory ? [data.recipeCategory].flat() : []),
+      ...(data.recipeCategory ? [data.recipeCategory].flat().map((c: string) => typeof c === 'string' ? decodeEntities(c) : c) : []),
     ].filter(Boolean),
     photoUrl: parsePhotoUrl(data.image),
     ingredients: Array.isArray(data.recipeIngredient)
       ? data.recipeIngredient.map((line: string) => ({
-          ingredientName: line,
+          ingredientName: typeof line === 'string' ? decodeEntities(line) : line,
           quantity: null,
           unit: null,
         }))
@@ -129,11 +143,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Fallback: simple regex title extraction (LD+JSON is the preferred path)
   const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
   const titleTagMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  const title = (h1Match?.[1] ?? titleTagMatch?.[1] ?? '')
-    .trim()
-    .replace(/&amp;/g, '&')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&#39;/g, "'");
+  const title = decodeEntities((h1Match?.[1] ?? titleTagMatch?.[1] ?? '').trim());
 
   if (!title) {
     return res.status(422).json({ error: 'Could not extract recipe data from this page. Try copying the recipe manually.' });

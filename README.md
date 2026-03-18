@@ -1,10 +1,16 @@
 # Pantry List
 
-> There's already enough of your data in the cloud. Keep your recipes and pantry closer to home — running on your own hardware, on your own network, never uploaded anywhere.
+> There's already enough of your data in the cloud. Keep your recipes and pantry closer to home — running on your own hardware, on your own network, never stored in the cloud.
 
-A self-hosted alternative to apps like Cooklist. Track your pantry and cookware, import recipes from URLs, generate AI-suggested meals from what you already have, and take your grocery list to the store — even offline. All of it stays on your home network.
+<sub><em>\*The optional AI&ndash;powered recipe creation feature sends your ingredient list to the [Anthropic API](https://docs.anthropic.com/en/docs/about-claude/models) to generate suggestions. Everything else stays entirely on your local machine.</em></sub>
 
-Built with Rex (React + rolldown), GraphQL (Pothos + graphql-yoga), PostgreSQL, and Tailwind CSS. Runs great on a Mac Mini.
+A self-hosted Progressive Web&nbsp;App for managing your kitchen. Track your pantry and cookware, import recipes from URLs, generate AI-suggested meals from what you already have, and take your grocery list, fully informed by a recipe queue, to the store — even offline.
+
+Built with Rex (React + rolldown), GraphQL (Pothos + graphql-yoga), PostgreSQL, and Tailwind CSS. Runs great on a Mac Mini, or whatever.
+
+Want to access the API away from home? You can't. Unless you set up a [Tailscale](https://tailscale.com/) mesh network, an SSH tunnel (`ssh -L 3000:localhost:3000 your-mac`), or a reverse proxy like [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-tunnel/) — but that's on you. By default, the app is only reachable on your local network, and that's the point.
+
+So sorry RFK Jr, you won't be using this app to round up people for not eating raw meat.
 
 ---
 

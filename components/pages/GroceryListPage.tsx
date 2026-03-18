@@ -27,14 +27,12 @@ interface PantryItem {
 
 type ItemStatus = 'buy' | 'need_more' | 'check_pantry' | 'have';
 
-interface LineItem {
+interface PerRecipeItem {
   key: string;
   ingredientName: string;
   unit: string | null;
-  totalQuantity: number | null;
-  recipeNames: string[];
+  quantity: number | null;
   status: ItemStatus;
-  deficit: number | null;
   pantryQuantity: number | null;
 }
 
@@ -55,68 +53,32 @@ const INGREDIENTS_QUERY = `
   }
 `;
 
-function buildGroceryList(recipes: QueuedRecipe[], pantry: PantryItem[]): LineItem[] {
-  const agg = new Map<string, { ingredientName: string; unit: string | null; totalQuantity: number | null; recipeNames: string[] }>();
+function resolveStatus(ing: RecipeIngredient, pantryByName: Map<string, PantryItem>): { status: ItemStatus; pantryQuantity: number | null } {
+  const pantryItem = pantryByName.get(ing.ingredientName.toLowerCase());
+  if (!pantryItem) return { status: 'buy', pantryQuantity: null };
+  if (pantryItem.alwaysOnHand) return { status: 'have', pantryQuantity: null };
 
-  for (const recipe of recipes) {
-    for (const ing of recipe.ingredients) {
-      const key = `${ing.ingredientName.toLowerCase()}::${ing.unit ?? ''}`;
-      const existing = agg.get(key);
-      if (existing) {
-        if (!existing.recipeNames.includes(recipe.title)) existing.recipeNames.push(recipe.title);
-        if (existing.totalQuantity != null && ing.quantity != null) {
-          existing.totalQuantity += ing.quantity;
-        } else {
-          existing.totalQuantity = null;
-        }
-      } else {
-        agg.set(key, {
-          ingredientName: ing.ingredientName,
-          unit: ing.unit,
-          totalQuantity: ing.quantity,
-          recipeNames: [recipe.title],
-        });
-      }
-    }
-  }
+  const pantryQuantity = pantryItem.quantity;
+  if (pantryQuantity == null || ing.quantity == null) return { status: 'check_pantry', pantryQuantity };
+  if (pantryItem.unit != null && ing.unit != null && pantryItem.unit !== ing.unit) return { status: 'check_pantry', pantryQuantity };
+  if (pantryQuantity >= ing.quantity) return { status: 'have', pantryQuantity };
+  return { status: 'need_more', pantryQuantity };
+}
 
-  const pantryByName = new Map<string, PantryItem>();
-  for (const item of pantry) {
-    pantryByName.set(item.name.toLowerCase(), item);
-  }
-
-  const items: LineItem[] = [];
-  for (const [key, entry] of agg) {
-    const pantryItem = pantryByName.get(entry.ingredientName.toLowerCase());
-    let status: ItemStatus;
-    let deficit: number | null = null;
-    let pantryQuantity: number | null = null;
-
-    if (!pantryItem) {
-      status = 'buy';
-    } else if (pantryItem.alwaysOnHand) {
-      status = 'have';
-      pantryQuantity = null;
-    } else {
-      pantryQuantity = pantryItem.quantity;
-      if (pantryItem.quantity == null || entry.totalQuantity == null) {
-        status = 'check_pantry';
-      } else if (pantryItem.unit != null && entry.unit != null && pantryItem.unit !== entry.unit) {
-        status = 'check_pantry';
-      } else if (pantryItem.quantity >= entry.totalQuantity) {
-        status = 'have';
-      } else {
-        status = 'need_more';
-        deficit = entry.totalQuantity - pantryItem.quantity;
-      }
-    }
-
-    items.push({ key, ingredientName: entry.ingredientName, unit: entry.unit, totalQuantity: entry.totalQuantity, recipeNames: entry.recipeNames, status, deficit, pantryQuantity });
-  }
-
-  const order: Record<ItemStatus, number> = { buy: 0, need_more: 1, check_pantry: 2, have: 3 };
-  items.sort((a, b) => order[a.status] - order[b.status] || a.ingredientName.localeCompare(b.ingredientName));
-  return items;
+function buildPerRecipeItems(recipe: QueuedRecipe, pantryByName: Map<string, PantryItem>): PerRecipeItem[] {
+  return recipe.ingredients
+    .map((ing) => {
+      const { status, pantryQuantity } = resolveStatus(ing, pantryByName);
+      return {
+        key: `${ing.ingredientName.toLowerCase()}::${ing.unit ?? ''}`,
+        ingredientName: ing.ingredientName,
+        unit: ing.unit,
+        quantity: ing.quantity,
+        status,
+        pantryQuantity,
+      };
+    })
+    .sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
 }
 
 function fmtQty(qty: number | null, unit: string | null): string {
@@ -138,7 +100,6 @@ export default function GroceryListPage({ kitchen }: Props) {
       return raw ? new Set<string>(JSON.parse(raw) as string[]) : new Set();
     } catch { return new Set(); }
   });
-  const [haveExpanded, setHaveExpanded] = useState(false);
 
   const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
 
@@ -163,12 +124,10 @@ export default function GroceryListPage({ kitchen }: Props) {
   }, [kitchen]);
 
   async function handleDequeue(recipeId: string) {
-    // Optimistically remove from list
     setRecipes((prev) => prev.filter((r) => r.id !== recipeId));
     try {
       await gql(TOGGLE_QUEUED, { id: recipeId });
     } catch {
-      // Offline — queue for later sync
       enqueue(TOGGLE_QUEUED, { id: recipeId });
     }
   }
@@ -182,11 +141,12 @@ export default function GroceryListPage({ kitchen }: Props) {
     });
   }
 
-  const lineItems = buildGroceryList(recipes, pantry);
-  const needItems = lineItems.filter((i) => i.status === 'buy' || i.status === 'need_more');
-  const checkItems = lineItems.filter((i) => i.status === 'check_pantry');
-  const haveItems = lineItems.filter((i) => i.status === 'have');
-  const shopItems = [...needItems, ...checkItems];
+  const pantryByName = new Map<string, PantryItem>();
+  for (const item of pantry) {
+    pantryByName.set(item.name.toLowerCase(), item);
+  }
+
+  const sortedRecipes = [...recipes].sort((a, b) => a.title.localeCompare(b.title));
 
   return (
     <>
@@ -227,83 +187,63 @@ export default function GroceryListPage({ kitchen }: Props) {
           )}
         </section>
 
-        {/* Grocery list */}
-        {!loading && recipes.length > 0 && (
+        {/* Grocery list — grouped by recipe */}
+        {!loading && sortedRecipes.length > 0 && (
           <section aria-labelledby="grocery-heading">
             <h2 id="grocery-heading" className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-4">
               Ingredients
             </h2>
 
-            {lineItems.length === 0 ? (
-              <p className="text-zinc-500 dark:text-zinc-400">No ingredients listed for queued recipes.</p>
-            ) : (
-              <>
-                {shopItems.length > 0 && (
-                  <ul role="list" className="space-y-3 mb-6">
-                    {shopItems.map((item) => (
-                      <li key={item.key}>
-                        <label className={`flex items-start gap-3 cursor-pointer ${checked.has(item.key) ? 'opacity-50' : ''}`}>
-                          <input
-                            type="checkbox"
-                            checked={checked.has(item.key)}
-                            onChange={() => toggleChecked(item.key)}
-                            className="mt-0.5 w-5 h-5 border-2 border-zinc-300 dark:border-zinc-600 accent-amber-500 shrink-0"
-                          />
-                          <span className={`flex-1 leading-snug ${checked.has(item.key) ? 'line-through text-zinc-400 dark:text-zinc-600' : ''}`}>
-                            <span className="font-medium">
-                              {item.status === 'need_more' && item.deficit != null
-                                ? fmtQty(item.deficit, item.unit)
-                                : fmtQty(item.totalQuantity, item.unit)}{' '}
-                              {item.ingredientName}
-                            </span>
-                            {item.status === 'need_more' && item.pantryQuantity != null && (
-                              <span className="ml-2 text-xs text-zinc-400 dark:text-zinc-500">(have {fmtQty(item.pantryQuantity, item.unit)})</span>
-                            )}
-                            {item.status === 'check_pantry' && (
-                              <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">check pantry</span>
-                            )}
-                            <span className="block text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
-                              {item.recipeNames.join(', ')}
-                            </span>
-                          </span>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+            <div className="space-y-6">
+              {sortedRecipes.map((recipe) => {
+                const items = buildPerRecipeItems(recipe, pantryByName);
+                if (items.length === 0) return null;
 
-                {haveItems.length > 0 && (
-                  <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4">
-                    <button
-                      type="button"
-                      onClick={() => setHaveExpanded((v) => !v)}
-                      className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
-                      aria-expanded={haveExpanded}
-                    >
-                      <span className={`inline-block transition-transform ${haveExpanded ? 'rotate-90' : ''}`} aria-hidden="true">›</span>
-                      Already have ({haveItems.length})
-                    </button>
+                return (
+                  <fieldset key={recipe.id} className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4">
+                    <legend className="px-2 font-semibold text-sm">
+                      <a href={`${recipesBase}/${recipe.slug ?? recipe.id}#stage`} className="hover:underline">
+                        {recipe.title}
+                      </a>
+                    </legend>
 
-                    {haveExpanded && (
-                      <ul role="list" className="mt-3 space-y-2">
-                        {haveItems.map((item) => (
-                          <li key={item.key} className="flex items-start gap-3 text-zinc-400 dark:text-zinc-500">
-                            <span className="mt-0.5 w-5 h-5 flex items-center justify-center text-amber-500 shrink-0 text-sm" aria-hidden="true">✓</span>
-                            <span className="leading-snug">
-                              <span className="line-through">{fmtQty(item.totalQuantity, item.unit)} {item.ingredientName}</span>
-                              {item.pantryQuantity != null && (
-                                <span className="ml-2 text-xs">(pantry: {fmtQty(item.pantryQuantity, item.unit)})</span>
-                              )}
-                              <span className="block text-xs mt-0.5">{item.recipeNames.join(', ')}</span>
-                            </span>
+                    <ul role="list" className="space-y-2">
+                      {items.map((item) => {
+                        const isChecked = checked.has(item.key);
+                        const isHave = item.status === 'have';
+
+                        return (
+                          <li key={item.key}>
+                            <label className={`flex items-start gap-3 cursor-pointer ${isChecked || isHave ? 'opacity-50' : ''}`}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleChecked(item.key)}
+                                className="mt-0.5 w-5 h-5 border-2 border-zinc-300 dark:border-zinc-600 accent-amber-500 shrink-0"
+                              />
+                              <span className={`flex-1 leading-snug ${isChecked ? 'line-through text-zinc-400 dark:text-zinc-600' : ''}`}>
+                                <span className="font-medium">
+                                  {fmtQty(item.quantity, item.unit)} {item.ingredientName}
+                                </span>
+                                {item.status === 'need_more' && item.pantryQuantity != null && (
+                                  <span className="ml-2 text-xs text-zinc-400 dark:text-zinc-500">(have {fmtQty(item.pantryQuantity, item.unit)})</span>
+                                )}
+                                {item.status === 'check_pantry' && (
+                                  <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">check pantry</span>
+                                )}
+                                {isHave && !isChecked && (
+                                  <span className="ml-2 text-xs text-zinc-400 dark:text-zinc-500">✓ in pantry</span>
+                                )}
+                              </span>
+                            </label>
                           </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
+                        );
+                      })}
+                    </ul>
+                  </fieldset>
+                );
+              })}
+            </div>
           </section>
         )}
       </main>

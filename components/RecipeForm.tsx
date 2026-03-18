@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { UNIT_GROUPS, COMMON_INGREDIENTS } from '@/lib/constants';
 import { gql } from '@/lib/gql';
@@ -27,6 +27,7 @@ interface RecipeData {
 interface ExistingRecipe {
   id: string;
   title: string;
+  source: string;
 }
 
 interface Props {
@@ -109,6 +110,18 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const ingredientListRef = useRef<HTMLUListElement>(null);
+  const [focusNewRecipeSelect, setFocusNewRecipeSelect] = useState(false);
+
+  useEffect(() => {
+    if (!focusNewRecipeSelect || !ingredientListRef.current) return;
+    setFocusNewRecipeSelect(false);
+    requestAnimationFrame(() => {
+      const lastLi = ingredientListRef.current?.lastElementChild;
+      const select = lastLi?.querySelector<HTMLSelectElement>('select');
+      select?.focus();
+    });
+  }, [focusNewRecipeSelect, ingredientRows]);
 
   // ---- URL import ----
   async function handleImport() {
@@ -187,11 +200,27 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
 
   // ---- Ingredients ----
   function updateIngredient(idx: number, patch: Partial<IngredientRow>) {
-    setIngredientRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+    setIngredientRows((prev) => prev.map((r, i) => {
+      if (i !== idx) return r;
+      const updated = { ...r, ...patch };
+      // Auto-detect: if ingredientName exactly matches a recipe title, link it
+      if ('ingredientName' in patch && !('sourceRecipeId' in patch)) {
+        const match = existingRecipes.find(
+          (rec) => rec.title.toLowerCase() === updated.ingredientName.toLowerCase(),
+        );
+        updated.sourceRecipeId = match?.id ?? null;
+      }
+      return updated;
+    }));
   }
 
   function addIngredient() {
     setIngredientRows((prev) => [...prev, { ingredientName: '', quantity: '', unit: 'whole', sourceRecipeId: null }]);
+  }
+
+  function addRecipeIngredient() {
+    setIngredientRows((prev) => [...prev, { ingredientName: '', quantity: '1', unit: 'whole', sourceRecipeId: '' }]);
+    setFocusNewRecipeSelect(true);
   }
 
   function removeIngredient(idx: number) {
@@ -215,7 +244,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
           : r.ingredientName.trim(),
         quantity: r.quantity ? parseFloat(r.quantity) : null,
         unit: r.unit || null,
-        sourceRecipeId: r.sourceRecipeId ?? null,
+        sourceRecipeId: r.sourceRecipeId || null,
       }));
 
     try {
@@ -261,6 +290,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
     <form onSubmit={handleSubmit} aria-label={editing ? 'Edit recipe' : 'Add recipe'} noValidate>
       <datalist id="form-ingredients">
         {COMMON_INGREDIENTS.map((i) => <option key={i} value={i} />)}
+        {existingRecipes.map((r) => <option key={r.id} value={r.title} />)}
       </datalist>
 
       {/* URL Import */}
@@ -380,38 +410,21 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
       {/* Ingredients */}
       <fieldset className="mb-5">
         <legend className="field-label">Ingredients</legend>
-        <ul role="list" className="space-y-2 mb-3">
+        <ul ref={ingredientListRef} role="list" className="space-y-2 mb-3">
           {ingredientRows.map((row, idx) => {
             const isRecipeMode = row.sourceRecipeId !== null;
             return (
               <li key={idx} className="flex gap-2 items-start flex-wrap sm:flex-nowrap">
-                {/* Mode toggle: ingredient vs recipe */}
-                {existingRecipes.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => updateIngredient(idx, {
-                      sourceRecipeId: isRecipeMode ? null : (existingRecipes[0]?.id ?? null),
-                      ingredientName: '',
-                    })}
-                    aria-label={isRecipeMode ? `Switch ingredient ${idx + 1} to plain ingredient` : `Switch ingredient ${idx + 1} to use a recipe`}
-                    title={isRecipeMode ? 'Switch to ingredient' : 'Use a recipe as ingredient'}
-                    className="mt-1.5 shrink-0 text-xs px-2 py-1 border border-zinc-300 dark:border-zinc-600 hover:border-amber-500 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
-                  >
-                    {isRecipeMode ? '📋' : '＋'}
-                  </button>
-                )}
-
                 {/* Name input or recipe selector */}
                 {isRecipeMode ? (
                   <select
                     value={row.sourceRecipeId ?? ''}
-                    onChange={(e) => updateIngredient(idx, { sourceRecipeId: e.target.value })}
+                    onChange={(e) => updateIngredient(idx, { sourceRecipeId: e.target.value || null })}
                     aria-label={`Ingredient ${idx + 1}: select recipe`}
                     className="field-select flex-1"
                   >
-                    {existingRecipes.map((r) => (
-                      <option key={r.id} value={r.id}>{r.title}</option>
-                    ))}
+                    <option value="" disabled>Choose a recipe…</option>
+                    {recipeOptionGroups(existingRecipes)}
                   </select>
                 ) : (
                   <input
@@ -460,9 +473,16 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
             );
           })}
         </ul>
-        <button type="button" onClick={addIngredient} className="btn-secondary text-sm">
-          + Add ingredient
-        </button>
+        <div className="flex gap-3">
+          <button type="button" onClick={addIngredient} className="btn-secondary text-sm">
+            + Add ingredient
+          </button>
+          {existingRecipes.length > 0 && (
+            <button type="button" onClick={addRecipeIngredient} className="btn-secondary text-sm">
+              + Add recipe as ingredient
+            </button>
+          )}
+        </div>
       </fieldset>
 
       {/* Instructions */}
@@ -580,5 +600,38 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
         <a href={`${recipesBase}#stage`} className="btn-secondary">Cancel</a>
       </div>
     </form>
+  );
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  'ai-generated': 'AI-generated',
+  'imported': 'Imported',
+  'url-import': 'Imported',
+  'manual': 'Manual',
+};
+
+function recipeOptionGroups(recipes: ExistingRecipe[]) {
+  const manual: ExistingRecipe[] = [];
+  const groups = new Map<string, ExistingRecipe[]>();
+  for (const r of recipes) {
+    const key = r.source || 'manual';
+    if (key === 'manual') { manual.push(r); continue; }
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(r);
+  }
+  manual.sort((a, b) => a.title.localeCompare(b.title));
+  for (const list of groups.values()) list.sort((a, b) => a.title.localeCompare(b.title));
+  const sorted = [...groups.entries()].sort((a, b) =>
+    (SOURCE_LABELS[a[0]] ?? a[0]).localeCompare(SOURCE_LABELS[b[0]] ?? b[0]),
+  );
+  return (
+    <>
+      {manual.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
+      {sorted.map(([source, list]) => (
+        <optgroup key={source} label={SOURCE_LABELS[source] ?? source}>
+          {list.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
+        </optgroup>
+      ))}
+    </>
   );
 }

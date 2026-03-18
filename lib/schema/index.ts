@@ -99,10 +99,15 @@ const RecipeType = builder.objectType('Recipe', {
     ingredients: t.field({
       type: [RecipeIngredientType],
       resolve: async (recipe) => {
-        return sql`SELECT * FROM recipe_ingredients WHERE recipe_id = ${recipe.id} ORDER BY id`;
+        return sql`SELECT * FROM recipe_ingredients WHERE recipe_id = ${recipe.id} ORDER BY sort_order, id`;
       },
     }),
     createdAt: t.string({ resolve: (r) => r.created_at?.toISOString() ?? '' }),
+    usedIn: t.field({
+      type: [RecipeType],
+      resolve: async (recipe) =>
+        sql`SELECT DISTINCT r.* FROM recipes r JOIN recipe_ingredients ri ON ri.recipe_id = r.id WHERE ri.source_recipe_id = ${recipe.id} ORDER BY r.title`,
+    }),
   }),
 });
 
@@ -371,14 +376,15 @@ async function insertRecipe(
   if (ingredients.length > 0) {
     await sql`
       INSERT INTO recipe_ingredients ${sql(
-        ingredients.map((i) => ({
+        ingredients.map((i, idx) => ({
           recipe_id: recipe.id,
           ingredient_name: i.ingredientName,
           quantity: i.quantity ?? null,
           unit: i.unit ?? null,
           source_recipe_id: i.sourceRecipeId ?? null,
+          sort_order: idx,
         })),
-        'recipe_id', 'ingredient_name', 'quantity', 'unit', 'source_recipe_id',
+        'recipe_id', 'ingredient_name', 'quantity', 'unit', 'source_recipe_id', 'sort_order',
       )}
     `;
   }
@@ -465,13 +471,14 @@ builder.mutationField('updateRecipe', (t) =>
         if (args.ingredients.length > 0) {
           await sql`
             INSERT INTO recipe_ingredients ${sql(
-              args.ingredients.map((i) => ({
+              args.ingredients.map((i, idx) => ({
                 recipe_id: args.id,
                 ingredient_name: i.ingredientName,
                 quantity: i.quantity ?? null,
                 unit: i.unit ?? null,
+                sort_order: idx,
               })),
-              'recipe_id', 'ingredient_name', 'quantity', 'unit',
+              'recipe_id', 'ingredient_name', 'quantity', 'unit', 'sort_order',
             )}
           `;
         }

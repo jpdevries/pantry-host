@@ -20,8 +20,8 @@
 
   /* Visible focus rings for keyboard navigation */
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-amber-500;
-    @apply dark:outline-amber-400;
+    @apply outline-none ring-2 ring-amber-500 ring-offset-2 ring-offset-white;
+    @apply dark:ring-amber-400 dark:ring-offset-zinc-950;
   }
 
   /* Respect reduced motion */
@@ -37,6 +37,10 @@
 
   /* Print styles */
   @media print {
+    @page {
+      margin: 1.5cm;
+    }
+
     header,
     nav,
     footer,
@@ -44,8 +48,95 @@
       display: none !important;
     }
 
+    body {
+      color: #000 !important;
+      background: #fff !important;
+      font-size: 12pt;
+      line-height: 1.5;
+    }
+
     main {
       padding: 0 !important;
+      max-width: none !important;
+    }
+
+    /* Force single column for recipe layout */
+    .grid {
+      display: block !important;
+    }
+
+    /* Prevent orphaned headings, add spacing */
+    h1, h2, h3, h4 {
+      page-break-after: avoid;
+      break-after: avoid;
+      margin-top: 1.5em !important;
+    }
+
+    h1 {
+      margin-top: 0 !important;
+    }
+
+    /* Keep ingredients and short sections together */
+    section {
+      break-inside: avoid;
+    }
+
+    /* Don't split individual list items across pages */
+    li {
+      break-inside: avoid;
+    }
+
+    /* Avoid widows/orphans in paragraphs */
+    p {
+      orphans: 3;
+      widows: 3;
+    }
+
+    /* Recipe photo: keep reasonable size, don't break */
+    img {
+      max-height: 200pt;
+      object-fit: cover;
+      break-inside: avoid;
+    }
+
+    /* Collapse the hero aspect-ratio container */
+    .aspect-\[16\/9\] {
+      aspect-ratio: auto !important;
+      height: auto !important;
+    }
+
+    /* Show link URLs after anchor text */
+    article a[href^="http"]::after {
+      content: " (" attr(href) ")";
+      font-size: 0.8em;
+      color: #666;
+    }
+
+    /* Hide interactive elements */
+    button,
+    input[type="checkbox"] {
+      display: none !important;
+    }
+
+    /* But show checkbox state as text markers */
+    label {
+      cursor: default !important;
+    }
+
+    /* Force all elements to print-friendly colors */
+    * {
+      color: #000 !important;
+      background: transparent !important;
+      border-color: #ccc !important;
+      box-shadow: none !important;
+    }
+
+    .card {
+      border: 1px solid #ccc !important;
+    }
+
+    .tag {
+      border: 1px solid #999 !important;
     }
   }
 }
@@ -74,14 +165,9 @@
     @apply text-lg;
   }
 
-  /* Zen mode exit button shown only in fullscreen */
-  .zen-exit {
-    display: none;
-  }
-
-  article:fullscreen .zen-exit,
-  article:-webkit-full-screen .zen-exit {
-    display: flex;
+  article:fullscreen .zen-exit-btn,
+  article:-webkit-full-screen .zen-exit-btn {
+    display: block;
   }
 
   /* Btn base */
@@ -129,6 +215,17 @@
     @apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium;
     @apply bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300;
     @apply border border-zinc-200 dark:border-zinc-700;
+  }
+
+  /* Legible line lengths */
+  .legible {
+    --legible-max-width: 72ch;
+    max-width: var(--legible-max-width);
+    text-wrap: pretty;
+  }
+
+  .legible.very {
+    --legible-max-width: 42ch;
   }
 
   /* Card */

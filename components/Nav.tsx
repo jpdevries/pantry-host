@@ -21,7 +21,7 @@ export default function Nav() {
 
   const links = [
     { href: kitchenHref('/ingredients'), label: 'Pantry' },
-    { href: kitchenHref('/list'),        label: 'List' },
+    { href: kitchenHref('/list'),        label: 'Grocery List' },
     { href: kitchenHref('/recipes'),     label: 'Recipes' },
     ...(isSecure ? [{ href: kitchenHref('/cookware'), label: 'Cookware' }] : []),
   ];
@@ -49,15 +49,23 @@ export default function Nav() {
     <header className="relative flex flex-col min-h-[100svh] md:min-h-0 bg-zinc-950 text-zinc-50 px-6 py-8">
       {/* Site identity */}
       <div className="flex items-center justify-between">
-        <a
-          href="/#stage"
-          className="flex items-center gap-3 hover:opacity-80 transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
-          aria-label="Pantry List — home"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/pear.png" alt="" aria-hidden="true" width={42} height={42} className="w-[42px] h-[42px] object-contain rounded-sm" />
-          <span className="text-2xl font-bold tracking-tight">Pantry List</span>
-        </a>
+        {currentPath === '/' || currentPath === '' ? (
+          <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/pear.png" alt="" aria-hidden="true" width={42} height={42} className="w-[42px] h-[42px] object-contain rounded-sm" />
+            <span className="text-2xl font-bold tracking-tight">Pantry List</span>
+          </div>
+        ) : (
+          <a
+            href="/#stage"
+            className="flex items-center gap-3 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
+            aria-label="Pantry List — home"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/pear.png" alt="" aria-hidden="true" width={42} height={42} className="w-[42px] h-[42px] object-contain rounded-sm" />
+            <span className="text-2xl font-bold tracking-tight">Pantry List</span>
+          </a>
+        )}
 
         {/* Desktop nav */}
         <nav

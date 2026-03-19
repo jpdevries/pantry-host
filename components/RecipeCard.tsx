@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { gql } from '@/lib/gql';
 import { Robot, ShoppingCart, Leaf } from '@phosphor-icons/react';
+import { HIDDEN_TAGS } from '@/lib/constants';
 
 interface Recipe {
   id: string;
@@ -115,9 +116,9 @@ export default function RecipeCard({ recipe, recipesBase = '/recipes' }: Props) 
           )}
         </div>
 
-        {recipe.tags.length > 0 && (
+        {recipe.tags.filter((t) => !HIDDEN_TAGS.has(t.toLowerCase())).length > 0 && (
           <div className="mt-auto pt-3 flex flex-wrap gap-1">
-            {recipe.tags.slice(0, 4).map((t) => (
+            {recipe.tags.filter((t) => !HIDDEN_TAGS.has(t.toLowerCase())).slice(0, 4).map((t) => (
               <span key={t} className="tag">{t}</span>
             ))}
           </div>

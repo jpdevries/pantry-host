@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
 import { cacheSet, cacheGet } from '@/lib/cache';
 import { enqueue } from '@/lib/offlineQueue';
+import { ShoppingCart, Basket } from '@phosphor-icons/react';
 
 interface RecipeIngredient {
   ingredientName: string;
@@ -23,6 +24,7 @@ interface PantryItem {
   quantity: number | null;
   unit: string | null;
   alwaysOnHand: boolean;
+  tags: string[];
 }
 
 type ItemStatus = 'buy' | 'need_more' | 'check_pantry' | 'have';
@@ -49,7 +51,7 @@ const QUEUED_RECIPES_QUERY = `
 
 const INGREDIENTS_QUERY = `
   query Ingredients($kitchenSlug: String) {
-    ingredients(kitchenSlug: $kitchenSlug) { id name quantity unit alwaysOnHand }
+    ingredients(kitchenSlug: $kitchenSlug) { id name quantity unit alwaysOnHand tags }
   }
 `;
 
@@ -93,6 +95,15 @@ export default function GroceryListPage({ kitchen }: Props) {
   const [recipes, setRecipes] = useState<QueuedRecipe[]>([]);
   const [pantry, setPantry] = useState<PantryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addingCommon, setAddingCommon] = useState(false);
+  const [hasCommon, setHasCommon] = useState(false);
+  const [commonItems, setCommonItems] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem('groceryCommonItems');
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch { return []; }
+  });
   const [checked, setChecked] = useState<Set<string>>(() => {
     if (typeof window === 'undefined') return new Set();
     try {
@@ -114,6 +125,7 @@ export default function GroceryListPage({ kitchen }: Props) {
       .then(([rd, id]) => {
         setRecipes(rd.recipes);
         setPantry(id.ingredients);
+        setHasCommon(id.ingredients.some((i) => i.tags?.some((t) => t.toLowerCase() === 'common')));
         cacheSet(cacheKey, { recipes: rd.recipes, pantry: id.ingredients });
       })
       .catch(() => {
@@ -122,6 +134,27 @@ export default function GroceryListPage({ kitchen }: Props) {
       })
       .finally(() => setLoading(false));
   }, [kitchen]);
+
+  async function handleAddCommon() {
+    setAddingCommon(true);
+    try {
+      const data = await gql<{ ingredients: { name: string }[] }>(
+        `query CommonIngredients($kitchenSlug: String) { ingredients(kitchenSlug: $kitchenSlug) { name tags } }`,
+        { kitchenSlug: kitchen }
+      );
+      const common = (data.ingredients as any[])
+        .filter((i) => i.tags?.some((t: string) => t.toLowerCase() === 'common'))
+        .map((i) => i.name);
+      setCommonItems(common);
+      try { localStorage.setItem('groceryCommonItems', JSON.stringify(common)); } catch { /* ignore */ }
+    } catch { /* ignore */ }
+    setAddingCommon(false);
+  }
+
+  function clearCommon() {
+    setCommonItems([]);
+    try { localStorage.removeItem('groceryCommonItems'); } catch { /* ignore */ }
+  }
 
   async function handleDequeue(recipeId: string) {
     setRecipes((prev) => prev.filter((r) => r.id !== recipeId));
@@ -162,12 +195,31 @@ export default function GroceryListPage({ kitchen }: Props) {
           {loading ? (
             <p className="text-zinc-500 dark:text-zinc-400" aria-busy="true">Loading…</p>
           ) : recipes.length === 0 ? (
-            <p className="text-zinc-500 dark:text-zinc-400">
-              No recipes queued.{' '}
-              <a href={`${recipesBase}#stage`} className="underline hover:text-amber-600 dark:hover:text-amber-400">
-                Add from Recipes →
-              </a>
-            </p>
+            <div>
+              <p className="text-zinc-500 dark:text-zinc-400 mb-4">
+                No recipes queued. Add recipes to your cooking queue and their ingredients will appear here as a grocery list.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <a
+                  href={`${recipesBase}#stage`}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 transition-colors rounded"
+                >
+                  <ShoppingCart size={16} aria-hidden />
+                  Add from Recipes
+                </a>
+                {hasCommon && (
+                  <button
+                    type="button"
+                    onClick={handleAddCommon}
+                    disabled={addingCommon}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:border-amber-500 hover:text-amber-600 dark:hover:border-amber-400 dark:hover:text-amber-400 transition-colors rounded"
+                  >
+                    <Basket size={16} aria-hidden />
+                    {addingCommon ? 'Adding…' : 'Add Common Ingredients'}
+                  </button>
+                )}
+              </div>
+            </div>
           ) : (
             <ul role="list" className="flex flex-wrap gap-2" aria-label="Queued recipes">
               {recipes.map((r) => (
@@ -186,6 +238,45 @@ export default function GroceryListPage({ kitchen }: Props) {
             </ul>
           )}
         </section>
+
+        {/* Common ingredients checklist */}
+        {commonItems.length > 0 && (
+          <section aria-labelledby="common-heading" className="mb-10">
+            <div className="flex items-center justify-between mb-3">
+              <h2 id="common-heading" className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                Common Ingredients
+              </h2>
+              <button
+                type="button"
+                onClick={clearCommon}
+                className="text-xs text-zinc-500 dark:text-zinc-400 hover:underline"
+              >
+                Clear
+              </button>
+            </div>
+            <ul role="list" className="space-y-2">
+              {commonItems.map((name) => {
+                const key = `common::${name.toLowerCase()}`;
+                const isChecked = checked.has(key);
+                return (
+                  <li key={key}>
+                    <label className={`flex items-start gap-3 cursor-pointer ${isChecked ? 'opacity-50' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleChecked(key)}
+                        className="mt-0.5 w-5 h-5 border-2 border-zinc-300 dark:border-zinc-600 accent-amber-500 shrink-0"
+                      />
+                      <span className={`flex-1 leading-snug font-medium ${isChecked ? 'line-through text-zinc-400 dark:text-zinc-600' : ''}`}>
+                        {name}
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
 
         {/* Grocery list — grouped by recipe */}
         {!loading && sortedRecipes.length > 0 && (

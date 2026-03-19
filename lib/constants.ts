@@ -60,6 +60,9 @@ export const COMMON_INGREDIENTS = [
   'Red pepper flakes', 'Salt', 'Smoked paprika', 'Thyme', 'Turmeric',
 ];
 
+/** Tags used internally but hidden from user-facing tag clouds */
+export const HIDDEN_TAGS = new Set(['common']);
+
 export const COMMON_COOKWARE = [
   'Air Fryer',
   'Cast Iron Skillet',

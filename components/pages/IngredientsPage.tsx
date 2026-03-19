@@ -5,6 +5,7 @@ import BatchScanSession from '@/components/BatchScanSession';
 import { gql } from '@/lib/gql';
 import { Camera, PencilSimple, Trash } from '@phosphor-icons/react';
 import { cacheSet, cacheGet } from '@/lib/cache';
+import { HIDDEN_TAGS } from '@/lib/constants';
 
 interface Ingredient {
   id: string;
@@ -218,9 +219,9 @@ export default function IngredientsPage({ kitchen }: Props) {
                             {ing.quantity != null ? ing.quantity : ''} {ing.unit ?? ''}
                           </span>
                         )}
-                        {ing.tags.length > 0 && (
+                        {ing.tags.filter((t) => !HIDDEN_TAGS.has(t.toLowerCase())).length > 0 && (
                           <span className="ml-2">
-                            {ing.tags.map((t) => <span key={t} className="tag mr-1">{t}</span>)}
+                            {ing.tags.filter((t) => !HIDDEN_TAGS.has(t.toLowerCase())).map((t) => <span key={t} className="tag mr-1">{t}</span>)}
                           </span>
                         )}
                       </div>

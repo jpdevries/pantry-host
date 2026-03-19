@@ -6,6 +6,7 @@ import { cacheSet, cacheGet } from '@/lib/cache';
 import { ArrowsOut, ArrowsIn, Trash, Heart, Printer, Circle, CheckCircle } from '@phosphor-icons/react';
 import { enqueue } from '@/lib/offlineQueue';
 import RecipeCard from '@/components/RecipeCard';
+import { HIDDEN_TAGS } from '@/lib/constants';
 
 interface RecipeIngredient {
   ingredientName: string;
@@ -421,7 +422,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                   <span className="sr-only">AI</span>
                 </span>
               )}
-              {recipe.tags.map((t) => <span key={t} className="tag">{t}</span>)}
+              {recipe.tags.filter((t) => !HIDDEN_TAGS.has(t.toLowerCase())).map((t) => <span key={t} className="tag">{t}</span>)}
             </div>
             <h1 className="text-4xl font-bold mb-4">{recipe.title}</h1>
             {recipe.description && (

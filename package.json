@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.38.0",
+    "@phosphor-icons/react": "^2.1.10",
     "@pothos/core": "^4.3.0",
     "@zxing/browser": "^0.1.5",
     "formidable": "^3.5.1",

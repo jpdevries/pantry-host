@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { gql } from '@/lib/gql';
+import { SpinnerGap } from '@phosphor-icons/react';
 
 interface Props {
   ingredientCount: number;
@@ -47,7 +48,7 @@ export default function GenerateButton({ ingredientCount }: Props) {
       >
         {loading ? (
           <>
-            <SpinnerIcon aria-hidden="true" />
+            <SpinnerGap size={16} className="animate-spin" aria-hidden />
             Generating…
           </>
         ) : (
@@ -73,22 +74,3 @@ export default function GenerateButton({ ingredientCount }: Props) {
   );
 }
 
-function SpinnerIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="animate-spin"
-    >
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
-  );
-}

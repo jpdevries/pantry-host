@@ -3,6 +3,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { gql } from '@/lib/gql';
 import { cacheSet, cacheGet } from '@/lib/cache';
+import { ArrowsOut, ArrowsIn, Trash, Heart, Printer, Circle, CheckCircle } from '@phosphor-icons/react';
 import { enqueue } from '@/lib/offlineQueue';
 import RecipeCard from '@/components/RecipeCard';
 
@@ -357,11 +358,11 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
               </div>
             ) : (
               <button type="button" onClick={() => setDeleteConfirm(true)} aria-label="Delete recipe" className="btn-secondary p-2 hover:text-red-500">
-                <TrashIcon aria-hidden="true" />
+                <Trash size={16} aria-hidden />
               </button>
             )}
             <button type="button" onClick={isFullscreen ? exitZen : enterZen} aria-label={isFullscreen ? 'Exit full screen' : 'Enter full screen'} aria-pressed={isFullscreen} className="btn-secondary p-2">
-              {isFullscreen ? <CompressIcon aria-hidden="true" /> : <ExpandIcon aria-hidden="true" />}
+              {isFullscreen ? <ArrowsIn size={18} aria-hidden /> : <ArrowsOut size={18} aria-hidden />}
             </button>
           </div>
         </div>
@@ -373,7 +374,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
             aria-label="Exit full screen"
             className="zen-exit-btn fixed top-4 right-4 z-50 bg-black/70 hover:bg-black/90 text-white p-2 rounded-full backdrop-blur transition-colors hidden outline outline-1 outline-current"
           >
-            <CompressIcon aria-hidden="true" />
+            <ArrowsIn size={18} aria-hidden />
           </button>
           {recipe.photoUrl && (
             <div className="mb-8 aspect-[16/9] overflow-hidden bg-zinc-100 dark:bg-zinc-800">
@@ -535,7 +536,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
               aria-pressed={!!lastMadeAt}
               className="inline-flex items-center gap-2 btn-primary text-sm transition-colors"
             >
-              {lastMadeAt ? <CheckCircleIcon /> : <CircleIcon />}
+              {lastMadeAt ? <CheckCircle size={18} weight="fill" aria-hidden /> : <Circle size={18} aria-hidden />}
               {lastMadeAt ? 'I Made This Again' : 'I Made This'}
             </button>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-3">Mark this recipe as made to track when you last cooked it and update your pantry quantities.</p>
@@ -554,7 +555,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
               aria-pressed={favorited}
               className={`inline-flex items-center gap-2 btn-secondary text-sm transition-colors ${favorited ? 'border-amber-500 text-amber-600 dark:text-amber-400' : ''}`}
             >
-              {favorited ? <HeartSolidIcon /> : <HeartIcon />}
+              {favorited ? <Heart size={18} weight="fill" aria-hidden /> : <Heart size={18} aria-hidden />}
               {favorited ? 'Favorited' : 'Add to Favorites'}
             </button>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-3">Save this recipe to your favorites so you can find it again later.</p>
@@ -567,7 +568,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
               onClick={() => window.print()}
               className="inline-flex items-center gap-2 btn-secondary text-sm"
             >
-              <PrintIcon />
+              <Printer size={18} aria-hidden />
               Print Recipe
             </button>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-3">Print this recipe to share with a friend or keep a copy for your kitchen.</p>
@@ -642,29 +643,3 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
   );
 }
 
-function ExpandIcon(props: React.SVGProps<SVGSVGElement>) {
-  return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>;
-}
-function CompressIcon(props: React.SVGProps<SVGSVGElement>) {
-  return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/></svg>;
-}
-function TrashIcon(props: React.SVGProps<SVGSVGElement>) {
-  return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>;
-}
-
-const heartIconProps = { xmlns: 'http://www.w3.org/2000/svg', width: 18, height: 18, fill: 'currentColor', 'aria-hidden': true as const };
-function HeartIcon() {
-  return <svg viewBox="0 0 512 512" {...heartIconProps}><path d="M462.3 62.7c-54.5-46.4-136-38.7-186.6 13.5L256 96.6l-19.7-20.3C195.5 34.1 113.2 8.7 49.7 62.7c-62.8 53.6-66.1 149.8-9.9 207.8l193.5 199.8c6.2 6.4 14.4 9.7 22.6 9.7 8.2 0 16.4-3.2 22.6-9.7L472 270.5c56.4-58 53.1-154.2-9.7-207.8zm-13.1 185.6L256.4 448.1 62.8 248.3c-38.4-39.6-46.4-115.1 7.7-161.2 54.8-46.8 119.2-12.9 142.8 11.5l42.7 44.1 42.7-44.1c23.2-24 88.2-58 142.8-11.5 54 46 46.1 121.5 7.7 161.2z" /></svg>;
-}
-function HeartSolidIcon() {
-  return <svg viewBox="0 0 512 512" {...heartIconProps}><path d="M462.3 62.6C407.5 15.9 326 24.3 275.7 76.2L256 96.5l-19.7-20.3C186.1 24.3 104.5 15.9 49.7 62.6c-62.8 53.6-66.1 149.8-9.9 207.9l193.5 199.8c12.5 12.9 32.8 12.9 45.3 0l193.5-199.8c56.3-58.1 53-154.3-9.8-207.9z" /></svg>;
-}
-function PrintIcon() {
-  return <svg viewBox="0 0 512 512" {...heartIconProps}><path d="M432 192h-16v-82.75c0-8.49-3.37-16.62-9.37-22.63L329.37 9.37c-6-6-14.14-9.37-22.63-9.37H126.48C109.64 0 96 14.33 96 32v160H80c-44.18 0-80 35.82-80 80v96c0 8.84 7.16 16 16 16h80v112c0 8.84 7.16 16 16 16h288c8.84 0 16-7.16 16-16V384h80c8.84 0 16-7.16 16-16v-96c0-44.18-35.82-80-80-80zM320 45.25L370.75 96H320V45.25zM128.12 32H288v64c0 17.67 14.33 32 32 32h64v64H128.02l.1-160zM384 480H128v-96h256v96zm96-128H32v-80c0-26.47 21.53-48 48-48h352c26.47 0 48 21.53 48 48v80zm-80-88c-13.25 0-24 10.74-24 24 0 13.25 10.75 24 24 24s24-10.75 24-24c0-13.26-10.75-24-24-24z" /></svg>;
-}
-function CircleIcon() {
-  return <svg viewBox="0 0 512 512" {...heartIconProps}><path d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm216 248c0 118.7-96.1 216-216 216-118.7 0-216-96.1-216-216 0-118.7 96.1-216 216-216 118.7 0 216 96.1 216 216z" /></svg>;
-}
-function CheckCircleIcon() {
-  return <svg viewBox="0 0 512 512" {...heartIconProps}><path d="M256 8C119.033 8 8 119.033 8 256s111.033 248 248 248 248-111.033 248-248S392.967 8 256 8zm0 464c-118.664 0-216-96.055-216-216 0-118.663 96.055-216 216-216 118.664 0 216 96.055 216 216 0 118.663-96.055 216-216 216zm141.63-274.961L217.15 376.071c-4.705 4.667-12.303 4.637-16.97-.068l-85.878-86.572c-4.667-4.705-4.637-12.303.068-16.97l8.52-8.451c4.705-4.667 12.303-4.637 16.97.068l68.976 69.533 163.441-162.13c4.705-4.667 12.303-4.637 16.97.068l8.451 8.52c4.668 4.705 4.637 12.303-.068 16.97z" /></svg>;
-}

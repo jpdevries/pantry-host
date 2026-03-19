@@ -1,5 +1,6 @@
 import { useRouter } from 'next/router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import quotes from '@/lib/quotes.json';
 
 export default function Nav() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function Nav() {
   const links = [
     { href: kitchenHref('/ingredients'), label: 'Pantry' },
     { href: kitchenHref('/list'),        label: 'Grocery List' },
+    { href: kitchenHref('/menus'),       label: 'Menus' },
     { href: kitchenHref('/recipes'),     label: 'Recipes' },
     ...(isSecure ? [{ href: kitchenHref('/cookware'), label: 'Cookware' }] : []),
   ];
@@ -37,6 +39,8 @@ export default function Nav() {
       if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
     }
   }
+
+  const quote = useMemo(() => quotes[Math.floor(Math.random() * quotes.length)], []);
 
   const [currentPath, setCurrentPath] = useState('');
   useEffect(() => { setCurrentPath(router.pathname); }, [router.pathname]);
@@ -94,6 +98,12 @@ export default function Nav() {
           </ul>
         </nav>
       </div>
+
+      {/* Random quote (mobile only — fills dead space in 100svh cover) */}
+      <blockquote className="my-auto px-2 md:hidden text-zinc-500 text-lg italic max-w-[36ch] font-serif pretty">
+        <p>&ldquo;{quote.text}&rdquo;</p>
+        <footer className="mt-2 text-sm not-italic text-zinc-600 font-sans">— {quote.author}</footer>
+      </blockquote>
 
       {/* Mobile nav */}
       <nav aria-label="Main navigation" className="mt-auto pb-16 md:hidden">

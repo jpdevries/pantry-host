@@ -6,10 +6,10 @@
  * application level via localStorage (see lib/cache.ts).
  */
 
-const CACHE_NAME = 'pantry-list-shell-v4';
+const CACHE_NAME = 'pantry-list-shell-v5';
 
 // Pages to pre-cache on install
-const SHELL_PAGES = ['/', '/list', '/recipes', '/ingredients', '/cookware', '/kitchens'];
+const SHELL_PAGES = ['/', '/list', '/recipes', '/ingredients', '/cookware', '/kitchens', '/menus'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

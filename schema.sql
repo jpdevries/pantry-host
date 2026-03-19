@@ -67,3 +67,25 @@ CREATE TABLE recipe_ingredients (
   source_recipe_id UUID REFERENCES recipes(id) ON DELETE SET NULL,
   sort_order       INTEGER DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS menus (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title       VARCHAR(255) NOT NULL,
+  slug        VARCHAR(255) UNIQUE,
+  description TEXT,
+  active      BOOLEAN DEFAULT TRUE,
+  kitchen_id  TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_menus_kitchen ON menus(kitchen_id);
+
+CREATE TABLE IF NOT EXISTS menu_recipes (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  menu_id    UUID NOT NULL REFERENCES menus(id) ON DELETE CASCADE,
+  recipe_id  UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  course     VARCHAR(50),
+  sort_order INTEGER DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_menu_recipes_menu ON menu_recipes(menu_id);

@@ -228,6 +228,10 @@
     --legible-max-width: 42ch;
   }
 
+  .pretty {
+    text-wrap: pretty;
+  }
+
   /* Card */
   .card {
     @apply border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900;

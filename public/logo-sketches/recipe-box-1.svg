@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="120" height="160" fill="currentColor">
+  <!-- Variation 1: Clean silhouette with fleur-de-lis mount, box, and knob -->
+
+  <!-- Wall mount / fleur-de-lis backplate -->
+  <path d="
+    M60 0
+    C60 0, 68 8, 68 16
+    C68 20, 72 24, 76 24
+    C80 24, 80 20, 80 16
+    C80 12, 76 8, 72 8
+    C68 8, 68 14, 68 18
+    L68 30
+    L52 30
+    L52 18
+    C52 14, 52 8, 48 8
+    C44 8, 40 12, 40 16
+    C40 20, 40 24, 44 24
+    C48 24, 52 20, 52 16
+    C52 8, 60 0, 60 0
+    Z
+  " />
+
+  <!-- Nail hole -->
+  <circle cx="60" cy="18" r="3" fill="white" />
+
+  <!-- Hinge plate -->
+  <rect x="50" y="28" width="20" height="8" rx="1" />
+
+  <!-- Lid (slightly wider, beveled look) -->
+  <rect x="25" y="36" width="70" height="10" rx="2" />
+
+  <!-- Box body -->
+  <rect x="28" y="46" width="64" height="50" rx="2" />
+
+  <!-- Drawer face -->
+  <rect x="32" y="72" width="56" height="28" rx="3" />
+
+  <!-- Porcelain knob -->
+  <circle cx="60" cy="86" r="5" fill="white" />
+  <circle cx="60" cy="86" r="2" />
+</svg>

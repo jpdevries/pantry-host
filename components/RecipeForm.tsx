@@ -517,6 +517,24 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
           placeholder="e.g. quick, kid-friendly, vegetarian"
           className="field-input w-full"
         />
+        <label className="flex items-center gap-2 mt-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={tagInput.split(',').map((t) => t.trim().toLowerCase()).includes('gluten-free')}
+            onChange={(e) => {
+              const tags = tagInput.split(',').map((t) => t.trim()).filter(Boolean);
+              if (e.target.checked) {
+                if (!tags.some((t) => t.toLowerCase() === 'gluten-free')) {
+                  setTagInput([...tags, 'gluten-free'].join(', '));
+                }
+              } else {
+                setTagInput(tags.filter((t) => t.toLowerCase() !== 'gluten-free').join(', '));
+              }
+            }}
+            className="w-4 h-4 accent-amber-500"
+          />
+          <span className="text-sm">Gluten-free</span>
+        </label>
       </div>
 
       {/* Required cookware */}

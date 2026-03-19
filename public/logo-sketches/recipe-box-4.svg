@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 130" width="100" height="130" fill="currentColor">
+  <!-- Variation 4: With lid slightly open, showing recipe cards inside -->
+
+  <!-- Wall mount - fleur shape -->
+  <path d="
+    M50 0
+    Q58 0, 62 8
+    Q64 14, 68 16
+    Q72 18, 72 14
+    Q72 8, 66 8
+    Q62 8, 62 14
+    L62 26
+    L38 26
+    L38 14
+    Q38 8, 34 8
+    Q28 8, 28 14
+    Q28 18, 32 16
+    Q36 14, 38 8
+    Q42 0, 50 0
+    Z
+  " />
+  <circle cx="50" cy="12" r="2.5" fill="white" />
+
+  <!-- Hinge -->
+  <rect x="42" y="24" width="16" height="6" rx="1" />
+
+  <!-- Lid (angled open) -->
+  <path d="M16 30 L84 30 L80 38 L20 40 Z" />
+
+  <!-- Recipe cards peeking out -->
+  <rect x="28" y="36" width="30" height="4" rx="0.5" fill="white" opacity="0.7" transform="rotate(-2 28 36)" />
+  <rect x="32" y="34" width="26" height="4" rx="0.5" fill="white" opacity="0.5" transform="rotate(1 32 34)" />
+
+  <!-- Box body -->
+  <rect x="20" y="40" width="60" height="46" rx="1.5" />
+
+  <!-- Drawer -->
+  <rect x="24" y="62" width="52" height="22" rx="2" />
+
+  <!-- Knob -->
+  <circle cx="50" cy="73" r="4.5" fill="white" />
+  <circle cx="50" cy="73" r="1.5" />
+</svg>

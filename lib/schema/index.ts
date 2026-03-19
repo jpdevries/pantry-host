@@ -137,6 +137,60 @@ const CookwareType = builder.objectType('Cookware', {
   }),
 });
 
+// ── Menus ─────────────────────────────────────────────────────────────────────
+
+const MenuRecipeType = builder.objectType('MenuRecipe', {
+  fields: (t) => ({
+    id: t.exposeString('id'),
+    course: t.string({ nullable: true, resolve: (r) => r.course }),
+    sortOrder: t.int({ resolve: (r) => r.sort_order ?? 0 }),
+    recipe: t.field({
+      type: RecipeType,
+      resolve: async (mr) => {
+        const [row] = await sql`SELECT * FROM recipes WHERE id = ${mr.recipe_id}`;
+        return row;
+      },
+    }),
+  }),
+});
+
+const MenuType = builder.objectType('Menu', {
+  fields: (t) => ({
+    id: t.exposeString('id'),
+    slug: t.string({ nullable: true, resolve: (r) => r.slug ?? null }),
+    title: t.exposeString('title'),
+    description: t.string({ nullable: true, resolve: (r) => r.description }),
+    active: t.boolean({ resolve: (r) => r.active ?? true }),
+    createdAt: t.string({ resolve: (r) => r.created_at?.toISOString() ?? '' }),
+    recipes: t.field({
+      type: [MenuRecipeType],
+      resolve: async (menu) =>
+        sql`SELECT * FROM menu_recipes WHERE menu_id = ${menu.id} ORDER BY course, sort_order`,
+    }),
+  }),
+});
+
+const MenuRecipeInputType = builder.inputType('MenuRecipeInput', {
+  fields: (t) => ({
+    recipeId: t.string({ required: true }),
+    course: t.string(),
+    sortOrder: t.int(),
+  }),
+});
+
+async function uniqueMenuSlug(title: string, excludeId?: string): Promise<string> {
+  const base = toSlug(title);
+  let candidate = base;
+  let suffix = 2;
+  while (true) {
+    const [existing] = excludeId
+      ? await sql`SELECT id FROM menus WHERE slug = ${candidate} AND id != ${excludeId}`
+      : await sql`SELECT id FROM menus WHERE slug = ${candidate}`;
+    if (!existing) return candidate;
+    candidate = `${base}-${suffix++}`;
+  }
+}
+
 // ── Queries ───────────────────────────────────────────────────────────────────
 
 builder.queryField('ingredients', (t) =>
@@ -225,6 +279,31 @@ builder.queryField('kitchen', (t) =>
     args: { slug: t.arg.string({ required: true }) },
     resolve: async (_, { slug }) => {
       const [row] = await sql`SELECT * FROM kitchens WHERE slug = ${slug}`;
+      return row ?? null;
+    },
+  }),
+);
+
+// ── Queries — Menu ───────────────────────────────────────────────────────────
+
+builder.queryField('menus', (t) =>
+  t.field({
+    type: [MenuType],
+    args: { kitchenSlug: t.arg.string() },
+    resolve: async (_, { kitchenSlug }) => {
+      const kitchenId = await resolveKitchenId(kitchenSlug);
+      return sql`SELECT * FROM menus WHERE kitchen_id = ${kitchenId} ORDER BY created_at DESC`;
+    },
+  }),
+);
+
+builder.queryField('menu', (t) =>
+  t.field({
+    type: MenuType,
+    nullable: true,
+    args: { id: t.arg.string({ required: true }) },
+    resolve: async (_, { id }) => {
+      const [row] = await sql`SELECT * FROM menus WHERE slug = ${id} OR id::text = ${id}`;
       return row ?? null;
     },
   }),
@@ -656,6 +735,75 @@ builder.mutationField('deleteKitchen', (t) =>
     args: { id: t.arg.string({ required: true }) },
     resolve: async (_, { id }) => {
       await sql`DELETE FROM kitchens WHERE id = ${id} AND slug != 'home'`;
+      return true;
+    },
+  }),
+);
+
+// ── Mutations — Menu ─────────────────────────────────────────────────────────
+
+builder.mutationField('createMenu', (t) =>
+  t.field({
+    type: MenuType,
+    args: {
+      title: t.arg.string({ required: true }),
+      description: t.arg.string(),
+      active: t.arg.boolean(),
+      kitchenSlug: t.arg.string(),
+      recipes: t.arg({ type: [MenuRecipeInputType], required: true }),
+    },
+    resolve: async (_, { title, description, active, kitchenSlug, recipes }) => {
+      const kitchenId = await resolveKitchenId(kitchenSlug);
+      const slug = await uniqueMenuSlug(title);
+      const isActive = active ?? true;
+      const [menu] = await sql`INSERT INTO menus (title, slug, description, active, kitchen_id) VALUES (${title}, ${slug}, ${description ?? null}, ${isActive}, ${kitchenId}) RETURNING *`;
+      for (let i = 0; i < recipes.length; i++) {
+        const r = recipes[i];
+        await sql`INSERT INTO menu_recipes (menu_id, recipe_id, course, sort_order) VALUES (${menu.id}, ${r.recipeId}, ${r.course ?? null}, ${r.sortOrder ?? i})`;
+      }
+      return menu;
+    },
+  }),
+);
+
+builder.mutationField('updateMenu', (t) =>
+  t.field({
+    type: MenuType,
+    nullable: true,
+    args: {
+      id: t.arg.string({ required: true }),
+      title: t.arg.string(),
+      description: t.arg.string(),
+      active: t.arg.boolean(),
+      recipes: t.arg({ type: [MenuRecipeInputType] }),
+    },
+    resolve: async (_, { id, title, description, active, recipes }) => {
+      const slug = title ? await uniqueMenuSlug(title, id) : undefined;
+      const [updated] = await sql`UPDATE menus SET
+        title = COALESCE(${title ?? null}, title),
+        slug = COALESCE(${slug ?? null}, slug),
+        description = COALESCE(${description ?? null}, description),
+        active = COALESCE(${active ?? null}, active)
+        WHERE id = ${id} RETURNING *`;
+      if (!updated) return null;
+      if (recipes) {
+        await sql`DELETE FROM menu_recipes WHERE menu_id = ${id}`;
+        for (let i = 0; i < recipes.length; i++) {
+          const r = recipes[i];
+          await sql`INSERT INTO menu_recipes (menu_id, recipe_id, course, sort_order) VALUES (${id}, ${r.recipeId}, ${r.course ?? null}, ${r.sortOrder ?? i})`;
+        }
+      }
+      return updated;
+    },
+  }),
+);
+
+builder.mutationField('deleteMenu', (t) =>
+  t.field({
+    type: 'Boolean',
+    args: { id: t.arg.string({ required: true }) },
+    resolve: async (_, { id }) => {
+      await sql`DELETE FROM menus WHERE id = ${id}`;
       return true;
     },
   }),

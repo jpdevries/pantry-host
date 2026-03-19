@@ -6,7 +6,7 @@
  * application level via localStorage (see lib/cache.ts).
  */
 
-const CACHE_NAME = 'pantry-host-shell-v6';
+const CACHE_NAME = 'pantry-host-shell';
 
 // Pages to pre-cache on install
 const SHELL_PAGES = ['/', '/list', '/recipes', '/ingredients', '/cookware', '/kitchens', '/menus'];
@@ -18,11 +18,10 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
-  );
+  // Don't purge old caches aggressively — stale HTML may still reference
+  // old /_rex/ bundle hashes that only exist in the cache. Let entries
+  // get overwritten naturally via network-first fetches.
+  event.waitUntil(self.clients.claim());
 });
 
 self.addEventListener('fetch', (event) => {

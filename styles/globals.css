@@ -18,6 +18,10 @@
     @apply dark:bg-zinc-950 dark:text-zinc-50;
   }
 
+  h1 {
+    font-family: 'Crimson Pro', Georgia, serif;
+  }
+
   /* Visible focus rings for keyboard navigation */
   :focus-visible {
     @apply outline-none ring-2 ring-amber-500 ring-offset-2 ring-offset-white;

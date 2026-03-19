@@ -4,7 +4,7 @@ Project context for AI agents working on this codebase.
 
 ## What is this?
 
-Pantry List is a self-hosted, privacy-first PWA for managing a home kitchen — recipes, pantry ingredients, cookware, and grocery lists. Runs on a local machine (Mac Mini) with PostgreSQL. All data stays on the home network.
+Pantry Host is a self-hosted, privacy-first PWA for managing a home kitchen — recipes, pantry ingredients, cookware, and grocery lists. Runs on a local machine (Mac Mini) with PostgreSQL. All data stays on the home network.
 
 ## Architecture
 
@@ -36,7 +36,7 @@ source .env.local && npx tsx graphql-server.ts
 
 ### Database
 
-PostgreSQL 14+. Connection: `DATABASE_URL=postgres://jpdevries@localhost:5432/pantry_list`
+PostgreSQL 14+. Connection: `DATABASE_URL=postgres://jpdevries@localhost:5432/pantry_host`
 
 Schema is in `schema.sql` and auto-applied on startup. No migration tool — just edit the file.
 
@@ -147,7 +147,7 @@ function CarrotIcon() { return <svg viewBox="0 0 512 512" {...iconProps}><path d
 ## Environment variables
 
 ```bash
-DATABASE_URL=postgres://jpdevries@localhost:5432/pantry_list  # required
+DATABASE_URL=postgres://jpdevries@localhost:5432/pantry_host  # required
 ANTHROPIC_API_KEY=sk-ant-...                                    # optional, for AI recipes
 GRAPHQL_PORT=4001                                               # default 4001
 ```
@@ -161,7 +161,7 @@ rm -rf .rex/build
 
 ### Query the database directly
 ```bash
-psql pantry_list -c "SELECT title, queued FROM recipes;"
+psql pantry_host -c "SELECT title, queued FROM recipes;"
 ```
 
 ### Test GraphQL API

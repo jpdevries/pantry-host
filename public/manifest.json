@@ -1,5 +1,5 @@
 {
-  "name": "Pantry List",
+  "name": "Pantry Host",
   "short_name": "Pantry",
   "description": "Self-hosted pantry and recipe manager. Your data stays home.",
   "start_url": "/list",

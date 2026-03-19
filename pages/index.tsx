@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
 import GenerateButton from '@/components/GenerateButton';
 import RecipeCard from '@/components/RecipeCard';
+import quotes from '@/lib/quotes.json';
 
 interface HomeRecipe {
   id: string;
@@ -34,6 +35,8 @@ const HOME_QUERY = `{
 export default function HomePage() {
   const [data, setData] = useState<HomeData | null>(null);
   const [isSecure, setIsSecure] = useState(false);
+  const [quote, setQuote] = useState<{ text: string; author: string } | null>(null);
+  useEffect(() => { setQuote(quotes[Math.floor(Math.random() * quotes.length)]); }, []);
 
   useEffect(() => {
     gql<HomeData>(HOME_QUERY).then(setData).catch(console.error);
@@ -71,11 +74,19 @@ export default function HomePage() {
   return (
     <>
       <Head>
-        <title>Pantry List</title>
+        <title>Pantry Host</title>
         <meta name="description" content="Family recipe manager — pantry, cookware, and AI-generated recipes." />
       </Head>
 
       <main id="stage" className="min-h-screen px-4 py-10 md:px-8 max-w-4xl mx-auto">
+        {/* Quote (desktop only — mobile shows in nav) */}
+        {quote && (
+          <blockquote className="hidden sm:block mb-12 text-2xl italic text-zinc-500 dark:text-zinc-400 font-serif pretty text-center">
+            <p>&ldquo;{quote.text}&rdquo;</p>
+            <footer className="mt-2 text-base not-italic font-sans text-zinc-400 dark:text-zinc-500">— {quote.author}</footer>
+          </blockquote>
+        )}
+
         {/* Hero */}
         <section aria-labelledby="hero-heading" className="mb-8">
           <h1 id="hero-heading" className="text-4xl font-bold mb-3">

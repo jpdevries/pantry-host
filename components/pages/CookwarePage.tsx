@@ -48,7 +48,7 @@ export default function CookwarePage({ kitchen }: Props) {
 
   return (
     <>
-      <Head><title>Cookware — Pantry List</title></Head>
+      <Head><title>Cookware — Pantry Host</title></Head>
 
       <datalist id="common-cookware">
         {COMMON_COOKWARE.map((c) => <option key={c} value={c} />)}

@@ -57,7 +57,7 @@ export default function Footer() {
         </div>
         <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-500">
           <LemonIcon />
-          <span>Pantry List</span>
+          <span>Pantry Host</span>
         </div>
       </div>
     </footer>

@@ -23,7 +23,7 @@ export default function RecipeNewPage({ kitchen }: Props) {
 
   return (
     <>
-      <Head><title>Add Recipe — Pantry List</title></Head>
+      <Head><title>Add Recipe — Pantry Host</title></Head>
       <main id="stage" className="min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto">
         <div className="mb-8">
           <a href={`${recipesBase}#stage`} className="text-sm text-zinc-500 hover:text-amber-600 dark:hover:text-amber-400 transition-colors">

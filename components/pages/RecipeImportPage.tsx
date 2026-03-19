@@ -180,7 +180,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
 
   return (
     <>
-      <Head><title>Import Recipes — Pantry List</title></Head>
+      <Head><title>Import Recipes — Pantry Host</title></Head>
 
       <main id="stage" className="min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto">
         <div className="mb-8">

@@ -98,7 +98,7 @@ export default function IngredientsPage({ kitchen }: Props) {
   return (
     <>
       <Head>
-        <title>Pantry — Pantry List</title>
+        <title>Pantry — Pantry Host</title>
       </Head>
 
       {showBatchScan && (

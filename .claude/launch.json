@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "pantry-list",
+      "name": "pantry-host",
       "runtimeExecutable": "sh",
       "runtimeArgs": ["-c", "set -a && source .env.local && set +a && npx @limlabs/rex dev --host 0.0.0.0"],
       "port": 3000

@@ -330,7 +330,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
   return (
     <>
       <Head>
-        <title>{recipe.title} — Pantry List</title>
+        <title>{recipe.title} — Pantry Host</title>
         <meta name="description" content={recipe.description ?? `Recipe: ${recipe.title}`} />
       </Head>
 

@@ -107,7 +107,7 @@ export default function KitchensPage() {
 
   return (
     <>
-      <Head><title>Kitchens — Pantry List</title></Head>
+      <Head><title>Kitchens — Pantry Host</title></Head>
       <main id="stage" className="min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
           <h1 className="text-4xl font-bold">Kitchens</h1>

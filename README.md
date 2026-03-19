@@ -1,4 +1,4 @@
-# Pantry List
+# Pantry Host
 
 > There's already enough of your data in the cloud. Keep your recipes and pantry closer to home — running on your own hardware, on your own network, never stored in the cloud.
 
@@ -53,7 +53,7 @@ The GraphQL API runs on port 4001. The database schema is applied automatically 
 
 ## Local Hosting
 
-Pantry List is designed to run on a always-on home machine (a Mac Mini works well) and be accessed by devices on your local network via IP address. No cloud account, no subscription, no data leaving your home.
+Pantry Host is designed to run on a always-on home machine (a Mac Mini works well) and be accessed by devices on your local network via IP address. No cloud account, no subscription, no data leaving your home.
 
 ### 1. Set up PostgreSQL
 
@@ -62,7 +62,7 @@ Install PostgreSQL if you haven't already:
 ```bash
 brew install postgresql@16
 brew services start postgresql@16
-createdb pantry_list
+createdb pantry_host
 ```
 
 ### 2. Configure environment
@@ -74,7 +74,7 @@ cp .env.example .env.local
 Edit `.env.local`:
 
 ```
-DATABASE_URL=postgres://your-mac-username@localhost:5432/pantry_list
+DATABASE_URL=postgres://your-mac-username@localhost:5432/pantry_host
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
@@ -88,7 +88,7 @@ The `ANTHROPIC_API_KEY` is only needed for AI recipe generation. Everything else
 npm install -g pm2
 
 # Start the app
-pm2 start "npm run start" --name pantry-list
+pm2 start "npm run start" --name pantry-host
 
 # Save so it restarts after reboot
 pm2 save
@@ -145,7 +145,7 @@ The app's data lives entirely in PostgreSQL. A simple daily dump is enough:
 
 ```bash
 # Add to crontab: crontab -e
-0 2 * * * pg_dump pantry_list > ~/backups/pantry_list_$(date +\%Y\%m\%d).sql
+0 2 * * * pg_dump pantry_host > ~/backups/pantry_host_$(date +\%Y\%m\%d).sql
 ```
 
 Store those dumps on a Time Machine volume or external drive and you're covered.

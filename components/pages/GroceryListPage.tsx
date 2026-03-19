@@ -150,7 +150,7 @@ export default function GroceryListPage({ kitchen }: Props) {
 
   return (
     <>
-      <Head><title>List — Pantry List</title></Head>
+      <Head><title>List — Pantry Host</title></Head>
       <main id="stage" className="min-h-screen px-4 py-10 md:px-8 max-w-2xl mx-auto">
         <h1 className="text-4xl font-bold mb-8">Grocery List</h1>
 

@@ -48,7 +48,7 @@ export default function CookwareDetailPage({ id, kitchen }: Props) {
 
   return (
     <>
-      <Head><title>{item ? `${item.name} — Cookware` : 'Cookware'} — Pantry List</title></Head>
+      <Head><title>{item ? `${item.name} — Cookware` : 'Cookware'} — Pantry Host</title></Head>
 
       <main id="stage" className="min-h-screen px-4 py-10 md:px-8 max-w-4xl mx-auto">
         <div className="mb-8">

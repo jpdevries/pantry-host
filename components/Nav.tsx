@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import quotes from '@/lib/quotes.json';
 
 export default function Nav() {
@@ -40,7 +40,8 @@ export default function Nav() {
     }
   }
 
-  const quote = useMemo(() => quotes[Math.floor(Math.random() * quotes.length)], []);
+  const [quote, setQuote] = useState<{ text: string; author: string } | null>(null);
+  useEffect(() => { setQuote(quotes[Math.floor(Math.random() * quotes.length)]); }, []);
 
   const [currentPath, setCurrentPath] = useState('');
   useEffect(() => { setCurrentPath(router.pathname); }, [router.pathname]);
@@ -50,31 +51,26 @@ export default function Nav() {
   }, []);
 
   return (
-    <header className="relative flex flex-col min-h-[100svh] md:min-h-0 bg-zinc-950 text-zinc-50 px-6 py-8">
+    <header className="relative flex flex-col min-h-[100svh] sm:min-h-0 bg-zinc-950 text-zinc-50 px-6 py-8">
       {/* Site identity */}
       <div className="flex items-center justify-between">
         {currentPath === '/' || currentPath === '' ? (
-          <div className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/pear.png" alt="" aria-hidden="true" width={42} height={42} className="w-[42px] h-[42px] object-contain rounded-sm" />
-            <span className="text-2xl font-bold tracking-tight">Pantry List</span>
-          </div>
+          <span className="text-2xl font-bold tracking-tight font-serif" style={{ fontFamily: "'Crimson Pro', Georgia, serif" }}>Pantry Host</span>
         ) : (
           <a
             href="/#stage"
-            className="flex items-center gap-3 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
-            aria-label="Pantry List — home"
+            className="text-2xl font-bold tracking-tight font-serif hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
+            style={{ fontFamily: "'Crimson Pro', Georgia, serif" }}
+            aria-label="Pantry Host — home"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/pear.png" alt="" aria-hidden="true" width={42} height={42} className="w-[42px] h-[42px] object-contain rounded-sm" />
-            <span className="text-2xl font-bold tracking-tight">Pantry List</span>
+            Pantry Host
           </a>
         )}
 
         {/* Desktop nav */}
         <nav
           aria-label="Main navigation"
-          className="hidden md:block absolute right-6 top-1/2 -translate-y-1/2"
+          className="hidden sm:block absolute right-6 top-1/2 -translate-y-1/2"
         >
           <ul className="flex gap-8" role="list">
             {links.map(({ href, label }) => {
@@ -100,13 +96,15 @@ export default function Nav() {
       </div>
 
       {/* Random quote (mobile only — fills dead space in 100svh cover) */}
-      <blockquote className="my-auto px-2 md:hidden text-zinc-500 text-lg italic max-w-[36ch] font-serif pretty">
-        <p>&ldquo;{quote.text}&rdquo;</p>
-        <footer className="mt-2 text-sm not-italic text-zinc-600 font-sans">— {quote.author}</footer>
-      </blockquote>
+      {quote && (
+        <blockquote className="my-auto px-2 sm:hidden text-zinc-500 text-lg italic max-w-[36ch] font-serif pretty">
+          <p>&ldquo;{quote.text}&rdquo;</p>
+          <footer className="mt-2 text-sm not-italic text-zinc-600 font-sans">— {quote.author}</footer>
+        </blockquote>
+      )}
 
       {/* Mobile nav */}
-      <nav aria-label="Main navigation" className="mt-auto pb-16 md:hidden">
+      <nav aria-label="Main navigation" className="mt-auto pb-16 sm:hidden">
         <ul className="space-y-8" role="list">
           {links.map(({ href, label }) => {
             const active = currentPath === href || (href !== '/' && currentPath.startsWith(href.split('#')[0]));
@@ -135,7 +133,7 @@ export default function Nav() {
         href="#stage"
         onClick={scrollToStage}
         aria-label="Scroll to content"
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 text-zinc-500 hover:text-zinc-300 transition-colors md:hidden"
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 text-zinc-500 hover:text-zinc-300 transition-colors sm:hidden"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polyline points="6 9 12 15 18 9" />

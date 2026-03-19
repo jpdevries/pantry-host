@@ -55,7 +55,7 @@ export default function RecipesIndexPage({ kitchen }: Props) {
 
   return (
     <>
-      <Head><title>Recipes — Pantry List</title></Head>
+      <Head><title>Recipes — Pantry Host</title></Head>
 
       <datalist id="recipe-titles">
         {recipes.map((r) => <option key={r.id} value={r.title} />)}

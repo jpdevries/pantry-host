@@ -1,0 +1,167 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+    --color-bg-body: #f4f4f5;
+    --color-bg-card: #ffffff;
+    --color-border-card: #e4e4e7;
+    --color-text-primary: #09090b;
+    --color-text-secondary: #52525b;
+    --color-accent: #18181b;
+    --color-accent-hover: #09090b;
+    --color-accent-subtle: #e4e4e7;
+    --color-bg-nav: #f4f4f5;
+    --color-ring-focus: #18181b;
+    --color-ring-offset: #ffffff;
+  }
+
+  .dark {
+    --color-bg-body: #09090b;
+    --color-bg-card: #18181b;
+    --color-border-card: #27272a;
+    --color-text-primary: #fafafa;
+    --color-text-secondary: #a1a1aa;
+    --color-accent: #e4e4e7;
+    --color-accent-hover: #fafafa;
+    --color-accent-subtle: #27272a;
+    --color-bg-nav: #09090b;
+    --color-ring-focus: #e4e4e7;
+    --color-ring-offset: #09090b;
+  }
+
+  .theme-rose {
+    --color-bg-body: #fff1f2;
+    --color-bg-card: #ffffff;
+    --color-border-card: #fecdd3;
+    --color-text-secondary: #9f1239;
+    --color-accent: #be123c;
+    --color-accent-hover: #be123c;
+    --color-accent-subtle: #ffe4e6;
+    --color-bg-nav: #fff1f2;
+    --color-ring-focus: #e11d48;
+    --color-ring-offset: #ffffff;
+  }
+  .theme-rose.dark {
+    --color-bg-body: #1a0a10;
+    --color-bg-card: #2d1520;
+    --color-border-card: #4a1d30;
+    --color-text-secondary: #fda4af;
+    --color-accent: #fb7185;
+    --color-accent-hover: #fda4af;
+    --color-accent-subtle: #3d1525;
+    --color-bg-nav: #1a0a10;
+    --color-ring-focus: #fb7185;
+    --color-ring-offset: #1a0a10;
+  }
+
+  .theme-rebecca {
+    --color-bg-body: #f3eef8;
+    --color-bg-card: #ffffff;
+    --color-border-card: #d8c8ed;
+    --color-text-secondary: #553080;
+    --color-accent: #663399;
+    --color-accent-hover: #7c4dba;
+    --color-accent-subtle: #e8ddf5;
+    --color-bg-nav: #f3eef8;
+    --color-ring-focus: #663399;
+    --color-ring-offset: #ffffff;
+  }
+  .theme-rebecca.dark {
+    --color-bg-body: #110a1f;
+    --color-bg-card: #1c1230;
+    --color-border-card: #33245a;
+    --color-text-secondary: #c4a8e0;
+    --color-accent: #b794d6;
+    --color-accent-hover: #d1b8ec;
+    --color-accent-subtle: #211640;
+    --color-bg-nav: #110a1f;
+    --color-ring-focus: #b794d6;
+    --color-ring-offset: #110a1f;
+  }
+
+  .theme-claude {
+    --color-bg-body: #f5f0eb;
+    --color-bg-card: #ffffff;
+    --color-border-card: #e0d5c8;
+    --color-text-secondary: #7c4a2d;
+    --color-accent: #a84f2a;
+    --color-accent-hover: #9c4726;
+    --color-accent-subtle: #f0e4d8;
+    --color-bg-nav: #f5f0eb;
+    --color-ring-focus: #d97757;
+    --color-ring-offset: #ffffff;
+  }
+  .theme-claude.dark {
+    --color-bg-body: #1a1915;
+    --color-bg-card: #2d2b28;
+    --color-border-card: #3d3a35;
+    --color-text-secondary: #d4a88a;
+    --color-accent: #e8956d;
+    --color-accent-hover: #f0b090;
+    --color-accent-subtle: #2a2420;
+    --color-bg-nav: #1a1915;
+    --color-ring-focus: #e8956d;
+    --color-ring-offset: #1a1915;
+  }
+
+  .high-contrast {
+    --color-bg-body: #ffffff;
+    --color-bg-card: #ffffff;
+    --color-border-card: #000000;
+    --color-text-primary: #000000;
+    --color-text-secondary: #000000;
+    --color-accent: #000000;
+    --color-accent-hover: #000000;
+    --color-bg-nav: #ffffff;
+    --color-ring-focus: #000000;
+    --color-ring-offset: #ffffff;
+  }
+
+  .high-contrast.dark {
+    --color-bg-body: #000000;
+    --color-bg-card: #000000;
+    --color-border-card: #ffffff;
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #ffffff;
+    --color-accent: #ffffff;
+    --color-accent-hover: #ffffff;
+    --color-bg-nav: #000000;
+    --color-ring-focus: #ffffff;
+    --color-ring-offset: #000000;
+  }
+
+  body {
+    background-color: var(--color-bg-body);
+    color: var(--color-text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Crimson Pro', Georgia, serif;
+  }
+
+  .pretty {
+    text-wrap: pretty;
+  }
+
+  .theme-claude .tier-card,
+  .theme-claude .feature-card {
+    --color-text-secondary: #a1a1aa;
+  }
+}
+
+.tier-card,
+.feature-card {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.tier-card:focus-within,
+.feature-card:focus-within {
+  border-color: var(--color-text-primary) !important;
+  box-shadow: 0 0 0 1px var(--color-text-primary), 0 0 20px rgba(255, 255, 255, 0.05);
+}
+.dark .tier-card:focus-within,
+.dark .feature-card:focus-within {
+  box-shadow: 0 0 0 1px var(--color-text-primary), 0 0 24px rgba(255, 255, 255, 0.08);
+}

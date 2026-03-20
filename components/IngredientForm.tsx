@@ -149,9 +149,9 @@ export default function IngredientForm({ ingredient, onSave, onCancel, kitchenSl
                 type="button"
                 aria-pressed={active}
                 onClick={() => setQtyMode(mode)}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${
+                className={`px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent ${
                   active
-                    ? 'bg-amber-500 text-zinc-950'
+                    ? 'bg-accent text-zinc-950'
                     : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                 } border-r border-zinc-300 dark:border-zinc-600 last:border-r-0`}
               >

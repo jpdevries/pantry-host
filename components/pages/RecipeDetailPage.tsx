@@ -323,7 +323,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
       <main id="stage" className="max-sm:min-h-screen px-4 py-10 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Recipe not found</h1>
-          <a href={`${recipesBase}#stage`} className="text-amber-600 dark:text-amber-400 hover:underline">← Back to Recipes</a>
+          <a href={`${recipesBase}#stage`} className="text-accent hover:underline">← Back to Recipes</a>
         </div>
       </main>
     );
@@ -370,7 +370,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
 
       <main id="stage" className="max-sm:min-h-screen">
         <div className="no-print px-4 py-4 md:px-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 max-w-4xl mx-auto">
-          <a href={`${recipesBase}#stage`} className="text-sm text-zinc-500 hover:text-amber-600 dark:hover:text-amber-400 transition-colors">← Recipes</a>
+          <a href={`${recipesBase}#stage`} className="text-sm text-zinc-500 hover:text-accent transition-colors">← Recipes</a>
           <div className="flex items-center gap-3 flex-wrap justify-end">
             <button
               type="button"
@@ -378,7 +378,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
               disabled={togglingQueue}
               aria-pressed={queued}
               aria-label={queued ? 'Remove from grocery list' : 'Add to grocery list'}
-              className={`btn-secondary text-sm transition-colors ${queued ? 'border-amber-500 text-amber-600 dark:text-amber-400' : ''}`}
+              className={`btn-secondary text-sm transition-colors ${queued ? 'border-accent text-accent' : ''}`}
             >
               {queued ? '✓ On List' : '+ Grocery List'}
             </button>
@@ -512,7 +512,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                   return (
                     <li key={idx}>
                       <label className="flex items-start gap-3 cursor-pointer group">
-                        <input type="checkbox" checked={checked} onChange={() => toggleIngredient(idx)} aria-label={ing.ingredientName} className="mt-1 w-5 h-5 border-2 border-zinc-300 dark:border-zinc-600 accent-amber-500 shrink-0" />
+                        <input type="checkbox" checked={checked} onChange={() => toggleIngredient(idx)} aria-label={ing.ingredientName} className="mt-1 w-5 h-5 border-2 border-zinc-300 dark:border-zinc-600 accent-accent shrink-0" />
                         <span className={checked ? 'line-through text-zinc-400 dark:text-zinc-600' : ''}>
                           {scaledQty != null && <span className="font-semibold tabular-nums">{scaledQty}{' '}</span>}
                           {ing.unit && <span>{ing.unit} </span>}
@@ -566,7 +566,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                 href={recipe.sourceUrl}
                 target={`_${recipe.slug ?? recipe.id}`}
                 rel="noopener noreferrer"
-                className="text-sm text-amber-600 dark:text-amber-400 hover:underline"
+                className="text-sm text-accent hover:underline"
               >
                 View Original Recipe →
               </a>
@@ -604,7 +604,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
               type="button"
               onClick={handleToggleFavorite}
               aria-pressed={favorited}
-              className={`inline-flex items-center gap-2 btn-secondary text-sm transition-colors ${favorited ? 'border-amber-500 text-amber-600 dark:text-amber-400' : ''}`}
+              className={`inline-flex items-center gap-2 btn-secondary text-sm transition-colors ${favorited ? 'border-accent text-accent' : ''}`}
             >
               {favorited ? <Heart size={18} weight="fill" aria-hidden /> : <Heart size={18} aria-hidden />}
               {favorited ? 'Favorited' : 'Add to Favorites'}

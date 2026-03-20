@@ -52,7 +52,7 @@ export default function CookwareDetailPage({ id, kitchen }: Props) {
 
       <main id="stage" className="max-sm:min-h-screen px-4 py-10 md:px-8 max-w-4xl mx-auto">
         <div className="mb-8">
-          <a href={`${cookwareBase}#stage`} className="text-sm text-zinc-500 hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
+          <a href={`${cookwareBase}#stage`} className="text-sm text-zinc-500 hover:text-accent transition-colors">
             ← Cookware
           </a>
         </div>
@@ -90,7 +90,7 @@ export default function CookwareDetailPage({ id, kitchen }: Props) {
                     <li key={r.id}>
                       <a
                         href={`${recipesBase}/${r.id}#stage`}
-                        className="flex items-center justify-between py-3 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+                        className="flex items-center justify-between py-3 hover:text-accent transition-colors"
                       >
                         <span className="font-medium">{r.title}</span>
                         <span className="text-sm text-zinc-500 dark:text-zinc-400 shrink-0 ml-4">

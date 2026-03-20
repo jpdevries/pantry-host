@@ -10,8 +10,9 @@ export default {
     extend: {
       colors: {
         accent: {
-          DEFAULT: '#f59e0b', // amber-500
-          dark: '#fbbf24',   // amber-400
+          DEFAULT: 'var(--color-accent)',
+          hover: 'var(--color-accent-hover)',
+          subtle: 'var(--color-accent-subtle)',
         },
       },
       fontFamily: {

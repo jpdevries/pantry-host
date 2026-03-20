@@ -152,7 +152,7 @@ export default function BarcodeScanner({ onScan, onError, cooldownMs = 2000 }: P
       />
       {/* Scan guide overlay */}
       <div
-        className="absolute inset-8 border-2 border-amber-400 opacity-60 pointer-events-none"
+        className="absolute inset-8 border-2 border-accent opacity-60 pointer-events-none"
         aria-hidden="true"
       />
     </div>

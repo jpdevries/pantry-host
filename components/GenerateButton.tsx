@@ -59,7 +59,7 @@ export default function GenerateButton({ ingredientCount }: Props) {
       {ingredientCount === 0 && (
         <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
           Add ingredients to your pantry first.{' '}
-          <a href="/ingredients#stage" className="underline hover:text-amber-600 dark:hover:text-amber-400">
+          <a href="/ingredients#stage" className="underline hover:text-accent">
             Go to Pantry →
           </a>
         </p>

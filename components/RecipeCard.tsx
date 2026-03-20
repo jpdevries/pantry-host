@@ -65,7 +65,7 @@ export default function RecipeCard({ recipe, recipesBase = '/recipes' }: Props) 
         <div className="flex items-start justify-between gap-2 mb-2">
           <a
             href={`${recipesBase}/${recipe.slug ?? recipe.id}#stage`}
-            className="font-bold text-base leading-snug hover:text-amber-600 dark:hover:text-amber-400 transition-colors min-h-[2.75rem] line-clamp-2"
+            className="font-bold text-base leading-snug hover:text-accent transition-colors min-h-[2.75rem] line-clamp-2"
           >
             {recipe.title}
           </a>
@@ -78,8 +78,8 @@ export default function RecipeCard({ recipe, recipesBase = '/recipes' }: Props) 
               aria-pressed={queued}
               className={`w-7 h-7 flex items-center justify-center transition-colors border ${
                 queued
-                  ? 'bg-amber-500 border-amber-500 text-white hover:bg-amber-600 hover:border-amber-600'
-                  : 'border-zinc-300 dark:border-zinc-600 text-zinc-400 dark:text-zinc-500 hover:border-amber-500 hover:text-amber-500 dark:hover:border-amber-400 dark:hover:text-amber-400'
+                  ? 'bg-accent border-accent text-white hover:bg-accent-hover hover:border-accent-hover'
+                  : 'border-zinc-300 dark:border-zinc-600 text-zinc-400 dark:text-zinc-500 hover:border-accent hover:text-accent'
               }`}
             >
               <ShoppingCart size={14} aria-hidden />

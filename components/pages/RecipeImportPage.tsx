@@ -248,7 +248,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
           <div className="space-y-6">
             <div className="flex items-center gap-4">
               <div className="flex-1 h-2 bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
-                <div className="h-full bg-amber-500 transition-all duration-300" style={{ width: `${(fetchedCount / items.length) * 100}%` }} />
+                <div className="h-full bg-accent transition-all duration-300" style={{ width: `${(fetchedCount / items.length) * 100}%` }} />
               </div>
               <span className="text-sm text-zinc-500 dark:text-zinc-400 shrink-0">{fetchedCount} / {items.length}</span>
             </div>
@@ -324,7 +324,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               <div className="flex-1 h-2 bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
-                <div className="h-full bg-amber-500 transition-all duration-300" style={{ width: `${(saveProgress / successCount) * 100}%` }} />
+                <div className="h-full bg-accent transition-all duration-300" style={{ width: `${(saveProgress / successCount) * 100}%` }} />
               </div>
               <span className="text-sm text-zinc-500 dark:text-zinc-400 shrink-0">
                 Saving {saveProgress} / {successCount}…
@@ -340,7 +340,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
 function StatusIcon({ status }: { status: ImportStatus }) {
   if (status === 'pending') return <span className="w-5 h-5 shrink-0 rounded-full border-2 border-zinc-300 dark:border-zinc-600" aria-label="pending" />;
   if (status === 'fetching') return (
-    <svg className="w-5 h-5 shrink-0 animate-spin text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-label="fetching">
+    <svg className="w-5 h-5 shrink-0 animate-spin text-accent" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-label="fetching">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
     </svg>

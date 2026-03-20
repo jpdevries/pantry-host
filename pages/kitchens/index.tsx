@@ -192,7 +192,7 @@ export default function KitchensPage() {
                   ) : (
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-lg">{k.name}</span>
-                      {isHome && <span className="text-xs font-medium text-amber-600 dark:text-amber-400">default</span>}
+                      {isHome && <span className="text-xs font-medium text-accent">default</span>}
                       <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500">/{k.slug}</span>
                     </div>
                   )}

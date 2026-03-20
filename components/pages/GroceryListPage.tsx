@@ -202,7 +202,7 @@ export default function GroceryListPage({ kitchen }: Props) {
               <div className="flex flex-wrap gap-3">
                 <a
                   href={`${recipesBase}#stage`}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 transition-colors rounded"
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-accent text-white hover:bg-accent-hover transition-colors rounded"
                 >
                   <ShoppingCart size={16} aria-hidden />
                   Add from Recipes
@@ -212,7 +212,7 @@ export default function GroceryListPage({ kitchen }: Props) {
                     type="button"
                     onClick={handleAddCommon}
                     disabled={addingCommon}
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:border-amber-500 hover:text-amber-600 dark:hover:border-amber-400 dark:hover:text-amber-400 transition-colors rounded"
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:border-accent hover:text-accent transition-colors rounded"
                   >
                     <Basket size={16} aria-hidden />
                     {addingCommon ? 'Adding…' : 'Add Common Ingredients'}
@@ -223,13 +223,13 @@ export default function GroceryListPage({ kitchen }: Props) {
           ) : (
             <ul role="list" className="flex flex-wrap gap-2" aria-label="Queued recipes">
               {recipes.map((r) => (
-                <li key={r.id} className="flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 px-3 py-1 text-sm font-medium">
+                <li key={r.id} className="flex items-center gap-1 bg-accent-subtle text-accent px-3 py-1 text-sm font-medium">
                   <a href={`${recipesBase}/${r.slug ?? r.id}#stage`} className="hover:underline">{r.title}</a>
                   <button
                     type="button"
                     onClick={() => handleDequeue(r.id)}
                     aria-label={`Remove ${r.title} from queue`}
-                    className="ml-1 leading-none text-base hover:text-amber-600 dark:hover:text-amber-300 transition-colors"
+                    className="ml-1 leading-none text-base hover:text-accent transition-colors"
                   >
                     ×
                   </button>
@@ -265,7 +265,7 @@ export default function GroceryListPage({ kitchen }: Props) {
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => toggleChecked(key)}
-                        className="mt-0.5 w-5 h-5 border-2 border-zinc-300 dark:border-zinc-600 accent-amber-500 shrink-0"
+                        className="mt-0.5 w-5 h-5 border-2 border-zinc-300 dark:border-zinc-600 accent-accent shrink-0"
                       />
                       <span className={`flex-1 leading-snug font-medium ${isChecked ? 'line-through text-zinc-400 dark:text-zinc-600' : ''}`}>
                         {name}
@@ -310,7 +310,7 @@ export default function GroceryListPage({ kitchen }: Props) {
                                 type="checkbox"
                                 checked={isChecked}
                                 onChange={() => toggleChecked(item.key)}
-                                className="mt-0.5 w-5 h-5 border-2 border-zinc-300 dark:border-zinc-600 accent-amber-500 shrink-0"
+                                className="mt-0.5 w-5 h-5 border-2 border-zinc-300 dark:border-zinc-600 accent-accent shrink-0"
                               />
                               <span className={`flex-1 leading-snug ${isChecked ? 'line-through text-zinc-400 dark:text-zinc-600' : ''}`}>
                                 <span className="font-medium">
@@ -320,7 +320,7 @@ export default function GroceryListPage({ kitchen }: Props) {
                                   <span className="ml-2 text-xs text-zinc-400 dark:text-zinc-500">(have {fmtQty(item.pantryQuantity, item.unit)})</span>
                                 )}
                                 {item.status === 'check_pantry' && (
-                                  <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">check pantry</span>
+                                  <span className="ml-2 text-xs text-accent">check pantry</span>
                                 )}
                                 {isHave && !isChecked && (
                                   <span className="ml-2 text-xs text-zinc-400 dark:text-zinc-500">✓ in pantry</span>

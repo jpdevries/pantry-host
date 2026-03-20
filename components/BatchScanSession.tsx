@@ -114,7 +114,7 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
           {/* Toast notifications */}
           <div aria-live="polite" aria-atomic="false" className="shrink-0 px-4 pt-2 space-y-1 min-h-[2.5rem]">
             {toasts.map((msg, i) => (
-              <p key={i} className="text-sm text-amber-400 font-medium">{msg}</p>
+              <p key={i} className="text-sm text-accent font-medium">{msg}</p>
             ))}
           </div>
 
@@ -126,7 +126,7 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
               <ul role="list" className="space-y-1">
                 {items.map((item) => (
                   <li key={item.key} className="text-zinc-300 text-sm flex items-center gap-2">
-                    <span className="text-amber-400">✓</span>
+                    <span className="text-accent">✓</span>
                     {item.name}
                     {item.brand && <span className="text-zinc-500">({item.brand})</span>}
                   </li>
@@ -181,7 +181,7 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
                     <fieldset>
                       <legend className="field-label">Quantity &amp; Unit</legend>
                       {item.alwaysOnHand ? (
-                        <p className="text-xs text-amber-400 mt-1">Always on hand</p>
+                        <p className="text-xs text-accent mt-1">Always on hand</p>
                       ) : (
                         <div className="flex gap-1">
                           <input
@@ -231,7 +231,7 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
                       type="checkbox"
                       checked={item.alwaysOnHand}
                       onChange={(e) => updateItem(item.key, { alwaysOnHand: e.target.checked })}
-                      className="w-4 h-4 accent-amber-500"
+                      className="w-4 h-4 accent-accent"
                     />
                     <span className="text-sm text-zinc-300">Always on hand</span>
                   </label>

@@ -539,7 +539,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
                 setTagInput(tags.filter((t) => t.toLowerCase() !== 'gluten-free').join(', '));
               }
             }}
-            className="w-4 h-4 accent-amber-500"
+            className="w-4 h-4 accent-accent"
           />
           <span className="text-sm">Gluten-free</span>
         </label>

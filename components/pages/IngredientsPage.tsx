@@ -125,7 +125,7 @@ export default function IngredientsPage({ kitchen }: Props) {
                     const el = document.getElementById(`cat-${cat}`);
                     if (el) { e.preventDefault(); el.scrollIntoView({ behavior: 'smooth' }); history.replaceState(null, '', `#cat-${cat}`); }
                   }}
-                  className="text-xs font-medium uppercase tracking-wide px-3 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:text-amber-600 dark:hover:text-amber-400 hover:border-amber-400 transition-colors"
+                  className="text-xs font-medium uppercase tracking-wide px-3 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:text-accent hover:border-accent transition-colors"
                 >
                   {cat} <span className="tabular-nums text-zinc-400 dark:text-zinc-500">{grouped[cat].length}</span>
                 </a>
@@ -213,7 +213,7 @@ export default function IngredientsPage({ kitchen }: Props) {
                       <div className="flex-1 min-w-0">
                         <span className="font-medium" id={`ing-${ing.id}`}>{ing.name}</span>
                         {ing.alwaysOnHand ? (
-                          <span className="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400">always on hand</span>
+                          <span className="ml-2 text-xs font-medium text-accent">always on hand</span>
                         ) : (ing.quantity != null || ing.unit) && (
                           <span className="ml-2 text-sm text-zinc-500 dark:text-zinc-400">
                             {ing.quantity != null ? ing.quantity : ''} {ing.unit ?? ''}

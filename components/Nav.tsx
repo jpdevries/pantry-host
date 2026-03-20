@@ -51,7 +51,7 @@ export default function Nav() {
   }, []);
 
   return (
-    <header className="relative flex flex-col min-h-[100svh] sm:min-h-0 bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50 px-6 py-8">
+    <header className="relative flex flex-col min-h-[100svh] sm:min-h-0 px-6 py-8" style={{ backgroundColor: 'var(--color-bg-nav)', color: 'var(--color-text-primary)' }}>
       {/* Site identity */}
       <div className="flex items-center justify-between">
         {currentPath === '/' || currentPath === '' ? (
@@ -59,7 +59,7 @@ export default function Nav() {
         ) : (
           <a
             href="/#stage"
-            className="text-2xl font-bold tracking-tight font-serif hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
+            className="text-2xl font-bold tracking-tight font-serif hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             style={{ fontFamily: "'Crimson Pro', Georgia, serif" }}
             aria-label="Pantry Host — home"
           >
@@ -83,7 +83,7 @@ export default function Nav() {
                     aria-current={active ? 'page' : undefined}
                     className={[
                       'text-base font-semibold tracking-wide uppercase transition-colors font-serif',
-                      active ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50',
+                      active ? 'text-accent' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50',
                     ].join(' ')}
                     style={{ fontFamily: "'Crimson Pro', Georgia, serif" }}
                   >
@@ -117,7 +117,7 @@ export default function Nav() {
                   aria-current={active ? 'page' : undefined}
                   className={[
                     'block text-3xl font-bold tracking-tight transition-colors font-serif',
-                    active ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50',
+                    active ? 'text-accent' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50',
                   ].join(' ')}
                   style={{ fontFamily: "'Crimson Pro', Georgia, serif" }}
                 >

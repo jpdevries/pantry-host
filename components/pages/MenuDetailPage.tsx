@@ -113,7 +113,7 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
     return (
       <main id="stage" className="max-sm:min-h-screen flex flex-col items-center justify-center">
         <p className="text-lg font-semibold mb-4">Menu not found</p>
-        <a href={menusBase} className="text-amber-600 dark:text-amber-400 hover:underline">&larr; Back to Menus</a>
+        <a href={menusBase} className="text-accent hover:underline">&larr; Back to Menus</a>
       </main>
     );
   }
@@ -232,8 +232,8 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
                 aria-pressed={active}
                 className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${
                   active
-                    ? 'bg-amber-500 border-amber-500 text-white'
-                    : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400'
+                    ? 'bg-accent border-accent text-white'
+                    : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-accent hover:text-accent'
                 }`}
               >
                 {f.label}
@@ -274,7 +274,7 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
                       <div className="flex items-baseline gap-2">
                         <a
                           href={`${recipesBase}/${r.slug ?? r.id}#stage`}
-                          className="font-semibold hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+                          className="font-semibold hover:text-accent transition-colors"
                         >
                           {r.title}
                         </a>

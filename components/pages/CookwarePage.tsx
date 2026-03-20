@@ -87,7 +87,7 @@ export default function CookwarePage({ kitchen }: Props) {
               ) : (
                 <div className="flex items-center gap-3 py-4">
                   <div className="flex-1 min-w-0">
-                    <a href={cookwareDetailHref(kitchen, item.id)} id={`cw-${item.id}`} className="font-semibold hover:text-amber-600 dark:hover:text-amber-400 transition-colors">{item.name}</a>
+                    <a href={cookwareDetailHref(kitchen, item.id)} id={`cw-${item.id}`} className="font-semibold hover:text-accent transition-colors">{item.name}</a>
                     {item.brand && <span className="ml-2 text-sm text-zinc-500 dark:text-zinc-400">{item.brand}</span>}
                     {item.tags.length > 0 && (
                       <span className="ml-2">{item.tags.map((t) => <span key={t} className="tag mr-1">{t}</span>)}</span>

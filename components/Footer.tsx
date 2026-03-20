@@ -5,7 +5,10 @@ import {
   setThemePreference,
   getHighContrast,
   setHighContrast,
+  getThemePalette,
+  setThemePalette,
   type ThemePreference,
+  type ThemePalette,
 } from '@/lib/theme';
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; Icon: typeof Monitor }[] = [
@@ -14,13 +17,22 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; Icon: typeof Monit
   { value: 'dark', label: 'Dark', Icon: Moon },
 ];
 
+const PALETTE_OPTIONS: { value: ThemePalette; label: string }[] = [
+  { value: 'default', label: 'Default' },
+  { value: 'rose', label: 'Rosé' },
+{ value: 'rebecca', label: 'Rebecca Purple' },
+  { value: 'claude', label: 'Claude' },
+];
+
 export default function Footer() {
   const [theme, setTheme] = useState<ThemePreference>('system');
   const [hc, setHC] = useState(false);
+  const [palette, setPalette] = useState<ThemePalette>('default');
 
   useEffect(() => {
     setTheme(getThemePreference());
     setHC(getHighContrast());
+    setPalette(getThemePalette());
   }, []);
 
   function handleTheme(pref: ThemePreference) {
@@ -31,6 +43,11 @@ export default function Footer() {
   function handleHC(enabled: boolean) {
     setHC(enabled);
     setHighContrast(enabled);
+  }
+
+  function handlePalette(p: ThemePalette) {
+    setPalette(p);
+    setThemePalette(p);
   }
 
   return (
@@ -117,13 +134,28 @@ export default function Footer() {
                 })}
               </div>
 
+              {/* Palette selector */}
+              <label className="flex items-center gap-1.5 select-none">
+                <span className="text-xs">Palette</span>
+                <select
+                  value={palette}
+                  onChange={(e) => handlePalette(e.target.value as ThemePalette)}
+                  className="text-xs bg-transparent border border-zinc-300 dark:border-zinc-700 rounded px-1.5 py-0.5"
+                  aria-label="Color palette"
+                >
+                  {PALETTE_OPTIONS.map(({ value, label }) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </label>
+
               {/* High contrast toggle */}
               <label className="flex items-center gap-1.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={hc}
                   onChange={(e) => handleHC(e.target.checked)}
-                  className="w-3.5 h-3.5 accent-amber-500"
+                  className="w-3.5 h-3.5 accent-accent"
                 />
                 <span className="text-xs">High contrast</span>
               </label>

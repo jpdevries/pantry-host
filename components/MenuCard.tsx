@@ -16,10 +16,10 @@ export default function MenuCard({ menu, menusBase = '/menus' }: Props) {
   return (
     <a
       href={`${menusBase}/${menu.slug ?? menu.id}#stage`}
-      className="card group overflow-hidden block hover:ring-1 hover:ring-amber-500 dark:hover:ring-amber-400 transition-all"
+      className="card group overflow-hidden block hover:ring-1 hover:ring-accent transition-all"
     >
       <div className="p-4">
-        <span className="font-bold text-base leading-snug group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+        <span className="font-bold text-base leading-snug group-hover:text-accent transition-colors">
           {menu.title}
         </span>
         {menu.description && (

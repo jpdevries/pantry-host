@@ -111,9 +111,9 @@ export default function RecipesIndexPage({ kitchen }: Props) {
             <div className="text-center py-20 text-zinc-500 dark:text-zinc-400">
               <p className="text-lg mb-4">No recipes yet.</p>
               <p className="mb-4">
-                <a href="/#stage" className="underline hover:text-amber-600 dark:hover:text-amber-400">Generate recipes from your pantry</a>
+                <a href="/#stage" className="underline hover:text-accent">Generate recipes from your pantry</a>
                 {' '}or{' '}
-                <a href={`${base}/new#stage`} className="underline hover:text-amber-600 dark:hover:text-amber-400">add one manually</a>.
+                <a href={`${base}/new#stage`} className="underline hover:text-accent">add one manually</a>.
               </p>
             </div>
           );

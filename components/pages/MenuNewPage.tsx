@@ -165,7 +165,7 @@ export default function MenuNewPage({ kitchen }: Props) {
         </div>
 
         <label className="flex items-center gap-2 mb-6 cursor-pointer">
-          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="w-4 h-4 accent-amber-500" />
+          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="w-4 h-4 accent-accent" />
           <span className="text-sm font-semibold">Active</span>
           <span className="text-xs text-zinc-500 dark:text-zinc-400">— visible to guests when checked</span>
         </label>
@@ -187,7 +187,7 @@ export default function MenuNewPage({ kitchen }: Props) {
                       type="checkbox"
                       checked={selectedIds.has(r.id)}
                       onChange={() => toggleRecipe(r, course)}
-                      className="w-4 h-4 accent-amber-500"
+                      className="w-4 h-4 accent-accent"
                     />
                     <span className="text-sm">{r.title}</span>
                   </label>

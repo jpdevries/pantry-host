@@ -103,7 +103,7 @@ export default function HomePage() {
           <section aria-labelledby="kitchens-heading" className="mb-10">
             <div className="flex items-center justify-between mb-3">
               <h2 id="kitchens-heading" className="text-sm font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Kitchens</h2>
-              <a href="/kitchens#stage" className="text-sm font-semibold text-amber-600 dark:text-amber-400 hover:underline">
+              <a href="/kitchens#stage" className="text-sm font-semibold text-accent hover:underline">
                 {kitchens.length > 1 ? 'Manage →' : '+ Add kitchen'}
               </a>
             </div>
@@ -118,8 +118,8 @@ export default function HomePage() {
                     className={[
                       'card block px-4 py-3 transition-colors',
                       active
-                        ? 'border-amber-400 text-amber-600 dark:text-amber-400'
-                        : 'hover:text-amber-600 dark:hover:text-amber-400',
+                        ? 'border-accent text-accent'
+                        : 'hover:text-accent',
                     ].join(' ')}
                   >
                     <span className="font-medium">{k.name}</span>
@@ -171,7 +171,7 @@ export default function HomePage() {
           <section aria-labelledby="seasonal-heading" className="mb-12">
             <div className="flex items-center justify-between mb-4">
               <h2 id="seasonal-heading" className="text-xl font-bold">{capitalize(season)} Recipes</h2>
-              <a href={`/recipes?search=${season}#stage`} className="text-sm font-semibold text-amber-600 dark:text-amber-400 hover:underline">
+              <a href={`/recipes?search=${season}#stage`} className="text-sm font-semibold text-accent hover:underline">
                 All {season} recipes &rarr;
               </a>
             </div>
@@ -185,7 +185,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => setSeasonalLimit((n) => n + 6)}
-                  className="text-sm font-semibold text-amber-600 dark:text-amber-400 hover:underline"
+                  className="text-sm font-semibold text-accent hover:underline"
                   aria-describedby="seasonal-heading"
                 >
                   Load more {season} recipes
@@ -200,7 +200,7 @@ export default function HomePage() {
           <section aria-labelledby="recent-heading" className="mb-12">
             <div className="flex items-center justify-between mb-4">
               <h2 id="recent-heading" className="text-xl font-bold">Recent Recipes</h2>
-              <a href="/recipes#stage" className="text-sm font-semibold text-amber-600 dark:text-amber-400 hover:underline">
+              <a href="/recipes#stage" className="text-sm font-semibold text-accent hover:underline">
                 All recent recipes &rarr;
               </a>
             </div>
@@ -214,7 +214,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => setRecipeLimit((n) => n + 6)}
-                  className="text-sm font-semibold text-amber-600 dark:text-amber-400 hover:underline"
+                  className="text-sm font-semibold text-accent hover:underline"
                   aria-describedby="recent-heading"
                 >
                   Load more recent recipes
@@ -231,7 +231,7 @@ export default function HomePage() {
 
 function StatCard({ label, value, href, icon }: { label: string; value: number; href: string; icon?: React.ReactNode }) {
   return (
-    <a href={href} className="card block pt-3 pb-5 px-5 hover:text-amber-600 dark:hover:text-amber-400 transition-colors text-center">
+    <a href={href} className="card block pt-3 pb-5 px-5 hover:text-accent transition-colors text-center">
       {icon && <div className="text-zinc-400 dark:text-zinc-500 flex justify-center mb-2">{icon}</div>}
       <div className="text-3xl font-bold tabular-nums">{value}</div>
       <div className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{label}</div>

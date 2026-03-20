@@ -63,6 +63,25 @@ export const COMMON_INGREDIENTS = [
 /** Tags used internally but hidden from user-facing tag clouds */
 export const HIDDEN_TAGS = new Set(['common']);
 
+/** Menu category options and their display order */
+export const MENU_CATEGORIES: { value: string; label: string }[] = [
+  { value: 'todays-specials', label: "Today's Specials" },
+  { value: 'this-week', label: 'This Week' },
+  { value: 'daily', label: 'Daily' },
+  { value: 'monday', label: 'Monday' },
+  { value: 'tuesday', label: 'Tuesday' },
+  { value: 'wednesday', label: 'Wednesday' },
+  { value: 'thursday', label: 'Thursday' },
+  { value: 'friday', label: 'Friday' },
+  { value: 'saturday', label: 'Saturday' },
+  { value: 'sunday', label: 'Sunday' },
+  { value: 'social', label: 'Social' },
+];
+
+export const MENU_CATEGORY_ORDER: Record<string, number> = Object.fromEntries(
+  MENU_CATEGORIES.map((c, i) => [c.value, i])
+);
+
 export const COMMON_COOKWARE = [
   'Air Fryer',
   'Cast Iron Skillet',

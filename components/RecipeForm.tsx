@@ -34,6 +34,7 @@ interface Props {
   initial?: RecipeData;
   existingRecipes?: ExistingRecipe[]; // for recipe-as-ingredient picker
   cookwareItems?: string[]; // for Required Cookware datalist
+  allTags?: string[]; // for tag typeahead suggestions
   recipesBase?: string; // e.g. '/recipes' or '/kitchens/grandmas/recipes'
   kitchenSlug?: string; // for createRecipe mutation
 }
@@ -79,7 +80,7 @@ type IngredientRow = {
   sourceRecipeId: string | null; // null = plain ingredient, string = another recipe's id
 };
 
-export default function RecipeForm({ initial, existingRecipes = [], cookwareItems = [], recipesBase = '/recipes', kitchenSlug }: Props) {
+export default function RecipeForm({ initial, existingRecipes = [], cookwareItems = [], allTags = [], recipesBase = '/recipes', kitchenSlug }: Props) {
   const router = useRouter();
   const editing = Boolean(initial?.id);
 
@@ -506,17 +507,24 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
 
       {/* Tags */}
       <div className="mb-5">
-        <label htmlFor="recipe-tags" className="field-label">
-          Tags <span className="font-normal text-zinc-500">(comma-separated)</span>
-        </label>
+        <label htmlFor="recipe-tags" className="field-label">Tags</label>
+        {allTags.length > 0 && (
+          <datalist id="form-tags">
+            {allTags
+              .filter((t) => !tagInput.split(',').map((s) => s.trim().toLowerCase()).includes(t.toLowerCase()))
+              .map((t) => <option key={t} value={t} />)}
+          </datalist>
+        )}
         <input
           id="recipe-tags"
           type="text"
+          list={allTags.length > 0 ? 'form-tags' : undefined}
           value={tagInput}
           onChange={(e) => setTagInput(e.target.value)}
           placeholder="e.g. quick, kid-friendly, vegetarian"
           className="field-input w-full"
         />
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Comma-separated. Type to see suggestions.</p>
         <label className="flex items-center gap-2 mt-2 cursor-pointer">
           <input
             type="checkbox"

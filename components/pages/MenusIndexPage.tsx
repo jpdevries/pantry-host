@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
 import { cacheGet, cacheSet } from '@/lib/cache';
+import { MENU_CATEGORIES, MENU_CATEGORY_ORDER } from '@/lib/constants';
 import MenuCard from '@/components/MenuCard';
 
 interface MenuSummary {
@@ -9,13 +10,21 @@ interface MenuSummary {
   title: string;
   description: string | null;
   active: boolean;
-  recipes: { id: string }[];
+  category: string | null;
+  recipes: { id: string; recipe: { title: string; tags: string[] } }[];
 }
 
-const MENUS_QUERY = `query Menus($kitchenSlug: String) { menus(kitchenSlug: $kitchenSlug) { id slug title description active recipes { id } } }`;
+const MENUS_QUERY = `query Menus($kitchenSlug: String) { menus(kitchenSlug: $kitchenSlug) { id slug title description active category recipes { id recipe { title tags } } } }`;
 
 interface Props {
   kitchen: string;
+}
+
+/** Sort order for menus within the Daily category */
+const DAILY_ORDER: Record<string, number> = { 'breakfast': 0, 'lunch': 1, 'dinner': 2, 'diner': 3 };
+
+function categoryLabel(cat: string): string {
+  return MENU_CATEGORIES.find((c) => c.value === cat)?.label ?? cat;
 }
 
 export default function MenusIndexPage({ kitchen }: Props) {
@@ -36,24 +45,51 @@ export default function MenusIndexPage({ kitchen }: Props) {
       .catch(() => { if (!cached) setLoading(false); });
   }, [kitchen]);
 
-  const MENU_ORDER: Record<string, number> = { 'breakfast': 0, 'lunch': 1, 'dinner': 2, 'pizza night': 3 };
-
-  function menuSort(a: MenuSummary, b: MenuSummary): number {
-    const aOrder = MENU_ORDER[a.title.toLowerCase()] ?? 100;
-    const bOrder = MENU_ORDER[b.title.toLowerCase()] ?? 100;
-    if (aOrder !== bOrder) return aOrder - bOrder;
-    return a.title.localeCompare(b.title);
-  }
-
   const q = search.toLowerCase();
   const visibleMenus = isDev ? menus : menus.filter((m) => m.active);
-  const sorted = [...visibleMenus].sort(menuSort);
   const filtered = q
-    ? sorted.filter((m) => m.title.toLowerCase().includes(q))
-    : sorted;
+    ? visibleMenus.filter((m) =>
+        m.title.toLowerCase().includes(q) ||
+        m.recipes.some((mr) =>
+          mr.recipe.title.toLowerCase().includes(q) ||
+          mr.recipe.tags.some((t) => t.toLowerCase().includes(q))
+        )
+      )
+    : visibleMenus;
+
+  // Group menus by category
+  const groups = new Map<string, MenuSummary[]>();
+  for (const m of filtered) {
+    const cat = m.category ?? '_uncategorized';
+    if (!groups.has(cat)) groups.set(cat, []);
+    groups.get(cat)!.push(m);
+  }
+
+  // Sort groups by MENU_CATEGORY_ORDER (uncategorized last)
+  const sortedGroups = [...groups.entries()].sort(([a], [b]) => {
+    const aOrder = a === '_uncategorized' ? 999 : (MENU_CATEGORY_ORDER[a] ?? 998);
+    const bOrder = b === '_uncategorized' ? 999 : (MENU_CATEGORY_ORDER[b] ?? 998);
+    return aOrder - bOrder;
+  });
+
+  // Sort menus within each group
+  for (const [cat, items] of sortedGroups) {
+    if (cat === 'daily') {
+      items.sort((a, b) => {
+        const aOrder = DAILY_ORDER[a.title.toLowerCase()] ?? 100;
+        const bOrder = DAILY_ORDER[b.title.toLowerCase()] ?? 100;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        return a.title.localeCompare(b.title);
+      });
+    } else {
+      items.sort((a, b) => a.title.localeCompare(b.title));
+    }
+  }
+
+  const totalFiltered = sortedGroups.reduce((sum, [, items]) => sum + items.length, 0);
 
   return (
-    <main id="stage" className="min-h-screen px-4 py-10 md:px-8 max-w-5xl mx-auto">
+    <main id="stage" className="max-sm:min-h-screen px-4 py-10 md:px-8 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Menus</h1>
         {isDev && (
@@ -81,14 +117,25 @@ export default function MenusIndexPage({ kitchen }: Props) {
             </div>
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : totalFiltered === 0 ? (
         <p className="text-zinc-500 dark:text-zinc-400 text-center py-12">
           {search ? 'No menus match your search.' : 'No menus yet. Create your first one!'}
         </p>
       ) : (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((m) => (
-            <MenuCard key={m.id} menu={m} menusBase={menusBase} />
+        <div className="space-y-8">
+          {sortedGroups.map(([cat, items]) => (
+            <section key={cat}>
+              {cat !== '_uncategorized' && (
+                <h2 className="text-lg font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">
+                  {categoryLabel(cat)}
+                </h2>
+              )}
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {items.map((m) => (
+                  <MenuCard key={m.id} menu={m} menusBase={menusBase} />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}

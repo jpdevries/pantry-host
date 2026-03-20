@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
+import { MENU_CATEGORIES } from '@/lib/constants';
 
 interface RecipeOption {
   id: string;
@@ -19,13 +20,13 @@ const RECIPES_QUERY = `query Recipes($kitchenSlug: String) { recipes(kitchenSlug
 
 const MENU_QUERY = `query Menu($id: String!) {
   menu(id: $id) {
-    id slug title description active
+    id slug title description active category
     recipes { id course sortOrder recipe { id title } }
   }
 }`;
 
-const UPDATE_MENU = `mutation UpdateMenu($id: String!, $title: String, $description: String, $active: Boolean, $recipes: [MenuRecipeInput!]) {
-  updateMenu(id: $id, title: $title, description: $description, active: $active, recipes: $recipes) { id slug }
+const UPDATE_MENU = `mutation UpdateMenu($id: String!, $title: String, $description: String, $active: Boolean, $category: String, $recipes: [MenuRecipeInput!]) {
+  updateMenu(id: $id, title: $title, description: $description, active: $active, category: $category, recipes: $recipes) { id slug }
 }`;
 
 const COURSE_TAGS: Record<string, string[]> = {
@@ -66,6 +67,7 @@ export default function MenuEditPage({ kitchen, menuId }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [active, setActive] = useState(true);
+  const [category, setCategory] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [menuDbId, setMenuDbId] = useState('');
@@ -76,7 +78,7 @@ export default function MenuEditPage({ kitchen, menuId }: Props) {
   useEffect(() => {
     Promise.all([
       gql<{ recipes: RecipeOption[] }>(RECIPES_QUERY, { kitchenSlug: slug }),
-      gql<{ menu: { id: string; slug: string; title: string; description: string | null; recipes: { course: string; recipe: { id: string; title: string } }[] } }>(MENU_QUERY, { id: menuId }),
+      gql<{ menu: { id: string; slug: string; title: string; description: string | null; category: string | null; recipes: { course: string; recipe: { id: string; title: string } }[] } }>(MENU_QUERY, { id: menuId }),
     ]).then(([r, m]) => {
       setRecipes(r.recipes);
       if (m.menu) {
@@ -84,6 +86,7 @@ export default function MenuEditPage({ kitchen, menuId }: Props) {
         setTitle(m.menu.title);
         setDescription(m.menu.description ?? '');
         setActive(m.menu.active ?? true);
+        setCategory(m.menu.category ?? '');
         setSelected(m.menu.recipes.map((mr) => ({
           recipeId: mr.recipe.id,
           course: mr.course || 'other',
@@ -127,6 +130,7 @@ export default function MenuEditPage({ kitchen, menuId }: Props) {
         title: title.trim(),
         description: description.trim() || null,
         active,
+        category: category || null,
         recipes: selected.map((s, i) => ({ recipeId: s.recipeId, course: s.course, sortOrder: i })),
       });
       window.location.href = `${menusBase}/${data.updateMenu.slug}#stage`;
@@ -138,7 +142,7 @@ export default function MenuEditPage({ kitchen, menuId }: Props) {
 
   if (loading) {
     return (
-      <main id="stage" className="min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto">
+      <main id="stage" className="max-sm:min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto">
         <div className="animate-pulse">
           <div className="h-8 bg-zinc-200 dark:bg-zinc-700 rounded w-1/3 mb-6" />
           <div className="h-10 bg-zinc-200 dark:bg-zinc-700 rounded w-full mb-4" />
@@ -149,7 +153,7 @@ export default function MenuEditPage({ kitchen, menuId }: Props) {
   }
 
   return (
-    <main id="stage" className="min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto">
+    <main id="stage" className="max-sm:min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto">
       <a href={`${menusBase}/${menuId}`} className="text-sm text-zinc-500 dark:text-zinc-400 hover:underline mb-4 inline-block">
         &larr; Back to menu
       </a>
@@ -176,6 +180,21 @@ export default function MenuEditPage({ kitchen, menuId }: Props) {
             rows={4}
             className="w-full px-3 py-2 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm"
           />
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-sm font-semibold mb-1" htmlFor="menu-category">Category</label>
+          <select
+            id="menu-category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full px-3 py-2 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm"
+          >
+            <option value="">— None —</option>
+            {MENU_CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
         </div>
 
         <label className="flex items-center gap-2 mb-6 cursor-pointer">

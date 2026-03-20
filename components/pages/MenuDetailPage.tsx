@@ -111,7 +111,7 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
 
   if (notFound) {
     return (
-      <main id="stage" className="min-h-screen flex flex-col items-center justify-center">
+      <main id="stage" className="max-sm:min-h-screen flex flex-col items-center justify-center">
         <p className="text-lg font-semibold mb-4">Menu not found</p>
         <a href={menusBase} className="text-amber-600 dark:text-amber-400 hover:underline">&larr; Back to Menus</a>
       </main>
@@ -120,7 +120,7 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
 
   if (!menu) {
     return (
-      <main id="stage" className="min-h-screen px-4 py-10 md:px-8 max-w-5xl mx-auto">
+      <main id="stage" className="max-sm:min-h-screen px-4 py-10 md:px-8 max-w-5xl mx-auto">
         <div className="animate-pulse">
           <div className="h-8 bg-zinc-200 dark:bg-zinc-700 rounded w-1/3 mb-4" />
           <div className="h-4 bg-zinc-200 dark:bg-zinc-700 rounded w-2/3 mb-8" />
@@ -187,7 +187,7 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
   );
 
   return (
-    <main id="stage" className="min-h-screen px-4 py-10 md:px-8 max-w-5xl mx-auto">
+    <main id="stage" className="max-sm:min-h-screen px-4 py-10 md:px-8 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-2">
         <a href={menusBase} className="text-sm text-zinc-500 dark:text-zinc-400 hover:underline">
           &larr; Menus

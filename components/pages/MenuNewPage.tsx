@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
+import { MENU_CATEGORIES } from '@/lib/constants';
 
 interface RecipeOption {
   id: string;
@@ -17,8 +18,8 @@ interface SelectedRecipe {
 
 const RECIPES_QUERY = `query Recipes($kitchenSlug: String) { recipes(kitchenSlug: $kitchenSlug) { id slug title tags photoUrl } }`;
 
-const CREATE_MENU = `mutation CreateMenu($title: String!, $description: String, $active: Boolean, $kitchenSlug: String, $recipes: [MenuRecipeInput!]!) {
-  createMenu(title: $title, description: $description, active: $active, kitchenSlug: $kitchenSlug, recipes: $recipes) { id slug }
+const CREATE_MENU = `mutation CreateMenu($title: String!, $description: String, $active: Boolean, $category: String, $kitchenSlug: String, $recipes: [MenuRecipeInput!]!) {
+  createMenu(title: $title, description: $description, active: $active, category: $category, kitchenSlug: $kitchenSlug, recipes: $recipes) { id slug }
 }`;
 
 const COURSE_TAGS: Record<string, string[]> = {
@@ -58,6 +59,7 @@ export default function MenuNewPage({ kitchen }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [active, setActive] = useState(true);
+  const [category, setCategory] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const menusBase = kitchen === 'home' ? '/menus' : `/kitchens/${kitchen}/menus`;
@@ -103,6 +105,7 @@ export default function MenuNewPage({ kitchen }: Props) {
         title: title.trim(),
         description: description.trim() || null,
         active,
+        category: category || null,
         kitchenSlug: slug,
         recipes: selected.map((s, i) => ({ recipeId: s.recipeId, course: s.course, sortOrder: i })),
       });
@@ -114,7 +117,7 @@ export default function MenuNewPage({ kitchen }: Props) {
   }
 
   return (
-    <main id="stage" className="min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto">
+    <main id="stage" className="max-sm:min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto">
       <a href={menusBase} className="text-sm text-zinc-500 dark:text-zinc-400 hover:underline mb-4 inline-block">
         &larr; Menus
       </a>
@@ -144,6 +147,21 @@ export default function MenuNewPage({ kitchen }: Props) {
             rows={4}
             className="w-full px-3 py-2 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm"
           />
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-sm font-semibold mb-1" htmlFor="menu-category">Category</label>
+          <select
+            id="menu-category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full px-3 py-2 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm"
+          >
+            <option value="">— None —</option>
+            {MENU_CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
         </div>
 
         <label className="flex items-center gap-2 mb-6 cursor-pointer">

@@ -41,7 +41,7 @@ export default function OfflineBanner() {
       className="flex items-center justify-between gap-3 px-4 py-2 bg-zinc-800 dark:bg-zinc-700 text-white text-sm"
     >
       <span>
-        You&apos;re offline — changes will sync when you reconnect.
+        You&apos;re away from your pantry — changes will sync when you reconnect.
         {queued > 0 && <span className="ml-2 opacity-75">({queued} pending)</span>}
       </span>
       <button

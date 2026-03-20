@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS menus (
   slug        VARCHAR(255) UNIQUE,
   description TEXT,
   active      BOOLEAN DEFAULT TRUE,
+  category    VARCHAR(50),
   kitchen_id  TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE,
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );

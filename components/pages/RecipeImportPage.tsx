@@ -182,7 +182,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
     <>
       <Head><title>Import Recipes — Pantry Host</title></Head>
 
-      <main id="stage" className="min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto">
+      <main id="stage" className="max-sm:min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto">
         <div className="mb-8">
           <a href={`${recipesBase}#stage`} className="text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 mb-4 inline-block">← Recipes</a>
           <h1 className="text-4xl font-bold">Import Recipes</h1>

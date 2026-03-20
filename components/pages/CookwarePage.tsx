@@ -55,7 +55,7 @@ export default function CookwarePage({ kitchen }: Props) {
         {COMMON_COOKWARE.map((c) => <option key={c} value={c} />)}
       </datalist>
 
-      <main id="stage" className="min-h-screen px-4 py-10 md:px-8 max-w-4xl mx-auto">
+      <main id="stage" className="max-sm:min-h-screen px-4 py-10 md:px-8 max-w-4xl mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
           <h1 className="text-4xl font-bold">Cookware</h1>
           <button type="button" onClick={() => { setShowForm(!showForm); setEditingId(null); }} aria-expanded={showForm} aria-controls="add-cookware-form" className="btn-primary">

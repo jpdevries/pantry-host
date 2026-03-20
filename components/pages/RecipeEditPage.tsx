@@ -32,7 +32,7 @@ const EDIT_QUERY = `
       tags requiredCookware photoUrl
       ingredients { ingredientName quantity unit sourceRecipeId }
     }
-    recipes { id title source }
+    recipes { id title source tags }
     cookware(kitchenSlug: $kitchenSlug) { name }
   }
 `;
@@ -45,28 +45,32 @@ export default function RecipeEditPage({ kitchen, recipeId }: Props) {
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [existingRecipes, setExistingRecipes] = useState<{ id: string; title: string; source: string }[]>([]);
   const [cookwareItems, setCookwareItems] = useState<string[]>([]);
+  const [allTags, setAllTags] = useState<string[]>([]);
 
   useEffect(() => {
     if (!recipeId) return;
-    gql<{ recipe: Recipe | null; recipes: { id: string; title: string; source: string }[]; cookware: { name: string }[] }>(
+    gql<{ recipe: Recipe | null; recipes: { id: string; title: string; source: string; tags: string[] }[]; cookware: { name: string }[] }>(
       EDIT_QUERY, { id: recipeId, kitchenSlug: kitchen || 'home' }
     ).then((d) => {
         if (!d.recipe) return;
         setRecipe(d.recipe);
         setExistingRecipes(d.recipes.filter((r) => r.id !== recipeId));
         setCookwareItems(d.cookware.map((c) => c.name));
+        const tags = new Set<string>();
+        d.recipes.forEach((r) => r.tags?.forEach((t) => tags.add(t)));
+        setAllTags([...tags].sort());
       })
       .catch(console.error);
   }, [recipeId, kitchen]);
 
   if (!recipe) {
-    return <main id="stage" className="min-h-screen" aria-busy="true" />;
+    return <main id="stage" className="max-sm:min-h-screen" aria-busy="true" />;
   }
 
   return (
     <>
       <Head><title>Edit {recipe.title} — Pantry Host</title></Head>
-      <main id="stage" className="min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto">
+      <main id="stage" className="max-sm:min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto">
         <div className="mb-8">
           <a href={`${recipesBase}/${recipe.id}#stage`} className="text-sm text-zinc-500 hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
             ← {recipe.title}
@@ -94,6 +98,7 @@ export default function RecipeEditPage({ kitchen, recipeId }: Props) {
           }}
           existingRecipes={existingRecipes}
           cookwareItems={cookwareItems}
+          allTags={allTags}
           recipesBase={recipesBase}
         />
       </main>

@@ -161,6 +161,7 @@ const MenuType = builder.objectType('Menu', {
     title: t.exposeString('title'),
     description: t.string({ nullable: true, resolve: (r) => r.description }),
     active: t.boolean({ resolve: (r) => r.active ?? true }),
+    category: t.string({ nullable: true, resolve: (r) => r.category ?? null }),
     createdAt: t.string({ resolve: (r) => r.created_at?.toISOString() ?? '' }),
     recipes: t.field({
       type: [MenuRecipeType],
@@ -749,14 +750,15 @@ builder.mutationField('createMenu', (t) =>
       title: t.arg.string({ required: true }),
       description: t.arg.string(),
       active: t.arg.boolean(),
+      category: t.arg.string(),
       kitchenSlug: t.arg.string(),
       recipes: t.arg({ type: [MenuRecipeInputType], required: true }),
     },
-    resolve: async (_, { title, description, active, kitchenSlug, recipes }) => {
+    resolve: async (_, { title, description, active, category, kitchenSlug, recipes }) => {
       const kitchenId = await resolveKitchenId(kitchenSlug);
       const slug = await uniqueMenuSlug(title);
       const isActive = active ?? true;
-      const [menu] = await sql`INSERT INTO menus (title, slug, description, active, kitchen_id) VALUES (${title}, ${slug}, ${description ?? null}, ${isActive}, ${kitchenId}) RETURNING *`;
+      const [menu] = await sql`INSERT INTO menus (title, slug, description, active, category, kitchen_id) VALUES (${title}, ${slug}, ${description ?? null}, ${isActive}, ${category ?? null}, ${kitchenId}) RETURNING *`;
       for (let i = 0; i < recipes.length; i++) {
         const r = recipes[i];
         await sql`INSERT INTO menu_recipes (menu_id, recipe_id, course, sort_order) VALUES (${menu.id}, ${r.recipeId}, ${r.course ?? null}, ${r.sortOrder ?? i})`;
@@ -775,15 +777,17 @@ builder.mutationField('updateMenu', (t) =>
       title: t.arg.string(),
       description: t.arg.string(),
       active: t.arg.boolean(),
+      category: t.arg.string(),
       recipes: t.arg({ type: [MenuRecipeInputType] }),
     },
-    resolve: async (_, { id, title, description, active, recipes }) => {
+    resolve: async (_, { id, title, description, active, category, recipes }) => {
       const slug = title ? await uniqueMenuSlug(title, id) : undefined;
       const [updated] = await sql`UPDATE menus SET
         title = COALESCE(${title ?? null}, title),
         slug = COALESCE(${slug ?? null}, slug),
         description = COALESCE(${description ?? null}, description),
-        active = COALESCE(${active ?? null}, active)
+        active = COALESCE(${active ?? null}, active),
+        category = ${category !== undefined ? (category ?? null) : null}
         WHERE id = ${id} RETURNING *`;
       if (!updated) return null;
       if (recipes) {

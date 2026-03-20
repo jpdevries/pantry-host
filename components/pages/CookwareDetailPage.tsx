@@ -50,7 +50,7 @@ export default function CookwareDetailPage({ id, kitchen }: Props) {
     <>
       <Head><title>{item ? `${item.name} — Cookware` : 'Cookware'} — Pantry Host</title></Head>
 
-      <main id="stage" className="min-h-screen px-4 py-10 md:px-8 max-w-4xl mx-auto">
+      <main id="stage" className="max-sm:min-h-screen px-4 py-10 md:px-8 max-w-4xl mx-auto">
         <div className="mb-8">
           <a href={`${cookwareBase}#stage`} className="text-sm text-zinc-500 hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
             ← Cookware

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@source "../../shared/src";
+
 @layer base {
   :root {
     color-scheme: light dark;

@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS ingredients (
   unit           VARCHAR(50),
   always_on_hand BOOLEAN NOT NULL DEFAULT false,
   tags           TEXT[] DEFAULT '{}',
-  kitchen_id     TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE DEFAULT (SELECT id FROM kitchens WHERE slug = 'home'),
+  kitchen_id     TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE,
   created_at     TIMESTAMPTZ DEFAULT NOW(),
   updated_at     TIMESTAMPTZ DEFAULT NOW()
 );
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS recipes (
   photo_url         TEXT,
   last_made_at      TIMESTAMPTZ,
   queued            BOOLEAN DEFAULT FALSE,
-  kitchen_id        TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE DEFAULT (SELECT id FROM kitchens WHERE slug = 'home'),
+  kitchen_id        TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE,
   created_at        TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS cookware (
   name        VARCHAR(255) NOT NULL,
   brand       VARCHAR(255),
   tags        TEXT[] DEFAULT '{}',
-  kitchen_id  TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE DEFAULT (SELECT id FROM kitchens WHERE slug = 'home'),
+  kitchen_id  TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE,
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 

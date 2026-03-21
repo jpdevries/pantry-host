@@ -125,12 +125,25 @@ npm install -g local-ssl-proxy
 
 # Run proxies for both the frontend and GraphQL server
 local-ssl-proxy --source 3443 --target 3000 --cert ./localhost+2.pem --key ./localhost+2-key.pem &
-local-ssl-proxy --source 4444 --target 4001 --cert ./localhost+2.pem --key ./localhost+2-key.pem &
+local-ssl-proxy --source 4443 --target 4001 --cert ./localhost+2.pem --key ./localhost+2-key.pem &
 ```
 
 A convenience script is included at `scripts/https-proxy.sh`.
 
-Then open `https://192.168.x.x:3443` on your phone. On first visit you may need to tap through a browser certificate warning (Settings > General > About > Certificate Trust Settings on iOS to fully trust the CA).
+Then open `https://192.168.x.x:3443` on your phone.
+
+#### Trusting the certificate on iOS
+
+The mkcert root CA must be installed and trusted on your iOS device:
+
+1. Find the root CA on your Mac: `mkcert -CAROOT` — this prints the folder containing `rootCA.pem`
+2. Transfer `rootCA.pem` to your iPhone (AirDrop, email, or serve it via `python3 -m http.server 8888` and open `http://192.168.x.x:8888/rootCA.pem` in Safari)
+3. **Settings → General → VPN & Device Management** — install the downloaded profile
+4. **Settings → General → About → Certificate Trust Settings** — toggle full trust for the mkcert root CA
+
+> **Important:** Use **Safari** for the initial certificate installation — Chrome on iOS cannot install profiles or trust certificates. Once the CA is trusted system-wide, both Safari and Chrome will accept the proxy certificates.
+
+If your Mac's IP address changes (e.g. switching WiFi networks), regenerate the cert with the new IP: `mkcert localhost 127.0.0.1 <new-ip>`
 
 **Guest mode:** When someone connects over HTTP via IP address, the UI automatically hides owner-facing features like Batch Scan and Cookware — they see a streamlined read/write view of the pantry, list, and recipes. On `localhost` (dev) or HTTPS, all features are visible.
 

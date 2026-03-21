@@ -131,7 +131,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
     setImportError(null);
     try {
       const proto = window.location.protocol === 'https:' ? 'https' : 'http';
-      const port = proto === 'https' ? 4444 : 4001;
+      const port = proto === 'https' ? 4443 : 4001;
       const res = await fetch(`${proto}://${window.location.hostname}:${port}/fetch-recipe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -65,7 +65,7 @@ function IconShieldCheck() {
 const features = [
   {
     title: 'Barcode scanning',
-    description: 'Scan grocery barcodes with your phone camera to add ingredients instantly via Open Food Facts.',
+    description: 'Scan grocery barcodes with your phone camera to add ingredients instantly via Open Food\u00a0Facts.',
     icon: IconBarcodeRead,
   },
   {

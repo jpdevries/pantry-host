@@ -32,7 +32,7 @@ export default function Hero() {
         There&rsquo;s already enough of your data in&nbsp;the&nbsp;cloud.
       </h1>
       <p className="pretty mt-6 text-xl sm:text-2xl text-[var(--color-text-secondary)] max-w-2xl mx-auto leading-relaxed" style={{ fontFamily: "'Crimson Pro', Georgia, serif" }}>
-        Pantry Host is a self-hosted, privacy-first kitchen companion for managing recipes, ingredients, cookware, and grocery lists. All on <em className="not-italic font-semibold text-[var(--color-text-primary)]" style={{ fontFamily: "'Crimson Pro', Georgia, serif" }}>your own&nbsp;hardware</em>.
+        Pantry&nbsp;Host is a self-hosted, privacy-first kitchen companion for managing recipes, ingredients, cookware, and grocery lists. All on <em className="not-italic font-semibold text-[var(--color-text-primary)]" style={{ fontFamily: "'Crimson Pro', Georgia, serif" }}>your own&nbsp;hardware</em>.
       </p>
       <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
         <a

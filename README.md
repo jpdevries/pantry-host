@@ -134,16 +134,32 @@ Then open `https://192.168.x.x:3443` on your phone.
 
 #### Trusting the certificate on iOS
 
-The mkcert root CA must be installed and trusted on your iOS device:
+iOS requires the mkcert root CA to be installed as a profile **and** explicitly trusted. Use Safari for all of these steps — Chrome on iOS cannot install profiles or trust certificates.
 
-1. Find the root CA on your Mac: `mkcert -CAROOT` — this prints the folder containing `rootCA.pem`
-2. Transfer `rootCA.pem` to your iPhone (AirDrop, email, or serve it via `python3 -m http.server 8888` and open `http://192.168.x.x:8888/rootCA.pem` in Safari)
-3. **Settings → General → VPN & Device Management** — install the downloaded profile
-4. **Settings → General → About → Certificate Trust Settings** — toggle full trust for the mkcert root CA
+**1. Serve the root CA from your Mac:**
 
-> **Important:** Use **Safari** for the initial certificate installation — Chrome on iOS cannot install profiles or trust certificates. Once the CA is trusted system-wide, both Safari and Chrome will accept the proxy certificates.
+```bash
+cp "$(mkcert -CAROOT)/rootCA.pem" /tmp/rootCA.pem
+cd /tmp && python3 -m http.server 8888
+```
 
-If your Mac's IP address changes (e.g. switching WiFi networks), regenerate the cert with the new IP: `mkcert localhost 127.0.0.1 <new-ip>`
+**2. Install the profile on your iPhone:**
+
+Open Safari and go to `http://192.168.x.x:8888/rootCA.pem`. iOS will prompt you to download a configuration profile — tap **Allow**.
+
+**3. Install the profile:**
+
+Go to **Settings → General → VPN & Device Management** (or **Profiles & Device Management** on older iOS). Tap the mkcert profile and tap **Install**.
+
+**4. Enable full trust:**
+
+Go to **Settings → General → About → Certificate Trust Settings**. Toggle on full trust for the mkcert root certificate. This is a separate step from installing the profile — both are required.
+
+**5. Verify both ports:**
+
+Visit `https://192.168.x.x:3443` (frontend) and `https://192.168.x.x:4443` (API) in Safari. Both should load without certificate warnings. Once trusted, Chrome on iOS will also work.
+
+> **If your Mac's IP address changes** (e.g. switching WiFi networks), regenerate the cert: `mkcert localhost 127.0.0.1 <new-ip>`, then restart both proxies with the new cert files. You do not need to reinstall the root CA on iOS — only the server cert changes.
 
 **Guest mode:** When someone connects over HTTP via IP address, the UI automatically hides owner-facing features like Batch Scan and Cookware — they see a streamlined read/write view of the pantry, list, and recipes. On `localhost` (dev) or HTTPS, all features are visible.
 

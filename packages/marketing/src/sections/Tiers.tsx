@@ -24,12 +24,12 @@ function IconTerminal() {
 
 const tiers = [
   {
-    name: 'Just Use It',
+    name: 'One Click',
     audience: 'Browser',
     description:
-      'Run Pantry Host entirely in your browser. No server, no install. Your data lives in your browser via PGlite and OPFS.',
+      <>Run Pantry&nbsp;Host entirely in your browser. No server, no install. Your data lives in your browser via PGlite and <abbr title="Origin Private File System">OPFS</abbr>.</>,
     features: ['Works offline', 'Zero setup', 'Photo storage', 'Recipe generation, imports, and conversational pantry management*'],
-    footnote: '*With Claude in Chrome',
+    footnote: '*With Claude in\u00a0Chrome',
     cta: { label: 'Open in browser', href: 'https://my.pantryhost.app' },
     icon: IconBrowser,
     eta: { display: 'Ready instantly', iso: 'PT0S' },
@@ -38,7 +38,7 @@ const tiers = [
     name: 'Host It',
     audience: 'Self-hosted',
     description:
-      'Run on your own machine with PostgreSQL. Full control, full privacy. Perfect for a home Mac Mini or Raspberry Pi.',
+      <>Run on your own machine with PostgreSQL. Full control, full privacy. Perfect for a home Mac&nbsp;Mini or Raspberry&nbsp;Pi.</>,
     features: ['PostgreSQL database', 'Sync to multiple devices on your LAN', 'Photo uploads', 'AI recipe generation*', 'OpenClaw compatible'],
     footnote: '*With your own API key',
     cta: { label: 'View setup guide', href: 'https://github.com/jpdevries/pantry-host?tab=readme-ov-file#local-hosting', target: '_ph_self-hosted' },
@@ -49,7 +49,7 @@ const tiers = [
     name: 'Power User',
     audience: 'Claude Code',
     description:
-      'Use Claude Code to self-host or Claude in Chrome to supercharge the browser version. Import recipes from any URL, generate new ones, manage your pantry conversationally.',
+      <>Use Claude&nbsp;Code to self-host or Claude in&nbsp;Chrome to supercharge the browser version. Import recipes from any URL, generate new ones, manage your pantry conversationally.</>,
     features: ['AI recipe generation', 'URL recipe import', 'Conversational pantry management'],
     cta: { label: 'Learn more', href: 'https://github.com/jpdevries/pantry-host?tab=readme-ov-file#power-user', target: '_ph_power-user' },
     icon: IconTerminal,

@@ -70,7 +70,7 @@ const features = [
   },
   {
     title: 'Recipe import',
-    description: 'Paste a URL from any recipe site and Pantry Host extracts the title, ingredients, and instructions.',
+    description: 'Paste a URL from any recipe site to extract the title, ingredients, and instructions.',
     icon: IconFileImport,
   },
   {

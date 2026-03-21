@@ -26,10 +26,12 @@ export default function App() {
           </span>
         </a>
       </header>
-      <Hero />
-      <Tiers />
-      <Features />
-      <Philosophy />
+      <main>
+        <Hero />
+        <Tiers />
+        <Features />
+        <Philosophy />
+      </main>
       <Footer />
     </div>
   );

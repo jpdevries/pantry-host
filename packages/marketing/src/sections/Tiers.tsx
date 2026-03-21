@@ -39,7 +39,7 @@ const tiers = [
     audience: 'Self-hosted',
     description:
       'Run on your own machine with PostgreSQL. Full control, full privacy. Perfect for a home Mac Mini or Raspberry Pi.',
-    features: ['PostgreSQL database', 'Multi-device on your LAN', 'Photo uploads', 'AI recipe generation*', 'OpenClaw compatible'],
+    features: ['PostgreSQL database', 'Sync to multiple devices on your LAN', 'Photo uploads', 'AI recipe generation*', 'OpenClaw compatible'],
     footnote: '*With your own API key',
     cta: { label: 'View setup guide', href: 'https://github.com/jpdevries/pantry-host?tab=readme-ov-file#local-hosting', target: '_ph_self-hosted' },
     icon: IconServer,
@@ -61,7 +61,8 @@ export default function Tiers() {
   return (
     <section id="tiers" className="px-4 sm:px-6 py-16 sm:py-24 max-w-5xl mx-auto">
       <h2
-        className="text-3xl sm:text-4xl font-bold text-center mb-12"
+        id="getting-started"
+        className="text-3xl sm:text-4xl font-bold text-center mb-12 scroll-mt-20"
         style={{ fontFamily: "'Crimson Pro', Georgia, serif" }}
       >
         Three ways to&nbsp;run&nbsp;it.<br /> Zero ways to&nbsp;pay.
@@ -102,6 +103,7 @@ export default function Tiers() {
             <a
               href={tier.cta.href}
               {...(tier.cta.target ? { target: tier.cta.target } : {})}
+              aria-label={`${tier.cta.label} — ${tier.name}`}
               className="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-semibold border border-[var(--color-border-card)] text-[var(--color-text-primary)] hover:underline transition-colors"
             >
               {tier.cta.label}

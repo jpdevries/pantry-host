@@ -36,10 +36,10 @@ export default function Hero() {
       </p>
       <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
         <a
-          href="#tiers"
+          href="#getting-started"
           onClick={(e) => {
             e.preventDefault();
-            document.getElementById('tiers')?.scrollIntoView({ behavior: 'smooth' });
+            document.getElementById('getting-started')?.scrollIntoView({ behavior: 'smooth' });
           }}
           className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-base bg-[var(--color-accent)] text-[var(--color-bg-body)] hover:underline transition-colors"
         >

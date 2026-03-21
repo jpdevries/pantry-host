@@ -167,6 +167,32 @@ claude
 
 From there you can import recipes from URLs, generate new ones from your pantry, manage ingredients, and build features conversationally.
 
+### Claude in Chrome
+
+No server? No problem. Open [my.pantryhost.app](https://my.pantryhost.app) in Chrome with the [Claude in Chrome](https://chromewebstore.google.com/detail/claude/danfokkoeegljpdgjhoelpmjibkjkfmm) extension and Claude becomes the backend. It can read your pantry, fetch recipe URLs, parse ingredients, and fill in forms — all without a server.
+
+**Example prompts:**
+
+```
+Import this recipe: https://www.seriouseats.com/the-best-slow-cooked-bolognese-sauce-recipe
+```
+
+```
+What can I make with what's in my pantry?
+```
+
+```
+Add 2 lbs chicken thighs, 1 bunch cilantro, and a lime to my pantry
+```
+
+```
+Build me a weekly dinner menu using only what I have on hand
+```
+
+```
+I have guests coming who are gluten-free. Which of my recipes work?
+```
+
 ### OpenClaw
 
 [OpenClaw](https://openclaw.com/) is an alternative AI provider you can use in place of Anthropic. Set `AI_PROVIDER=openclaw` and your OpenClaw API key in `.env.local`:

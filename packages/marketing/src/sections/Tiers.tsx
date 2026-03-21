@@ -28,7 +28,7 @@ const tiers = [
     audience: 'Browser',
     description:
       'Run Pantry Host entirely in your browser. No server, no install. Your data lives in your browser via PGlite and OPFS.',
-    features: ['Works offline', 'Zero setup', 'Export your data anytime'],
+    features: ['Works offline', 'Zero setup', 'Export your data anytime', 'Supercharged with Claude in Chrome'],
     cta: { label: 'Open in browser', href: 'https://my.pantryhost.app' },
     icon: IconBrowser,
     eta: { display: 'Ready instantly', iso: 'PT0S' },
@@ -48,7 +48,7 @@ const tiers = [
     name: 'Power User',
     audience: 'Claude Code',
     description:
-      'Install with Claude Code for an AI-enhanced kitchen. Import recipes from any URL, generate new ones, manage your pantry conversationally.',
+      'Use Claude Code to self-host or Claude in Chrome to supercharge the browser version. Import recipes from any URL, generate new ones, manage your pantry conversationally.',
     features: ['AI recipe generation', 'URL recipe import', 'Conversational pantry management'],
     cta: { label: 'Learn more', href: 'https://github.com/jpdevries/pantry-host?tab=readme-ov-file#power-user', target: '_ph_power-user' },
     icon: IconTerminal,

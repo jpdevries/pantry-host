@@ -78,7 +78,7 @@ export default function Tiers() {
               {tier.audience}
             </p>
             <h3
-              className="text-2xl font-bold"
+              className="text-3xl font-bold"
               style={{ fontFamily: "'Crimson Pro', Georgia, serif" }}
             >
               {tier.name}

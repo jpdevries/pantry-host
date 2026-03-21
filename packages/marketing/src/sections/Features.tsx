@@ -109,7 +109,7 @@ export default function Features() {
   return (
     <section className="px-4 sm:px-6 py-16 sm:py-24 max-w-5xl mx-auto">
       <h2
-        className="text-3xl sm:text-4xl font-bold text-center mb-12"
+        className="text-4xl sm:text-5xl font-bold text-center mb-12"
         style={{ fontFamily: "'Crimson Pro', Georgia, serif" }}
       >
         Built for real&nbsp;kitchens
@@ -124,7 +124,7 @@ export default function Features() {
               <f.icon />
             </div>
             <h3
-              className="font-bold text-base mb-2"
+              className="font-bold text-xl mb-2"
               style={{ fontFamily: "'Crimson Pro', Georgia, serif" }}
             >
               {f.title}

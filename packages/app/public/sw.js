@@ -4,17 +4,40 @@
  * NOTE: GraphQL requests go to port 4001. This SW runs on port 3000 and
  * cannot intercept cross-origin fetches. Data caching is handled at the
  * application level via localStorage (see lib/cache.ts).
+ *
+ * Build-hash aware: when a new Rex bundle is fetched, the SW detects the
+ * build hash and purges stale bundles from previous builds so the cache
+ * doesn't accumulate hundreds of dead entries across deploys.
  */
 
 const CACHE_NAME = 'pantry-host-shell';
 
 // Pages to pre-cache on install
-const SHELL_PAGES = ['/', '/list', '/recipes', '/ingredients', '/cookware', '/kitchens', '/menus'];
+const SHELL_PAGES = ['/', '/list', '/recipes', '/ingredients', '/cookware', '/kitchens', '/menus', '/recipes/export'];
+
+// Extract the build hash from a Rex bundle filename (e.g. "chunk-esm-557eb197.js" → "557eb197")
+function extractHash(pathname) {
+  const match = pathname.match(/-([a-f0-9]{8})\.js/);
+  return match ? match[1] : null;
+}
+
+// Remove cached /_rex/ entries whose hash doesn't match the current build
+function purgeStaleAssets(cache, currentHash) {
+  return cache.keys().then((requests) =>
+    Promise.all(
+      requests
+        .filter((req) => {
+          const url = new URL(req.url);
+          if (!url.pathname.startsWith('/_rex/static/')) return false;
+          const hash = extractHash(url.pathname);
+          return hash && hash !== currentHash;
+        })
+        .map((req) => cache.delete(req))
+    )
+  );
+}
 
 self.addEventListener('install', (event) => {
-  // Cache each page individually so one failure doesn't abort the entire
-  // install. addAll() is all-or-nothing — if any page 500s or times out,
-  // the SW never activates and no offline caching happens at all.
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
       Promise.all(
@@ -27,9 +50,6 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  // Delete caches from previous app versions (e.g. old renamed caches)
-  // but keep the current CACHE_NAME intact — it may hold /_rex/ bundles
-  // that cached HTML still references.
   event.waitUntil(
     caches.keys().then((names) =>
       Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n)))
@@ -44,14 +64,18 @@ self.addEventListener('fetch', (event) => {
   // Only handle same-origin requests
   if (url.origin !== self.location.origin) return;
 
-  // Network-first for all Rex assets (bundles, router, HMR client). Stale
-  // cached versions of /_rex/router.js or hash-named bundles cause blank pages.
+  // Network-first for all Rex assets (bundles, router, HMR client).
   if (url.pathname.startsWith('/_rex/')) {
     event.respondWith(
       fetch(request)
         .then((response) => {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, clone);
+            // When we successfully fetch a new bundle, purge stale ones
+            const hash = extractHash(url.pathname);
+            if (hash) purgeStaleAssets(cache, hash);
+          });
           return response;
         })
         .catch(() => caches.open(CACHE_NAME).then((cache) => cache.match(request)))

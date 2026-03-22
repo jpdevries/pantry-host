@@ -254,7 +254,7 @@ export default function Footer() {
             <span className="font-medium">Privacy:</span> Pantry Host stores all data locally on your machine&nbsp;&mdash; nothing is sent to external servers. No accounts, no tracking, no analytics. If you choose to enable AI features, requests are sent directly to the Anthropic API using your own key and are not stored or used for&nbsp;training.
           </p>
           <p className="mt-1.5 legible text-zinc-500 dark:text-zinc-400 pretty">
-            Optionally enhanced by <a href="https://claude.ai/download" className="underline text-zinc-600 dark:text-zinc-300">Claude&nbsp;Code</a>&nbsp;&mdash; import recipes from any URL, generate new ones from what you have on hand, and manage your pantry conversationally. AI features require an API key and are entirely&nbsp;opt&#8209;in.
+            Optionally enhanced by <a href="https://claude.ai/download" className="underline text-secondary">Claude&nbsp;Code</a>&nbsp;&mdash; import recipes from any URL, generate new ones from what you have on hand, and manage your pantry conversationally. AI features require an API key and are entirely&nbsp;opt&#8209;in.
           </p>
 
           {/* Theme toggle + GitHub */}

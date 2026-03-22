@@ -480,6 +480,14 @@ async function runMigrations() {
   await sql`ALTER TABLE recipes ADD COLUMN IF NOT EXISTS source_url TEXT`;
 }
 
+// Keep the server alive on unexpected errors
+process.on('uncaughtException', (err) => {
+  console.error('[GraphQL] Uncaught exception (server still running):', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[GraphQL] Unhandled rejection (server still running):', reason);
+});
+
 runMigrations()
   .then(() => {
     server.listen(PORT, '0.0.0.0', () => {

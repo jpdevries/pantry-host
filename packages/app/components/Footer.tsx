@@ -5,7 +5,7 @@ import {
   setThemePreference,
   getHighContrast,
   setHighContrast,
-  getThemePalette,
+  getExplicitPalette,
   setThemePalette,
   type ThemePreference,
   type ThemePalette,
@@ -32,7 +32,7 @@ export default function Footer() {
   useEffect(() => {
     setTheme(getThemePreference());
     setHC(getHighContrast());
-    setPalette(getThemePalette());
+    setPalette(getExplicitPalette());
   }, []);
 
   function handleTheme(pref: ThemePreference) {

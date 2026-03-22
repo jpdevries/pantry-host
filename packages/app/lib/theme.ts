@@ -46,6 +46,12 @@ export function setHighContrast(enabled: boolean) {
   applyTheme();
 }
 
+/** Returns the explicit user preference from localStorage, or 'default' if none set. */
+export function getExplicitPalette(): ThemePalette {
+  if (typeof window === 'undefined') return 'default';
+  return (localStorage.getItem(PALETTE_KEY) as ThemePalette) || 'default';
+}
+
 export function getThemePalette(): ThemePalette {
   if (typeof window === 'undefined') return 'default';
   const stored = localStorage.getItem(PALETTE_KEY) as ThemePalette | null;
@@ -56,11 +62,9 @@ export function getThemePalette(): ThemePalette {
 }
 
 export function setThemePalette(palette: ThemePalette) {
-  if (palette === 'default') {
-    localStorage.removeItem(PALETTE_KEY);
-  } else {
-    localStorage.setItem(PALETTE_KEY, palette);
-  }
+  // Always store the explicit choice — even 'default' — so the meta tag
+  // fallback only applies when the user has never interacted with the picker.
+  localStorage.setItem(PALETTE_KEY, palette);
   applyTheme();
 }
 

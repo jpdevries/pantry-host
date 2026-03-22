@@ -69,6 +69,11 @@ const features = [
     icon: IconBarcodeRead,
   },
   {
+    title: 'Grocery list',
+    description: 'Queue recipes and get a consolidated, categorized grocery list. Check off items as you shop.',
+    icon: IconClipboardList,
+  },
+  {
     title: 'Import & Export',
     description: 'Import recipes from any URL or exported HTML file. Export individual recipes or your entire collection as shareable, re-importable HTML.',
     icon: IconFileImport,
@@ -77,11 +82,6 @@ const features = [
     title: 'AI generation',
     description: 'Generate recipes from what you have on hand. Powered by Claude, using your own API key.',
     icon: IconSparkles,
-  },
-  {
-    title: 'Grocery list',
-    description: 'Queue recipes and get a consolidated, categorized grocery list. Check off items as you shop.',
-    icon: IconClipboardList,
   },
   {
     title: 'Zen mode',

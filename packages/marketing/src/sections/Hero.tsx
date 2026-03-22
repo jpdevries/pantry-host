@@ -24,7 +24,7 @@ function IconStar({ size = 18 }: { size?: number }) {
 
 export default function Hero() {
   return (
-    <section className="px-4 sm:px-6 min-h-[calc(100svh-3.5rem)] flex flex-col items-center justify-center text-center max-w-4xl mx-auto">
+    <section className="px-4 sm:px-6 flex flex-col items-center justify-center text-center max-w-4xl mx-auto">
       <div className="flex-1" />
       <div>
         <h1

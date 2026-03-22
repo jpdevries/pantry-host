@@ -14,20 +14,22 @@ function LogoPlaceholder() {
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-[var(--color-bg-body)] text-[var(--color-text-primary)] transition-colors">
-      <header className="px-4 sm:px-6 py-4 max-w-5xl mx-auto">
-        <a href="/" className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:underline">
-          <LogoPlaceholder />
-          <span
-            className="text-xl font-bold text-[var(--color-text-primary)]"
-            style={{ fontFamily: "'Crimson Pro', Georgia, serif" }}
-          >
-            Pantry Host
-          </span>
-        </a>
-      </header>
-      <main>
+    <div className="bg-[var(--color-bg-body)] text-[var(--color-text-primary)] transition-colors">
+      <div className="grid grid-rows-[auto_1fr] min-h-[100svh]">
+        <header className="px-4 sm:px-6 py-4 max-w-5xl mx-auto w-full">
+          <a href="/" className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:underline">
+            <LogoPlaceholder />
+            <span
+              className="text-xl font-bold text-[var(--color-text-primary)]"
+              style={{ fontFamily: "'Crimson Pro', Georgia, serif" }}
+            >
+              Pantry Host
+            </span>
+          </a>
+        </header>
         <Hero />
+      </div>
+      <main>
         <Tiers />
         <Features />
         <Philosophy />

@@ -11,13 +11,14 @@ interface BarcodeResult {
 // Map Open Food Facts categories to our predefined categories
 function mapCategory(categories: string): string | undefined {
   const lower = categories.toLowerCase();
+  // Check "frozen" first — "frozen blueberries" should be frozen, not fruit
+  if (lower.includes('frozen')) return 'frozen';
   if (lower.includes('fruit') || lower.includes('berry') || lower.includes('melon')) return 'fruit';
   if (lower.includes('produce') || lower.includes('vegetable')) return 'produce';
   if (lower.includes('dairy') || lower.includes('milk') || lower.includes('cheese') || lower.includes('yogurt')) return 'dairy';
   if (lower.includes('meat') || lower.includes('fish') || lower.includes('poultry') || lower.includes('seafood')) return 'protein';
   if (lower.includes('beverage') || lower.includes('drink') || lower.includes('juice') || lower.includes('soda')) return 'beverages';
   if (lower.includes('spice') || lower.includes('herb') || lower.includes('seasoning')) return 'spices';
-  if (lower.includes('frozen')) return 'frozen';
   return 'pantry';
 }
 
@@ -85,7 +86,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     }
 
     const product = data.product;
-    const name = product.product_name || '';
+    const name = product.product_name?.trim() || '';
+    if (!name) return res.status(404).json({ error: 'Product found but name is missing' });
     const brand = product.brands?.split(',')[0]?.trim();
     const categoriesRaw = product.categories_tags?.join(' ') ?? '';
     const category = mapCategory(categoriesRaw);
@@ -98,12 +100,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     // Map OFF unit strings to our unit constants
     const unitMap: Record<string, string> = {
-      ml: 'ml', milliliter: 'ml', millilitre: 'ml',
-      l: 'L', liter: 'L', litre: 'L',
-      oz: 'oz', 'fl oz': 'fl oz',
-      lb: 'lb', lbs: 'lb', pound: 'lb',
+      ml: 'ml', milliliter: 'ml', millilitre: 'ml', milliliters: 'ml', millilitres: 'ml',
+      l: 'L', liter: 'L', litre: 'L', liters: 'L', litres: 'L',
+      oz: 'oz', ounce: 'oz', ounces: 'oz', 'fl oz': 'fl oz',
+      lb: 'lb', lbs: 'lb', pound: 'lb', pounds: 'lb',
       g: 'g', gram: 'g', grams: 'g',
-      kg: 'kg', kilogram: 'kg',
+      kg: 'kg', kilogram: 'kg', kilograms: 'kg',
     };
 
     if (product.product_quantity != null) {
@@ -114,7 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     }
 
     if (product.product_quantity_unit) {
-      unit = unitMap[product.product_quantity_unit.toLowerCase()] ?? undefined;
+      unit = unitMap[product.product_quantity_unit?.toLowerCase()] ?? undefined;
     }
 
     // Fall back to parsing the raw quantity string
@@ -134,7 +136,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         else if (/\boz\b/i.test(qtyStr)) unit = 'oz';
         else if (/\blbs?\b|pound/i.test(qtyStr)) unit = 'lb';
         else if (/\bkg\b|kilogram/i.test(qtyStr)) unit = 'kg';
-        else if (/\bg\b|gram/i.test(qtyStr)) unit = 'g';
+        else if (/\bg\b(?!rain)|gram/i.test(qtyStr)) unit = 'g';
         else if (/\bgal\b|gallon/i.test(qtyStr)) unit = 'gal';
         else if (/\bqt\b|quart/i.test(qtyStr)) unit = 'qt';
         else if (/\bpt\b|pint/i.test(qtyStr)) unit = 'pt';

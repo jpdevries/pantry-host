@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import BarcodeScanner, { ScannedProduct } from './BarcodeScanner';
 import { gql } from '@/lib/gql';
+import { enqueue } from '@/lib/offlineQueue';
 import { UNIT_GROUPS, CATEGORIES } from '@pantry-host/shared/constants';
 
 interface BatchItem extends ScannedProduct {
@@ -69,22 +70,23 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
   async function saveAll() {
     setSaving(true);
     setError(null);
+    const variables = {
+      inputs: items.map((i) => ({
+        name: i.name,
+        category: i.category ?? null,
+        quantity: i.alwaysOnHand ? null : i.quantity,
+        unit: i.alwaysOnHand ? null : i.unit,
+        alwaysOnHand: i.alwaysOnHand,
+        tags: i.tags,
+      })),
+    };
     try {
-      await gql(ADD_INGREDIENTS, {
-        inputs: items.map((i) => ({
-          name: i.name,
-          category: i.category ?? null,
-          quantity: i.alwaysOnHand ? null : i.quantity,
-          unit: i.alwaysOnHand ? null : i.unit,
-          alwaysOnHand: i.alwaysOnHand,
-          tags: i.tags,
-        })),
-      });
-      onComplete();
-    } catch (err) {
-      setError((err as Error).message);
-      setSaving(false);
+      await gql(ADD_INGREDIENTS, variables);
+    } catch {
+      // Offline or unreachable — queue for sync and let the user continue
+      enqueue(ADD_INGREDIENTS, variables);
     }
+    onComplete();
   }
 
   return (

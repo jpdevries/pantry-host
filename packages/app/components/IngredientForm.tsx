@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CATEGORIES, UNIT_GROUPS, COMMON_INGREDIENTS } from '@pantry-host/shared/constants';
 import { gql } from '@/lib/gql';
+import { enqueue } from '@/lib/offlineQueue';
 
 interface Ingredient {
   id: string;
@@ -64,33 +65,18 @@ export default function IngredientForm({ ingredient, onSave, onCancel, kitchenSl
     const resolvedUnit = qtyMode === 'amount' ? (unit || null) : null;
     const alwaysOnHand = qtyMode === 'always';
 
+    const mutation = editing && ingredient ? UPDATE_INGREDIENT : ADD_INGREDIENT;
+    const variables = editing && ingredient
+      ? { id: ingredient.id, name: name.trim(), category: category || null, quantity: resolvedQty, unit: resolvedUnit, alwaysOnHand, tags }
+      : { name: name.trim(), category: category || null, quantity: resolvedQty, unit: resolvedUnit, alwaysOnHand, tags, kitchenSlug: kitchenSlug ?? null };
+
     try {
-      if (editing && ingredient) {
-        await gql(UPDATE_INGREDIENT, {
-          id: ingredient.id,
-          name: name.trim(),
-          category: category || null,
-          quantity: resolvedQty,
-          unit: resolvedUnit,
-          alwaysOnHand,
-          tags,
-        });
-      } else {
-        await gql(ADD_INGREDIENT, {
-          name: name.trim(),
-          category: category || null,
-          quantity: resolvedQty,
-          unit: resolvedUnit,
-          alwaysOnHand,
-          tags,
-          kitchenSlug: kitchenSlug ?? null,
-        });
-      }
-      onSave();
-    } catch (err) {
-      setError((err as Error).message);
-      setSaving(false);
+      await gql(mutation, variables);
+    } catch {
+      // Offline or unreachable — queue for sync and let the user continue
+      enqueue(mutation, variables);
     }
+    onSave();
   }
 
   return (

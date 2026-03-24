@@ -15,14 +15,16 @@ function getGraphqlUrl(): string {
  * enough to avoid hanging on mobile networks when the home server is
  * unreachable (TCP timeouts on 5G can exceed 60s). */
 const GQL_TIMEOUT = 4000;
+const GQL_TIMEOUT_LONG = 60000;
 
 export async function gql<T = unknown>(
   query: string,
   variables?: Record<string, unknown>,
 ): Promise<T> {
   let res: Response;
+  const isMutation = query.trimStart().startsWith('mutation');
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), GQL_TIMEOUT);
+  const timer = setTimeout(() => controller.abort(), isMutation ? GQL_TIMEOUT_LONG : GQL_TIMEOUT);
   try {
     res = await fetch(getGraphqlUrl(), {
       method: 'POST',

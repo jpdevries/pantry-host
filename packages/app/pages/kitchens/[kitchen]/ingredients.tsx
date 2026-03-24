@@ -2,5 +2,6 @@ import { useRouter } from 'next/router';
 import IngredientsPage from '@/components/pages/IngredientsPage';
 export default function KitchenIngredients() {
   const { kitchen } = useRouter().query;
-  return <IngredientsPage kitchen={(kitchen as string) || ''} />;
+  const fallback = typeof window !== 'undefined' ? window.location.pathname.split('/').filter(Boolean)[1] || '' : '';
+  return <IngredientsPage kitchen={(kitchen as string) || fallback} />;
 }

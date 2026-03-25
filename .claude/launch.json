@@ -42,6 +42,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["scripts/graphql-proxy.mjs"],
       "port": 4001
+    },
+    {
+      "name": "graphql-server-prod",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd packages/app && set -a && source ../../.env.local && export DATABASE_URL=postgres://jpdevries@100.125.77.118:5432/pantry_host && set +a && npx tsx graphql-server.ts"],
+      "port": 4001
     }
   ]
 }

@@ -198,7 +198,7 @@ export default function Footer() {
 
   return (
     <footer className="no-print mt-16 pt-10 pb-8 px-4 sm:px-6 text-xs text-zinc-500 dark:text-zinc-400">
-      <div className="max-w-5xl mx-auto border-t border-[var(--color-border-card)] pt-10">
+      <div className="max-w-5xl mx-auto border-t pt-10" style={{ borderColor: 'var(--color-accent-subtle)' }}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-8">
           <div>
             <h3 className="font-semibold text-secondary uppercase tracking-wider mb-3">Volume</h3>
@@ -242,7 +242,7 @@ export default function Footer() {
             </dl>
           </div>
         </div>
-        <div className="border-t border-[var(--color-border-card)] pt-6 mt-2">
+        <div className="border-t pt-6 mt-2" style={{ borderColor: 'var(--color-accent-subtle)' }}>
           <p className="font-serif font-bold text-sm text-secondary" style={{ fontFamily: "'Crimson Pro', Georgia, serif" }}>Pantry Host</p>
           <p className="mt-2 legible text-zinc-500 dark:text-zinc-400 pretty">
             An open source, self-hosted kitchen companion that runs entirely on your home network or mobile&nbsp;device.<br/>Your recipes, your data, your&nbsp;machine.
@@ -289,7 +289,7 @@ export default function Footer() {
                 <select
                   value={palette}
                   onChange={(e) => handlePalette(e.target.value as ThemePalette)}
-                  className="text-xs bg-transparent border border-zinc-300 dark:border-[var(--color-border-card)] rounded px-1.5 py-0.5"
+                  className="text-xs bg-transparent border border-zinc-300 dark:border-[var(--color-accent-subtle)] rounded px-1.5 py-0.5"
                   aria-label="Color palette"
                 >
                   {PALETTE_OPTIONS.map(({ value, label }) => (

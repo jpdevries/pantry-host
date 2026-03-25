@@ -372,7 +372,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
       </Head>
 
       <main id="stage" className="max-sm:min-h-screen">
-        <div className="no-print px-4 py-4 md:px-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[var(--color-border-card)] max-w-4xl mx-auto">
+        <div className="no-print px-4 py-4 md:px-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b max-w-5xl mx-auto" style={{ borderColor: 'var(--color-accent-subtle)' }}>
           <a href={`${recipesBase}#stage`} className="text-sm text-[var(--color-text-secondary)] hover:text-accent transition-colors">← Recipes</a>
           <div className="flex items-center gap-3 flex-wrap justify-end">
             <button
@@ -566,7 +566,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
           )}
 
           {recipe.sourceUrl && (
-            <footer className="mt-12 pt-6 border-t border-[var(--color-border-card)]">
+            <footer className="mt-12 pt-6 border-t" style={{ borderColor: 'var(--color-accent-subtle)' }}>
               <a
                 href={recipe.sourceUrl}
                 target={`_${recipe.slug ?? recipe.id}`}
@@ -580,8 +580,9 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
         </article>
       </main>
 
-      <aside className="no-print px-4 py-10 md:px-8 max-w-4xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 py-8 border-t border-b border-[var(--color-border-card)] mb-8">
+      <aside className="no-print pt-10 px-4 sm:px-6">
+        <div className="max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 py-8 border-t border-b md:text-center" style={{ borderColor: 'var(--color-accent-subtle)' }}>
           <section aria-labelledby="made-this-heading">
             <h2 id="made-this-heading" className="text-xl font-bold mb-3">I Made This</h2>
             <button
@@ -590,7 +591,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
               disabled={completing}
               aria-busy={completing}
               aria-pressed={!!lastMadeAt}
-              className="inline-flex items-center gap-2 btn-primary text-sm transition-colors"
+              className="inline-flex items-center gap-2 btn-secondary text-sm transition-colors"
             >
               {lastMadeAt ? <CheckCircle size={18} weight="fill" aria-hidden /> : <Circle size={18} aria-hidden />}
               {lastMadeAt ? 'I Made This Again' : 'I Made This'}
@@ -653,6 +654,22 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
             </div>
           </div>
         )}
+
+        <div className="md:text-center py-16">
+          <h2 className="text-xl font-bold mb-3">Add it to the List</h2>
+          <button
+            type="button"
+            onClick={handleToggleQueue}
+            disabled={togglingQueue}
+            aria-pressed={queued}
+            aria-label={queued ? 'Remove from grocery list' : 'Add to grocery list'}
+            className={`btn-primary text-sm transition-colors ${queued ? 'border-accent text-accent' : ''}`}
+          >
+            {queued ? '✓ On List' : '+ Grocery List'}
+          </button>
+          <p className="text-sm text-[var(--color-text-secondary)] mt-3">Add ingredients for this recipe to your grocery list.</p>
+        </div>
+        </div>
       </aside>
 
       {showPantryUpdate && (

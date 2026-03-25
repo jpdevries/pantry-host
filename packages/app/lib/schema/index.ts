@@ -58,7 +58,15 @@ const RecipeIngredientType = builder.objectType('RecipeIngredient', {
     ingredientName: t.string({ resolve: (r) => r.ingredient_name }),
     quantity: t.float({ nullable: true, resolve: (r) => r.quantity }),
     unit: t.string({ nullable: true, resolve: (r) => r.unit }),
-    sourceRecipeId: t.string({ nullable: true, resolve: (r) => r.source_recipe_id ?? null }),
+    sourceRecipeId: t.string({
+      nullable: true,
+      resolve: async (r) => {
+        if (r.source_recipe_id) return r.source_recipe_id;
+        // Auto-detect by matching ingredient name to recipe title
+        const [match] = await sql`SELECT id FROM recipes WHERE lower(title) = ${r.ingredient_name.toLowerCase()} AND id != ${r.recipe_id} LIMIT 1`;
+        return match?.id ?? null;
+      },
+    }),
   }),
 });
 

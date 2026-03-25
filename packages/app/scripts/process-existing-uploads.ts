@@ -11,7 +11,7 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
-import { processUploadedImage } from '../lib/image';
+import { processUploadedImage } from '../lib/image-server';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'packages', 'app', 'public', 'uploads');
 

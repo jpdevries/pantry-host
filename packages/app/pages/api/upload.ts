@@ -3,7 +3,7 @@ import { IncomingForm, File } from 'formidable';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
-import { processUploadedImage } from '../../lib/image';
+import { processUploadedImage } from '../../lib/image-server';
 
 export const config = {
   api: {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { gql } from '@/lib/gql';
 import { Robot, ShoppingCart, Leaf } from '@phosphor-icons/react';
+import ResponsiveImage from './ResponsiveImage';
 import { HIDDEN_TAGS } from '@pantry-host/shared/constants';
 
 function CartPlus({ size = 14 }: { size?: number }) {
@@ -70,12 +71,12 @@ export default function RecipeCard({ recipe, recipesBase = '/recipes' }: Props) 
       {recipe.photoUrl ? (
         <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
           <a href={`${recipesBase}/${recipe.slug ?? recipe.id}#stage`} className="block w-full h-full" tabIndex={-1} aria-hidden="true">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <ResponsiveImage
               src={recipe.photoUrl}
               alt={recipe.title}
               className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
               loading="lazy"
+              sizes="(min-width: 768px) 400px, 100vw"
             />
           </a>
         </div>

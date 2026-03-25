@@ -8,6 +8,7 @@ import { enqueue } from '@/lib/offlineQueue';
 import RecipeCard from '@/components/RecipeCard';
 import { Leaf } from '@phosphor-icons/react';
 import { HIDDEN_TAGS } from '@pantry-host/shared/constants';
+import ResponsiveImage from '@/components/ResponsiveImage';
 import { recipeToDataURI } from '@pantry-host/shared/export-recipe';
 
 interface RecipeIngredient {
@@ -416,8 +417,13 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
           </button>
           {recipe.photoUrl && (
             <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={recipe.photoUrl} alt={recipe.title} className="w-full h-full object-cover" />
+              <ResponsiveImage
+                src={recipe.photoUrl}
+                alt={recipe.title}
+                className="w-full h-full object-cover"
+                loading="eager"
+                sizes="(min-width: 896px) 896px, 100vw"
+              />
             </div>
           )}
 

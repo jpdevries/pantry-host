@@ -611,8 +611,13 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
           </div>
           {photoUrl && (
             <div className="mt-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photoUrl} alt="Recipe preview" className="h-32 w-auto object-cover border border-[var(--color-border-card)]" />
+              <img
+                src={photoUrl.startsWith('/uploads/') ? photoUrl.replace(/\.\w+$/, '-400.jpg') : photoUrl}
+                alt="Recipe preview"
+                className="h-32 w-auto object-cover border border-[var(--color-border-card)]"
+                width={227}
+                height={128}
+              />
             </div>
           )}
         </div>

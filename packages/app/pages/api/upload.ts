@@ -3,6 +3,7 @@ import { IncomingForm, File } from 'formidable';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { processUploadedImage } from '../../lib/image';
 
 export const config = {
   api: {
@@ -52,9 +53,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return resolve();
       }
 
-      const filename = `${randomUUID()}${ext}`;
+      const uuid = randomUUID();
+      const filename = `${uuid}${ext}`;
       const dest = path.join(uploadsDir, filename);
       await fs.rename(file.filepath, dest);
+
+      // Generate responsive variants (WebP, JPEG, grayscale) in background.
+      // Don't block the response — variants are a progressive enhancement.
+      processUploadedImage(dest, uploadsDir, uuid).catch((e) =>
+        console.error('[upload] Failed to generate image variants:', e),
+      );
 
       res.json({ url: `/uploads/${filename}` });
       resolve();

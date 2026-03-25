@@ -7,3 +7,4 @@ node_modules
 *.pem
 .claude/settings.local.json
 dist
+packages/app/public/uploads/

@@ -49,7 +49,12 @@ export async function generateRecipes(
 Available ingredients: ${ingredientList || 'none listed'}
 Available cookware: ${cookwareList}
 
-Generate 3 practical family recipes using primarily these ingredients. Favor cookware the family owns. Default to 2 servings unless ingredients clearly suggest more.${compostContext}
+Generate 3 practical family recipes using primarily these ingredients. Favor cookware the family owns. Default to 2 servings unless ingredients clearly suggest more.
+
+Tag guidance:
+- If a recipe contains alcohol, high-mercury fish (swordfish, king mackerel, tilefish, bigeye tuna), or excessive caffeine, add the "breastfeeding-alert" tag.
+- If a recipe features galactagogues (oats, fenugreek, brewer's yeast, flaxseed, fennel), add the "lactation" tag.
+- Do NOT add "breastfeeding-safe" automatically — that is user opt-in only.${compostContext}
 
 Respond with ONLY a valid JSON array — no markdown, no explanation — matching this schema:
 [

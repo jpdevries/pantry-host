@@ -45,7 +45,7 @@ export default function Integrations() {
       <p className="text-center text-[var(--color-text-secondary)] text-sm sm:text-base max-w-2xl mx-auto mb-12 leading-relaxed">
         Pantry&nbsp;Host ships an <abbr title="Model Context Protocol">MCP</abbr> server so any compatible AI&nbsp;client can read and write your kitchen&nbsp;data&nbsp;&mdash; right from your&nbsp;<abbr title="Local Area Network">LAN</abbr>.
       </p>
-      <div className="grid md:grid-cols-3 gap-6 mb-10">
+      <div className="grid md:grid-cols-3 gap-6 mb-6">
         {capabilities.map((cap) => (
           <div
             key={cap.title}
@@ -65,25 +65,8 @@ export default function Integrations() {
           </div>
         ))}
       </div>
-      {/* Logos from @lobehub/icons-static-svg (MIT) — rendered monochrome via fill="currentColor" */}
-      <div className="flex flex-wrap justify-center items-center gap-x-8 gap-y-4 text-[var(--color-text-secondary)] mb-6 opacity-60">
-        {clients.map((c) => (
-          <div key={c.name} className="flex items-center gap-1.5" title={c.name}>
-            {c.paths ? (
-              <svg fill="currentColor" viewBox={c.viewBox ?? '0 0 24 24'} width={18} height={18} aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-                {c.paths.map((d, i) => <path key={i} d={d} fillRule="evenodd" clipRule="evenodd" />)}
-              </svg>
-            ) : null}
-            <span className="text-xs whitespace-nowrap">{c.name}</span>
-          </div>
-        ))}
-      </div>
-      <p className="text-center text-xs text-[var(--color-text-secondary)] mb-12">
-        Compatible with any <abbr title="Model Context Protocol">MCP</abbr> client. Runs on your LAN, your data stays&nbsp;home.
-      </p>
-
       {/* OpenClaw subsection */}
-      <div className="rounded-xl border border-[var(--color-border-card)] bg-[var(--color-bg-card)] p-6 sm:p-8 max-w-2xl mx-auto text-center">
+      <div className="rounded-xl border border-[var(--color-border-card)] bg-[var(--color-bg-card)] p-6 sm:p-8 text-center mb-6">
         <div className="flex justify-center mb-3 opacity-60">
           <svg fill="currentColor" viewBox="0 0 24 24" width={28} height={28} aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
             {clients.find(c => c.name === 'OpenClaw')?.paths?.map((d, i) => <path key={i} d={d} fillRule="evenodd" clipRule="evenodd" />)}
@@ -109,6 +92,22 @@ export default function Integrations() {
           <p>&ldquo;Add milk to the&nbsp;list.&rdquo;</p>
         </div>
       </div>
+      {/* Logos from @lobehub/icons-static-svg (MIT) — rendered monochrome via fill="currentColor" */}
+      <div className="flex flex-wrap justify-center items-center gap-x-8 gap-y-4 text-[var(--color-text-secondary)] mb-6 opacity-60">
+        {clients.map((c) => (
+          <div key={c.name} className="flex items-center gap-1.5" title={c.name}>
+            {c.paths ? (
+              <svg fill="currentColor" viewBox={c.viewBox ?? '0 0 24 24'} width={18} height={18} aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                {c.paths.map((d, i) => <path key={i} d={d} fillRule="evenodd" clipRule="evenodd" />)}
+              </svg>
+            ) : null}
+            <span className="text-xs whitespace-nowrap">{c.name}</span>
+          </div>
+        ))}
+      </div>
+      <p className="text-center text-xs text-[var(--color-text-secondary)] mb-12">
+        Compatible with any <abbr title="Model Context Protocol">MCP</abbr> client. Runs on your LAN, your data stays&nbsp;home.
+      </p>
     </section>
   );
 }

@@ -551,6 +551,31 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
           />
           <span className="text-sm">Gluten-free</span>
         </label>
+        {['pregnancy-safe', 'breastfeeding-safe', 'lactation', 'breastfeeding-alert'].map((tag) => (
+          <label key={tag} className="flex items-center gap-2 mt-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={tagInput.split(',').map((t) => t.trim().toLowerCase()).includes(tag)}
+              onChange={(e) => {
+                const tags = tagInput.split(',').map((t) => t.trim()).filter(Boolean);
+                if (e.target.checked) {
+                  if (!tags.some((t) => t.toLowerCase() === tag)) {
+                    setTagInput([...tags, tag].join(', '));
+                  }
+                } else {
+                  setTagInput(tags.filter((t) => t.toLowerCase() !== tag).join(', '));
+                }
+              }}
+              className="w-4 h-4 accent-accent"
+            />
+            <span className="text-sm">
+              {tag === 'pregnancy-safe' ? 'Pregnancy safe' :
+               tag === 'breastfeeding-safe' ? 'Breastfeeding safe' :
+               tag === 'lactation' ? 'Supports lactation' :
+               'Breastfeeding alert'}
+            </span>
+          </label>
+        ))}
       </div>
 
       {/* Required cookware */}

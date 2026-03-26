@@ -1,4 +1,3 @@
-import React from 'react';
 import { getResponsiveProps } from '../lib/image';
 
 interface ResponsiveImageProps {

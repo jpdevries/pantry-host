@@ -93,8 +93,8 @@ export default function Integrations() {
           Text your&nbsp;pantry
         </h3>
         <a
-          href="https://openclaw.ai"
-          target="_blank"
+          href="https://github.com/jpdevries/pantry-host/blob/main/INTEGRATIONS.md#openclaw-whatsapp-telegram-discord"
+          target="_pantry-host_docs_openclaw"
           rel="noopener noreferrer"
           className="inline-block px-5 py-2.5 text-sm font-semibold rounded-lg bg-[var(--color-accent)] text-[var(--color-bg-body)] hover:bg-[var(--color-accent-hover)] transition-colors cursor-pointer mb-5"
         >

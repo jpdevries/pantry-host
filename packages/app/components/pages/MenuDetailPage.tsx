@@ -51,6 +51,7 @@ const COURSE_LABELS: Record<string, string> = {
   side: 'Sides',
   beverage: 'Beverages',
   dessert: 'Dessert',
+  baby: 'Baby',
   other: 'Other',
 };
 
@@ -61,7 +62,7 @@ function courseLabel(course: string, menuTitle: string): string {
   return label;
 }
 
-const COURSE_ORDER = ['appetizer', 'breakfast', 'main-course', 'side', 'beverage', 'dessert', 'other'];
+const COURSE_ORDER = ['baby', 'appetizer', 'breakfast', 'main-course', 'side', 'beverage', 'dessert', 'other'];
 
 interface Props {
   kitchen: string;
@@ -209,8 +210,12 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
     let course = mr.course || 'other';
     if (course === 'other') {
       const tags = mr.recipe.tags.map((t) => t.toLowerCase());
-      const inferred = COURSE_ORDER.find((c) => c !== 'other' && tags.includes(c));
-      if (inferred) course = inferred;
+      if (tags.includes('baby-food') || tags.includes('first-foods')) {
+        course = 'baby';
+      } else {
+        const inferred = COURSE_ORDER.find((c) => c !== 'other' && tags.includes(c));
+        if (inferred) course = inferred;
+      }
     }
     if (!byCourse.has(course)) byCourse.set(course, []);
     byCourse.get(course)!.push(mr);

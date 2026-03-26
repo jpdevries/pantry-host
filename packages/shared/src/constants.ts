@@ -76,6 +76,7 @@ export const MENU_CATEGORIES: { value: string; label: string }[] = [
   { value: 'saturday', label: 'Saturday' },
   { value: 'sunday', label: 'Sunday' },
   { value: 'social', label: 'Social' },
+  { value: 'baby', label: 'Baby' },
 ];
 
 export const MENU_CATEGORY_ORDER: Record<string, number> = Object.fromEntries(

@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { gql } from '@/lib/gql';
 import { cacheGet, cacheSet } from '@pantry-host/shared/cache';
 import RecipeCard from '@/components/RecipeCard';
-import { Robot, Leaf } from '@phosphor-icons/react';
+import { Robot, Leaf, ArrowsOut, ArrowsIn } from '@phosphor-icons/react';
 
 interface MenuRecipe {
   id: string;
@@ -75,12 +75,45 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [supportsFullscreen, setSupportsFullscreen] = useState(false);
+  const articleRef = useRef<HTMLElement>(null);
   const menusBase = kitchen === 'home' ? '/menus' : `/kitchens/${kitchen}/menus`;
   const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
 
   useEffect(() => {
     setIsDev(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    setSupportsFullscreen(Boolean(document.documentElement.requestFullscreen || (document.documentElement as any).webkitRequestFullscreen));
   }, []);
+
+  const enterZen = useCallback(async () => {
+    if (!articleRef.current) return;
+    try { await articleRef.current.requestFullscreen(); } catch { /* ignored */ }
+  }, []);
+
+  const exitZen = useCallback(() => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    function onFSChange() { setIsFullscreen(Boolean(document.fullscreenElement)); }
+    document.addEventListener('fullscreenchange', onFSChange);
+    return () => document.removeEventListener('fullscreenchange', onFSChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    let lock: WakeLockSentinel | null = null;
+    async function acquire() {
+      try { lock = await navigator.wakeLock.request('screen'); } catch { /* ignored */ }
+    }
+    async function onVisibilityChange() {
+      if (document.visibilityState === 'visible' && isFullscreen) await acquire();
+    }
+    acquire();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => { lock?.release().catch(() => {}); document.removeEventListener('visibilitychange', onVisibilityChange); };
+  }, [isFullscreen]);
 
   useEffect(() => {
     console.log('[MenuDetailPage] menuId:', JSON.stringify(menuId));
@@ -190,12 +223,26 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
 
   return (
     <main id="stage" className="max-sm:min-h-screen px-4 py-10 md:px-8 max-w-5xl mx-auto">
+      <article ref={articleRef}>
+      <button
+        type="button"
+        onClick={exitZen}
+        aria-label="Exit full screen"
+        className="zen-exit-btn fixed top-4 right-4 z-50 bg-black/70 hover:bg-black/90 text-white p-2 rounded-full backdrop-blur transition-colors hidden outline outline-1 outline-current"
+      >
+        <ArrowsIn size={18} aria-hidden />
+      </button>
       <div className="flex items-center justify-between mb-2">
         <a href={menusBase} className="text-sm text-[var(--color-text-secondary)] hover:underline">
           &larr; Menus
         </a>
-        {isDev && (
-          <div className="flex gap-2">
+        <div className="flex gap-2">
+          {supportsFullscreen && (
+            <button type="button" onClick={isFullscreen ? exitZen : enterZen} aria-label={isFullscreen ? 'Exit full screen' : 'Enter full screen'} aria-pressed={isFullscreen} className="btn-secondary p-2">
+              {isFullscreen ? <ArrowsIn size={18} aria-hidden /> : <ArrowsOut size={18} aria-hidden />}
+            </button>
+          )}
+        {isDev && (<>
             <a href={`${menusBase}/${menu.slug ?? menu.id}/edit`} className="btn-secondary text-sm">Edit</a>
             {!deleteConfirm ? (
               <button type="button" onClick={() => setDeleteConfirm(true)} className="btn-secondary text-sm text-red-500">
@@ -211,8 +258,8 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
                 </button>
               </div>
             )}
-          </div>
-        )}
+          </>)}
+        </div>
       </div>
 
       <h1 className="text-3xl font-bold mb-2">{menu.title}</h1>
@@ -261,10 +308,10 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
           const items = byCourse.get(course)!;
           return (
             <section key={course} className="mb-8" aria-labelledby={`classic-${course}`}>
-              <h2 id={`classic-${course}`} className="text-xs font-bold uppercase tracking-widest text-[var(--color-text-secondary)] mb-4">
+              <h2 id={`classic-${course}`} className="text-base font-bold uppercase tracking-widest text-[var(--color-text-secondary)] mb-4">
                 {courseLabel(course, menu.title)}
               </h2>
-              <ul role="list" className="space-y-4">
+              <ul role="list" className="space-y-8">
                 {items.map((mr) => {
                   const r = mr.recipe;
                   const isGlutenFree = r.tags.some((t) => t.toLowerCase() === 'gluten-free');
@@ -276,7 +323,7 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
                       <div className="flex items-baseline gap-2">
                         <a
                           href={`${recipesBase}/${r.slug ?? r.id}#stage`}
-                          className="font-semibold hover:text-accent transition-colors"
+                          className="text-xl font-serif font-semibold hover:text-accent transition-colors legible"
                         >
                           {r.title}
                         </a>
@@ -308,7 +355,7 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
                         </span>
                       </div>
                       {r.description && (
-                        <p className="text-sm text-[var(--color-text-secondary)] mt-0.5 legible">{r.description}</p>
+                        <p className="text-lg font-serif text-[var(--color-text-secondary)] mt-0.5 legible">{r.description}</p>
                       )}
                     </li>
                   );
@@ -337,6 +384,7 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
           </section>
         );
       })}
+      </article>
     </main>
   );
 }

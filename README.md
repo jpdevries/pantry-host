@@ -296,6 +296,12 @@ Build me a weekly dinner menu using only what I have on hand
 I have guests coming who are gluten-free. Which of my recipes work?
 ```
 
+### Messaging Apps (OpenClaw)
+
+Connect [OpenClaw](https://openclaw.ai) to text your pantry from WhatsApp, Telegram, Discord, or any supported channel. Ask "How many eggs do we have?" and get an answer from your kitchen data.
+
+See [INTEGRATIONS.md](INTEGRATIONS.md#openclaw-whatsapp-telegram-discord) for the full setup guide.
+
 ---
 
 ## Environment Variables

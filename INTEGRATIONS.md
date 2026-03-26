@@ -95,9 +95,79 @@ Add to `.vscode/mcp.json`:
 }
 ```
 
-### OpenClaw / IronClaw (HTTP)
+### OpenClaw (WhatsApp, Telegram, Discord)
 
-Point the MCP client at your PantryHost instance:
+[OpenClaw](https://openclaw.ai) is a self-hosted AI agent gateway that connects AI models to messaging platforms. With the MCP plugin, your household can text your pantry from WhatsApp, Telegram, Discord, Slack, Signal, or iMessage.
+
+```
+User (WhatsApp) → OpenClaw → MCP plugin → Pantry Host (:5001) → GraphQL → Postgres
+```
+
+**Example conversations:**
+- "How many eggs do we have?" → `search_pantry` → "You have 12 eggs"
+- "What can I make for dinner?" → `generate_recipes` → 3 AI-suggested recipes
+- "Queue the chicken marsala" → `queue_recipe` → "Chicken Marsala queued"
+- "Add milk to the list" → `add_ingredient` → "Added milk to your pantry"
+
+**Prerequisites:**
+- Pantry Host running with the MCP server in HTTP mode (port 5001)
+- [OpenClaw installed](https://openclaw.ai) with a messaging channel connected
+
+**Step 1:** Install the MCP plugin:
+
+```bash
+openclaw plugin install openclaw-mcp-plugin
+```
+
+**Step 2:** Add Pantry Host to `~/.openclaw/openclaw.json`:
+
+```json
+{
+  "plugins": {
+    "entries": {
+      "mcp-integration": {
+        "enabled": true,
+        "config": {
+          "servers": {
+            "pantry-host": {
+              "enabled": true,
+              "transport": "http",
+              "url": "http://localhost:5001/mcp"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+If Pantry Host is on a different machine (Pi, Mac Mini, etc.), use its LAN IP:
+
+```json
+"url": "http://192.168.1.X:5001/mcp"
+```
+
+With bearer auth:
+
+```json
+"url": "http://192.168.1.X:5001/mcp",
+"headers": { "Authorization": "Bearer your-mcp-api-key" }
+```
+
+**Step 3:** Start the MCP server in HTTP mode:
+
+```bash
+MCP_API_KEY=your-secret npx tsx packages/mcp/src/index.ts --http
+```
+
+Or with Docker (port 5001 is exposed when `ENABLE_MCP=true`).
+
+**Step 4:** Send a message from your connected messaging app. OpenClaw discovers Pantry Host's 28 tools automatically via MCP and routes your natural language queries to the right tool.
+
+### IronClaw (HTTP)
+
+Point [IronClaw](https://github.com/nearai/ironclaw) at your Pantry Host MCP endpoint:
 
 ```
 MCP_URL=http://<your-lan-ip>:5001/mcp

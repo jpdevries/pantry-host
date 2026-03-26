@@ -78,9 +78,37 @@ export default function Integrations() {
           </div>
         ))}
       </div>
-      <p className="text-center text-xs text-[var(--color-text-secondary)]">
+      <p className="text-center text-xs text-[var(--color-text-secondary)] mb-12">
         Compatible with any <abbr title="Model Context Protocol">MCP</abbr> client. Runs on your LAN, your data stays&nbsp;home.
       </p>
+
+      {/* OpenClaw subsection */}
+      <div className="rounded-xl border border-[var(--color-border-card)] bg-[var(--color-bg-card)] p-6 sm:p-8 max-w-2xl mx-auto text-center">
+        <div className="flex justify-center mb-3 opacity-60">
+          <svg fill="currentColor" viewBox="0 0 24 24" width={28} height={28} aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            {clients.find(c => c.name === 'OpenClaw')?.paths?.map((d, i) => <path key={i} d={d} fillRule="evenodd" clipRule="evenodd" />)}
+          </svg>
+        </div>
+        <h3 className="text-xl sm:text-2xl font-bold mb-4">
+          Text your&nbsp;pantry
+        </h3>
+        <a
+          href="https://openclaw.ai"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block px-5 py-2.5 text-sm font-semibold rounded-lg bg-[var(--color-accent)] text-[var(--color-bg-body)] hover:bg-[var(--color-accent-hover)] transition-colors cursor-pointer mb-5"
+        >
+          Connect via OpenClaw
+        </a>
+        <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed mb-5">
+          Message your kitchen from WhatsApp, Telegram, Discord, Slack, Signal, or&nbsp;iMessage.
+        </p>
+        <div className="text-xs text-[var(--color-text-secondary)] space-y-1 italic">
+          <p>&ldquo;How many eggs do we&nbsp;have?&rdquo;</p>
+          <p>&ldquo;What can I make for&nbsp;dinner?&rdquo;</p>
+          <p>&ldquo;Add milk to the&nbsp;list.&rdquo;</p>
+        </div>
+      </div>
     </section>
   );
 }

@@ -21,9 +21,12 @@ services:
     ports:
       - "3000:3000"
       - "4001:4001"
+      - "5001:5001"  # MCP server (OpenClaw, IronClaw, etc.)
     environment:
       DATABASE_URL: postgres://recipes:recipes@db:5432/pantry_host
       AI_API_KEY: ${AI_API_KEY:-}
+      MCP_API_KEY: ${MCP_API_KEY:-}
+      ENABLE_MCP: ${ENABLE_MCP:-false}
       # Raspberry Pi: uncomment to skip image variant generation, save disk/CPU
       # ENABLE_IMAGE_PROCESSING: "false"
     depends_on:

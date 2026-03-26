@@ -134,6 +134,15 @@ function LogoPWA({ size = 24 }: { size?: number }) {
   );
 }
 
+function LogoDocker({ size = 24 }: { size?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" width={size} height={size} fill="currentColor" aria-hidden="true">
+      <title>Docker</title>
+      <path d="M349.9 236.3h-66.1v-59.4h66.1v59.4zm0-204.3h-66.1v60.7h66.1V32zm78.2 144.8H362v59.4h66.1v-59.4zm-156.3-72.1h-66.1v60.1h66.1v-60.1zm78.1 0h-66.1v60.1h66.1v-60.1zm276.8 100c-14.4-9.7-47.6-13.2-73.1-8.4-3.3-24-16.7-44.9-41.1-63.7l-14-9.3-9.3 14c-18.4 27.8-23.4 73.6-3.7 103.8-8.7 4.7-25.8 11.1-48.4 10.7H2.4c-7.6 42.6-1.2 98.5 27.2 137.2 30.3 41.4 75 62.2 133 62.2 127.3 0 221.1-58.7 265-164.6 17.4 .3 54.6 .3 73.7-36.5 1.2-2.1 4.9-12.3 6-16.1l1.8-5.5-11.2-7.8z" />
+    </svg>
+  );
+}
+
 function LogoCloudflare({ size = 24 }: { size?: number }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
@@ -166,6 +175,7 @@ const CREDITS: { name: string; href: string; Logo: React.FC<{ size?: number }> }
   { name: 'Tailwind CSS', href: 'https://tailwindcss.com/', Logo: LogoTailwind },
   { name: 'Vite', href: 'https://vite.dev/', Logo: LogoVite },
   { name: 'PWA', href: 'https://web.dev/progressive-web-apps/', Logo: LogoPWA },
+  { name: 'Docker', href: 'https://www.docker.com/', Logo: LogoDocker },
   { name: 'Cloudflare', href: 'https://www.cloudflare.com/', Logo: LogoCloudflare },
   { name: 'Anthropic', href: 'https://www.anthropic.com/', Logo: LogoAnthropic },
 ];

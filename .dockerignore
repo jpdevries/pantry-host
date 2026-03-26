@@ -1,0 +1,12 @@
+node_modules
+.rex
+dist
+*.local
+.env.local
+.claude
+packages/app/public/uploads/*
+packages/marketing/src
+packages/marketing/dist
+packages/web/src
+packages/web/dist
+packages/mcp/src

@@ -49,6 +49,28 @@ The GraphQL API runs on port 4001. The database schema is applied automatically 
 
 ---
 
+## Docker
+
+The fastest way to self-host:
+
+```bash
+git clone https://github.com/jpdevries/pantry-host.git
+cd pantry-host
+docker compose up -d
+```
+
+Open [http://localhost:3000](http://localhost:3000). PostgreSQL and the app start automatically — the database schema is applied on first boot.
+
+To enable AI recipe generation, pass your API key:
+
+```bash
+AI_API_KEY=sk-ant-... docker compose up -d
+```
+
+Data (database + uploaded images) persists in Docker volumes across restarts.
+
+---
+
 ## Local Hosting
 
 Pantry Host is designed to run on a always-on home machine (a Mac Mini works well) and be accessed by devices on your local network via IP address. No cloud account, no subscription, no data leaving your home.

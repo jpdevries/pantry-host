@@ -42,8 +42,8 @@ export async function processUploadedImage(
   const originalWidth = metadata.width ?? 0;
 
   for (const width of VARIANT_WIDTHS) {
-    // Don't upscale — skip if original is narrower than target
-    if (originalWidth < width) continue;
+    // Allow mild upscaling (up to 2x) for smaller originals
+    if (originalWidth * 2 < width) continue;
 
     const height = heightFor(width);
     const resized = sharp(inputPath).resize(width, height, {

@@ -4,6 +4,7 @@ export const CATEGORIES = [
   'dairy',
   'protein',
   'pantry',
+  'bakery',
   'spices',
   'frozen',
   'beverages',

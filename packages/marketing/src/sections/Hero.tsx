@@ -24,7 +24,7 @@ export default function Hero() {
         </p>
       </div>
       <div className="flex-1" />
-      <div className="pb-12 sm:pb-16 flex flex-col sm:flex-row gap-4 justify-center w-full">
+      <div className="mt-8 pb-12 sm:pb-16 flex flex-col sm:flex-row gap-4 justify-center w-full">
         <a
           href="#getting-started"
           onClick={(e) => {

@@ -672,7 +672,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                 Print Recipe
               </button>
               <a
-                href={recipeToDataURI({ ...recipe, photoUrl: exportPhotoUrl })}
+                href={recipeToDataURI({ ...recipe, requiredCookware: recipe.requiredCookware.map((c) => c.name), photoUrl: exportPhotoUrl })}
                 download={`${recipe.slug || 'recipe'}.html`}
                 className="inline-flex items-center gap-2 btn-secondary text-sm"
               >

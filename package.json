@@ -3,12 +3,18 @@
   "version": "0.1.0-beta",
   "private": true,
   "license": "MIT",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "npm run dev -w packages/app",
     "dev:graphql": "npm run dev:graphql -w packages/app",
     "dev:marketing": "npm run dev -w packages/marketing",
     "dev:web": "npm run dev -w packages/web",
     "dev:mcp": "npm run dev -w packages/mcp"
+  },
+  "dependencies": {
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   }
 }

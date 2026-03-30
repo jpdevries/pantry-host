@@ -1,13 +1,19 @@
 import Head from 'next/head';
 import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
+import RecipeCard from '@/components/RecipeCard';
 
 interface Recipe {
   id: string;
+  slug: string | null;
   title: string;
   cookTime: number | null;
   prepTime: number | null;
+  servings: number | null;
   source: string;
+  tags: string[];
+  photoUrl: string | null;
+  queued: boolean;
 }
 
 interface CookwareItem {
@@ -22,7 +28,7 @@ const COOKWARE_ITEM_QUERY = `
   query CookwareItem($id: String!) {
     cookwareItem(id: $id) {
       id name brand tags
-      recipes { id title cookTime prepTime source }
+      recipes { id slug title cookTime prepTime servings source tags photoUrl queued }
     }
   }
 `;
@@ -85,19 +91,10 @@ export default function CookwareDetailPage({ id, kitchen }: Props) {
                   No recipes require this cookware yet.
                 </p>
               ) : (
-                <ul className="divide-y divide-[var(--color-border-card)]" role="list">
+                <ul role="list" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6">
                   {item.recipes.map((r) => (
-                    <li key={r.id}>
-                      <a
-                        href={`${recipesBase}/${r.id}#stage`}
-                        className="flex items-center justify-between py-3 hover:text-accent transition-colors"
-                      >
-                        <span className="font-medium">{r.title}</span>
-                        <span className="text-sm text-[var(--color-text-secondary)] shrink-0 ml-4">
-                          {r.cookTime != null ? `${r.cookTime} min` : r.prepTime != null ? `${r.prepTime} min` : ''}
-                          {r.source === 'ai-generated' && <span className="ml-2 tag">AI</span>}
-                        </span>
-                      </a>
+                    <li key={r.id} className="grid grid-rows-[subgrid] row-span-5">
+                      <RecipeCard recipe={r} recipesBase={recipesBase} />
                     </li>
                   ))}
                 </ul>

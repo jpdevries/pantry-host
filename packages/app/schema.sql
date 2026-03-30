@@ -94,3 +94,12 @@ CREATE INDEX IF NOT EXISTS idx_menu_recipes_menu ON menu_recipes(menu_id);
 
 -- v0.1.1: Add notes to cookware (e.g. device guides, composting rules)
 ALTER TABLE cookware ADD COLUMN IF NOT EXISTS notes TEXT;
+
+-- v0.2.0: UUID join table replacing required_cookware TEXT[]
+CREATE TABLE IF NOT EXISTS recipe_cookware (
+  recipe_id   UUID NOT NULL REFERENCES recipes(id)  ON DELETE CASCADE,
+  cookware_id UUID NOT NULL REFERENCES cookware(id) ON DELETE CASCADE,
+  PRIMARY KEY (recipe_id, cookware_id)
+);
+CREATE INDEX IF NOT EXISTS idx_recipe_cookware_recipe   ON recipe_cookware(recipe_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_cookware_cookware ON recipe_cookware(cookware_id);

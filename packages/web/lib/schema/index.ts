@@ -89,7 +89,11 @@ const RecipeType = builder.objectType('Recipe', {
     prepTime: t.int({ nullable: true, resolve: (r) => r.prep_time }),
     cookTime: t.int({ nullable: true, resolve: (r) => r.cook_time }),
     tags: t.stringList({ resolve: (r) => r.tags ?? [] }),
-    requiredCookware: t.stringList({ resolve: (r) => r.required_cookware ?? [] }),
+    requiredCookware: t.field({
+      type: [CookwareType],
+      resolve: (r) =>
+        sql`SELECT c.* FROM cookware c JOIN recipe_cookware rc ON rc.cookware_id = c.id WHERE rc.recipe_id = ${r.id} ORDER BY c.name`,
+    }),
     source: t.exposeString('source'),
     sourceUrl: t.string({ nullable: true, resolve: (r) => r.source_url ?? null }),
     photoUrl: t.string({ nullable: true, resolve: (r) => r.photo_url }),
@@ -174,7 +178,7 @@ const CookwareType = builder.objectType('Cookware', {
     recipes: t.field({
       type: [RecipeType],
       resolve: async (cookware) =>
-        sql`SELECT * FROM recipes WHERE required_cookware @> ARRAY[${cookware.name}] ORDER BY title`,
+        sql`SELECT r.* FROM recipes r JOIN recipe_cookware rc ON rc.recipe_id = r.id WHERE rc.cookware_id = ${cookware.id} ORDER BY r.title`,
     }),
   }),
 });
@@ -257,13 +261,13 @@ builder.queryField('recipes', (t) =>
     resolve: async (_, { tags, cookware, queued, kitchenSlug }) => {
       const kitchenId = await resolveKitchenId(kitchenSlug);
       if (tags?.length && cookware?.length) {
-        return sql`SELECT * FROM recipes WHERE kitchen_id = ${kitchenId} AND tags && ${sql.array(tags)} AND required_cookware && ${sql.array(cookware)} ORDER BY created_at DESC`;
+        return sql`SELECT DISTINCT r.* FROM recipes r JOIN recipe_cookware rc ON rc.recipe_id = r.id WHERE r.kitchen_id = ${kitchenId} AND r.tags && ${sql.array(tags)} AND rc.cookware_id = ANY(${sql.array(cookware)}) ORDER BY r.created_at DESC`;
       }
       if (tags?.length) {
         return sql`SELECT * FROM recipes WHERE kitchen_id = ${kitchenId} AND tags && ${sql.array(tags)} ORDER BY created_at DESC`;
       }
       if (cookware?.length) {
-        return sql`SELECT * FROM recipes WHERE kitchen_id = ${kitchenId} AND required_cookware && ${sql.array(cookware)} ORDER BY created_at DESC`;
+        return sql`SELECT DISTINCT r.* FROM recipes r JOIN recipe_cookware rc ON rc.recipe_id = r.id WHERE r.kitchen_id = ${kitchenId} AND rc.cookware_id = ANY(${sql.array(cookware)}) ORDER BY r.created_at DESC`;
       }
       if (queued != null) {
         return sql`SELECT * FROM recipes WHERE kitchen_id = ${kitchenId} AND queued = ${queued} ORDER BY created_at DESC`;
@@ -465,7 +469,7 @@ async function insertRecipe(
     prepTime?: number | null;
     cookTime?: number | null;
     tags?: string[] | null;
-    requiredCookware?: string[] | null;
+    requiredCookwareIds?: string[] | null;
     source?: string;
     sourceUrl?: string | null;
     photoUrl?: string | null;
@@ -476,7 +480,7 @@ async function insertRecipe(
   const kitchenId = data.kitchenId ?? await resolveKitchenId('home');
   const slug = await uniqueSlug(data.title);
   const [recipe] = await sql`
-    INSERT INTO recipes (title, slug, description, instructions, servings, prep_time, cook_time, tags, required_cookware, source, source_url, photo_url, kitchen_id)
+    INSERT INTO recipes (title, slug, description, instructions, servings, prep_time, cook_time, tags, source, source_url, photo_url, kitchen_id)
     VALUES (
       ${data.title},
       ${slug},
@@ -486,7 +490,6 @@ async function insertRecipe(
       ${data.prepTime ?? null},
       ${data.cookTime ?? null},
       ${sql.array(data.tags ?? [])},
-      ${sql.array(data.requiredCookware ?? [])},
       ${data.source ?? 'manual'},
       ${data.sourceUrl ?? null},
       ${data.photoUrl ?? null},
@@ -494,6 +497,12 @@ async function insertRecipe(
     )
     RETURNING *
   `;
+
+  if (data.requiredCookwareIds?.length) {
+    for (const cookwareId of data.requiredCookwareIds) {
+      await sql`INSERT INTO recipe_cookware (recipe_id, cookware_id) VALUES (${recipe.id}, ${cookwareId}) ON CONFLICT DO NOTHING`;
+    }
+  }
 
   if (ingredients.length > 0) {
     await sql`
@@ -525,7 +534,7 @@ builder.mutationField('createRecipe', (t) =>
       prepTime: t.arg.int(),
       cookTime: t.arg.int(),
       tags: t.arg.stringList(),
-      requiredCookware: t.arg.stringList(),
+      requiredCookwareIds: t.arg.stringList(),
       photoUrl: t.arg.string(),
       sourceUrl: t.arg.string(),
       ingredients: t.arg({ type: [RecipeIngredientInputType], required: true }),
@@ -542,7 +551,7 @@ builder.mutationField('createRecipe', (t) =>
           prepTime: args.prepTime,
           cookTime: args.cookTime,
           tags: args.tags,
-          requiredCookware: args.requiredCookware,
+          requiredCookwareIds: args.requiredCookwareIds,
           photoUrl: args.photoUrl,
           sourceUrl: args.sourceUrl,
           source: args.sourceUrl ? 'url-import' : 'manual',
@@ -566,7 +575,7 @@ builder.mutationField('updateRecipe', (t) =>
       prepTime: t.arg.int(),
       cookTime: t.arg.int(),
       tags: t.arg.stringList(),
-      requiredCookware: t.arg.stringList(),
+      requiredCookwareIds: t.arg.stringList(),
       photoUrl: t.arg.string(),
       ingredients: t.arg({ type: [RecipeIngredientInputType] }),
     },
@@ -582,11 +591,17 @@ builder.mutationField('updateRecipe', (t) =>
           prep_time = COALESCE(${args.prepTime ?? null}, prep_time),
           cook_time = COALESCE(${args.cookTime ?? null}, cook_time),
           tags = COALESCE(${args.tags ? sql.array(args.tags) : null}, tags),
-          required_cookware = COALESCE(${args.requiredCookware ? sql.array(args.requiredCookware) : null}, required_cookware),
           photo_url = COALESCE(${args.photoUrl ?? null}, photo_url)
         WHERE id = ${args.id}
         RETURNING *
       `;
+
+      if (args.requiredCookwareIds != null) {
+        await sql`DELETE FROM recipe_cookware WHERE recipe_id = ${args.id}`;
+        for (const cookwareId of args.requiredCookwareIds) {
+          await sql`INSERT INTO recipe_cookware (recipe_id, cookware_id) VALUES (${args.id}, ${cookwareId}) ON CONFLICT DO NOTHING`;
+        }
+      }
 
       if (args.ingredients) {
         await sql`DELETE FROM recipe_ingredients WHERE recipe_id = ${args.id}`;

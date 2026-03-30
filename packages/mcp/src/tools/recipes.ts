@@ -2,7 +2,14 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { gql } from '../graphql-client.js';
 
-const RECIPE_SUMMARY = `id slug title description tags requiredCookware servings prepTime cookTime source sourceUrl photoUrl queued lastMadeAt`;
+const RECIPE_SUMMARY = `id slug title description tags requiredCookware { name } servings prepTime cookTime source sourceUrl photoUrl queued lastMadeAt`;
+
+async function resolveCookwareIds(names: string[]): Promise<string[]> {
+  if (!names.length) return [];
+  const data = await gql<{ cookware: { id: string; name: string }[] }>(`{ cookware { id name } }`);
+  const map = Object.fromEntries(data.cookware.map((c) => [c.name, c.id]));
+  return names.map((n) => map[n]).filter(Boolean) as string[];
+}
 const RECIPE_FULL = `${RECIPE_SUMMARY} instructions ingredients { ingredientName quantity unit sourceRecipeId } groceryIngredients { ingredientName quantity unit }`;
 
 export function registerRecipeTools(server: McpServer) {
@@ -16,11 +23,12 @@ export function registerRecipeTools(server: McpServer) {
       kitchenSlug: z.string().optional().describe('Kitchen slug (default: home)'),
     },
     async (args) => {
+      const cookwareIds = args.cookware?.length ? await resolveCookwareIds(args.cookware) : undefined;
       const data = await gql<{ recipes: unknown[] }>(
         `query($tags: [String!], $cookware: [String!], $queued: Boolean, $kitchenSlug: String) {
           recipes(tags: $tags, cookware: $cookware, queued: $queued, kitchenSlug: $kitchenSlug) { ${RECIPE_SUMMARY} }
         }`,
-        args,
+        { ...args, cookware: cookwareIds },
       );
       return { content: [{ type: 'text' as const, text: JSON.stringify(data.recipes, null, 2) }] };
     },
@@ -67,19 +75,20 @@ export function registerRecipeTools(server: McpServer) {
       kitchenSlug: z.string().optional().describe('Kitchen slug (default: home)'),
     },
     async (args) => {
+      const requiredCookwareIds = args.requiredCookware ? await resolveCookwareIds(args.requiredCookware) : undefined;
       const data = await gql<{ createRecipe: unknown }>(
         `mutation(
           $title: String!, $instructions: String!, $ingredients: [RecipeIngredientInput!]!,
           $description: String, $servings: Int, $prepTime: Int, $cookTime: Int,
-          $tags: [String!], $requiredCookware: [String!], $photoUrl: String, $sourceUrl: String, $kitchenSlug: String
+          $tags: [String!], $requiredCookwareIds: [String!], $photoUrl: String, $sourceUrl: String, $kitchenSlug: String
         ) {
           createRecipe(
             title: $title, instructions: $instructions, ingredients: $ingredients,
             description: $description, servings: $servings, prepTime: $prepTime, cookTime: $cookTime,
-            tags: $tags, requiredCookware: $requiredCookware, photoUrl: $photoUrl, sourceUrl: $sourceUrl, kitchenSlug: $kitchenSlug
+            tags: $tags, requiredCookwareIds: $requiredCookwareIds, photoUrl: $photoUrl, sourceUrl: $sourceUrl, kitchenSlug: $kitchenSlug
           ) { ${RECIPE_SUMMARY} }
         }`,
-        args,
+        { ...args, requiredCookwareIds },
       );
       return { content: [{ type: 'text' as const, text: JSON.stringify(data.createRecipe, null, 2) }] };
     },
@@ -102,19 +111,20 @@ export function registerRecipeTools(server: McpServer) {
       ingredients: z.array(recipeIngredientInput).optional().describe('Full replacement ingredient list'),
     },
     async (args) => {
+      const requiredCookwareIds = args.requiredCookware ? await resolveCookwareIds(args.requiredCookware) : undefined;
       const data = await gql<{ updateRecipe: unknown }>(
         `mutation(
           $id: String!, $title: String, $description: String, $instructions: String,
           $servings: Int, $prepTime: Int, $cookTime: Int, $tags: [String!],
-          $requiredCookware: [String!], $photoUrl: String, $ingredients: [RecipeIngredientInput!]
+          $requiredCookwareIds: [String!], $photoUrl: String, $ingredients: [RecipeIngredientInput!]
         ) {
           updateRecipe(
             id: $id, title: $title, description: $description, instructions: $instructions,
             servings: $servings, prepTime: $prepTime, cookTime: $cookTime, tags: $tags,
-            requiredCookware: $requiredCookware, photoUrl: $photoUrl, ingredients: $ingredients
+            requiredCookwareIds: $requiredCookwareIds, photoUrl: $photoUrl, ingredients: $ingredients
           ) { ${RECIPE_SUMMARY} }
         }`,
-        args,
+        { ...args, requiredCookwareIds },
       );
       return { content: [{ type: 'text' as const, text: JSON.stringify(data.updateRecipe, null, 2) }] };
     },

@@ -34,7 +34,7 @@ interface ExistingRecipe {
 interface Props {
   initial?: RecipeData;
   existingRecipes?: ExistingRecipe[]; // for recipe-as-ingredient picker
-  cookwareItems?: string[]; // for Required Cookware datalist
+  cookwareItems?: { id: string; name: string }[]; // for Required Cookware datalist
   allTags?: string[]; // for tag typeahead suggestions
   recipesBase?: string; // e.g. '/recipes' or '/kitchens/grandmas/recipes'
   kitchenSlug?: string; // for createRecipe mutation
@@ -44,14 +44,14 @@ const CREATE_RECIPE = `
   mutation CreateRecipe(
     $title: String!, $description: String, $instructions: String!,
     $servings: Int, $prepTime: Int, $cookTime: Int,
-    $tags: [String!], $requiredCookware: [String!], $photoUrl: String,
+    $tags: [String!], $requiredCookwareIds: [String!], $photoUrl: String,
     $sourceUrl: String,
     $ingredients: [RecipeIngredientInput!]!, $kitchenSlug: String
   ) {
     createRecipe(
       title: $title, description: $description, instructions: $instructions,
       servings: $servings, prepTime: $prepTime, cookTime: $cookTime,
-      tags: $tags, requiredCookware: $requiredCookware, photoUrl: $photoUrl,
+      tags: $tags, requiredCookwareIds: $requiredCookwareIds, photoUrl: $photoUrl,
       sourceUrl: $sourceUrl,
       ingredients: $ingredients, kitchenSlug: $kitchenSlug
     ) { id }
@@ -62,13 +62,13 @@ const UPDATE_RECIPE = `
   mutation UpdateRecipe(
     $id: String!, $title: String, $description: String, $instructions: String,
     $servings: Int, $prepTime: Int, $cookTime: Int,
-    $tags: [String!], $requiredCookware: [String!], $photoUrl: String,
+    $tags: [String!], $requiredCookwareIds: [String!], $photoUrl: String,
     $ingredients: [RecipeIngredientInput!]
   ) {
     updateRecipe(
       id: $id, title: $title, description: $description, instructions: $instructions,
       servings: $servings, prepTime: $prepTime, cookTime: $cookTime,
-      tags: $tags, requiredCookware: $requiredCookware, photoUrl: $photoUrl,
+      tags: $tags, requiredCookwareIds: $requiredCookwareIds, photoUrl: $photoUrl,
       ingredients: $ingredients
     ) { id }
   }
@@ -237,7 +237,10 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
     setError(null);
 
     const tags = tagInput.split(',').map((t) => t.trim()).filter(Boolean);
-    const requiredCookware = cookwareInput.split(',').map((t) => t.trim()).filter(Boolean);
+    const requiredCookwareIds = cookwareInput
+      .split(',')
+      .map((n) => cookwareItems.find((c) => c.name === n.trim())?.id)
+      .filter((id): id is string => Boolean(id));
     const ingredients = ingredientRows
       .filter((r) => r.sourceRecipeId ? true : r.ingredientName.trim())
       .map((r) => ({
@@ -259,7 +262,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
         prepTime: prepTime ? parseInt(prepTime) : null,
         cookTime: cookTime ? parseInt(cookTime) : null,
         tags,
-        requiredCookware,
+        requiredCookwareIds,
         photoUrl: photoUrl || null,
         ingredients,
       };
@@ -278,7 +281,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
         prepTime: prepTime ? parseInt(prepTime) : null,
         cookTime: cookTime ? parseInt(cookTime) : null,
         tags,
-        requiredCookware,
+        requiredCookwareIds,
         photoUrl: photoUrl || null,
         sourceUrl: importUrl.trim() || null,
         ingredients,
@@ -585,7 +588,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
         </label>
         {cookwareItems.length > 0 && (
           <datalist id="form-cookware">
-            {cookwareItems.map((c) => <option key={c} value={c} />)}
+            {cookwareItems.map((c) => <option key={c.id} value={c.name} />)}
           </datalist>
         )}
         <input

@@ -42,7 +42,7 @@ interface Recipe {
   prepTime: number | null;
   cookTime: number | null;
   tags: string[];
-  requiredCookware: string[];
+  requiredCookware: { id: string; name: string; brand: string | null }[];
   source: string;
   sourceUrl: string | null;
   photoUrl: string | null;
@@ -56,11 +56,10 @@ const RECIPE_QUERY = `
   query Recipe($id: String!) {
     recipe(id: $id) {
       id slug title description instructions servings prepTime cookTime
-      tags requiredCookware source sourceUrl photoUrl lastMadeAt queued
+      tags requiredCookware { id name brand } source sourceUrl photoUrl lastMadeAt queued
       ingredients { ingredientName quantity unit sourceRecipeId }
       usedIn { id slug title cookTime prepTime servings source tags photoUrl queued }
     }
-    cookware { name brand }
   }
 `;
 
@@ -108,7 +107,6 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
   const [pantryEdits, setPantryEdits] = useState<Map<string, number>>(new Map());
   const [savingPantry, setSavingPantry] = useState(false);
-  const [cookwareLookup, setCookwareLookup] = useState<Record<string, string | null>>({});
   const [exportPhotoUrl, setExportPhotoUrl] = useState<string | null>(null);
 
   // Resolve local upload photos to base64 data URIs for export
@@ -171,7 +169,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
 
   useEffect(() => {
     if (!recipeId) return;
-    gql<{ recipe: Recipe | null; cookware: { name: string; brand: string | null }[] }>(RECIPE_QUERY, { id: recipeId })
+    gql<{ recipe: Recipe | null }>(RECIPE_QUERY, { id: recipeId })
       .then((d) => {
         if (!d.recipe) { setNotFound(true); return; }
         setRecipe(d.recipe);
@@ -179,11 +177,6 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
         setLastMadeAt(d.recipe.lastMadeAt);
         setQueued(d.recipe.queued);
         cacheSet(cacheKey, d.recipe);
-        const lookup: Record<string, string | null> = {};
-        for (const cw of d.cookware ?? []) {
-          lookup[cw.name] = cw.brand && cw.brand !== cw.name ? cw.brand : null;
-        }
-        setCookwareLookup(lookup);
       })
       .catch(() => {
         const cached = cacheGet<Recipe>(cacheKey);
@@ -546,9 +539,9 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
               <div className="mt-5">
                 <p className="font-semibold text-xs uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">Cookware</p>
                 <div className="flex flex-wrap gap-2">
-                  {recipe.requiredCookware.map((c) => (
-                    <span key={c} className="tag">
-                      {c}{cookwareLookup[c] && <em className="font-normal"> by {cookwareLookup[c]}</em>}
+                  {recipe.requiredCookware.map((cw) => (
+                    <span key={cw.id} className="tag">
+                      {cw.name}{cw.brand && cw.brand !== cw.name && <em className="font-normal"> by {cw.brand}</em>}
                     </span>
                   ))}
                 </div>

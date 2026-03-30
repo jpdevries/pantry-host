@@ -21,7 +21,7 @@ interface RecipeDetail {
   prepTime: number | null;
   cookTime: number | null;
   tags: string[];
-  requiredCookware: string[];
+  requiredCookware: { id: string; name: string }[];
   source: string;
   sourceUrl: string | null;
   photoUrl: string | null;
@@ -35,7 +35,7 @@ const LIST_QUERY = `query Recipes($kitchenSlug: String) {
 const DETAIL_QUERY = `query Recipe($id: String!) {
   recipe(id: $id) {
     id slug title description instructions servings prepTime cookTime
-    tags requiredCookware source sourceUrl photoUrl
+    tags requiredCookware { id name } source sourceUrl photoUrl
     ingredients { ingredientName quantity unit }
   }
 }`;
@@ -73,7 +73,12 @@ export default function RecipeExportPage({ kitchen }: Props) {
     if (detailCache.current.has(id) || fetchingIds.current.has(id)) return;
     fetchingIds.current.add(id);
     gql<{ recipe: RecipeDetail }>(DETAIL_QUERY, { id })
-      .then((d) => { if (d.recipe) detailCache.current.set(id, d.recipe); })
+      .then((d) => {
+        if (d.recipe) detailCache.current.set(id, {
+          ...d.recipe,
+          requiredCookware: d.recipe.requiredCookware.map((c) => c.name),
+        } as unknown as ExportableRecipe);
+      })
       .catch(() => {})
       .finally(() => fetchingIds.current.delete(id));
   }, []);
@@ -116,7 +121,10 @@ export default function RecipeExportPage({ kitchen }: Props) {
           batch.map((id) => gql<{ recipe: RecipeDetail }>(DETAIL_QUERY, { id })),
         );
         for (const r of results) {
-          if (r.recipe) detailCache.current.set(r.recipe.id, r.recipe);
+          if (r.recipe) detailCache.current.set(r.recipe.id, {
+            ...r.recipe,
+            requiredCookware: r.recipe.requiredCookware.map((c) => c.name),
+          } as unknown as ExportableRecipe);
         }
       }
       const details = ids.map((id) => detailCache.current.get(id)).filter(Boolean) as ExportableRecipe[];

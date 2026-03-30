@@ -20,7 +20,7 @@ interface Recipe {
   prepTime: number | null;
   cookTime: number | null;
   tags: string[];
-  requiredCookware: string[];
+  requiredCookware: { id: string; name: string }[];
   photoUrl: string | null;
   ingredients: RecipeIngredient[];
 }
@@ -33,7 +33,7 @@ const EDIT_QUERY = `
       ingredients { ingredientName quantity unit sourceRecipeId }
     }
     recipes { id title source tags }
-    cookware(kitchenSlug: $kitchenSlug) { name }
+    cookware(kitchenSlug: $kitchenSlug) { id name }
   }
 `;
 
@@ -44,18 +44,18 @@ export default function RecipeEditPage({ kitchen, recipeId }: Props) {
   const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [existingRecipes, setExistingRecipes] = useState<{ id: string; title: string; source: string }[]>([]);
-  const [cookwareItems, setCookwareItems] = useState<string[]>([]);
+  const [cookwareItems, setCookwareItems] = useState<{ id: string; name: string }[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
 
   useEffect(() => {
     if (!recipeId) return;
-    gql<{ recipe: Recipe | null; recipes: { id: string; title: string; source: string; tags: string[] }[]; cookware: { name: string }[] }>(
+    gql<{ recipe: Recipe | null; recipes: { id: string; title: string; source: string; tags: string[] }[]; cookware: { id: string; name: string }[] }>(
       EDIT_QUERY, { id: recipeId, kitchenSlug: kitchen || 'home' }
     ).then((d) => {
         if (!d.recipe) return;
         setRecipe(d.recipe);
         setExistingRecipes(d.recipes.filter((r) => r.id !== recipeId));
-        setCookwareItems(d.cookware.map((c) => c.name));
+        setCookwareItems(d.cookware);
         const tags = new Set<string>();
         d.recipes.forEach((r) => r.tags?.forEach((t) => tags.add(t)));
         setAllTags([...tags].sort());
@@ -87,7 +87,7 @@ export default function RecipeEditPage({ kitchen, recipeId }: Props) {
             prepTime: recipe.prepTime ?? undefined,
             cookTime: recipe.cookTime ?? undefined,
             tags: recipe.tags,
-            requiredCookware: recipe.requiredCookware,
+            requiredCookware: recipe.requiredCookware.map((c) => c.name),
             photoUrl: recipe.photoUrl ?? undefined,
             ingredients: recipe.ingredients.map((i) => ({
               ingredientName: i.ingredientName,

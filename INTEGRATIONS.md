@@ -165,15 +165,111 @@ Or with Docker (port 5001 is exposed when `ENABLE_MCP=true`).
 
 **Step 4:** Send a message from your connected messaging app. OpenClaw discovers Pantry Host's 28 tools automatically via MCP and routes your natural language queries to the right tool.
 
-### IronClaw (HTTP)
+### IronClaw (Telegram, Slack, CLI)
 
-Point [IronClaw](https://github.com/nearai/ironclaw) at your Pantry Host MCP endpoint:
+[IronClaw](https://github.com/nearai/ironclaw) is a Rust-based, privacy-first AI agent with built-in messaging channels (Telegram, Slack, Signal, CLI). It connects to Pantry Host via MCP HTTP and auto-discovers all 28 tools — your household can text the pantry from Telegram.
 
 ```
-MCP_URL=http://<your-lan-ip>:5001/mcp
+User (Telegram) → IronClaw → MCP HTTP (:5001) → GraphQL (:4001) → Postgres
 ```
 
-If `MCP_API_KEY` is set on the server, include the bearer token in requests.
+**Example conversations:**
+- "What's in my pantry?" → `search_pantry` → categorized inventory with counts
+- "When was dark chocolate added?" → `search_pantry` → "Added on March 30, 2026"
+- "Queue the chicken marsala" → `queue_recipe` → "Chicken Marsala queued"
+- "What can I make for dinner?" → `search_recipes` → recipe suggestions based on pantry
+
+**Prerequisites:**
+- Pantry Host GraphQL server running on port 4001
+- Pantry Host MCP server running in HTTP mode on port 5001 (with `MCP_API_KEY` set)
+- An Anthropic API key (for the LLM powering IronClaw's responses)
+
+**Step 1:** Install IronClaw:
+
+```bash
+brew install ironclaw
+```
+
+**Step 2:** Run first-time onboarding (sets up libSQL database and secrets):
+
+```bash
+ironclaw onboard --quick
+```
+
+**Step 3:** Add Pantry Host as an MCP server:
+
+```bash
+ironclaw mcp add pantry-host http://localhost:5001/mcp \
+  --header 'Authorization:Bearer YOUR_MCP_API_KEY' \
+  --description 'PantryHost kitchen manager'
+```
+
+Verify the connection (should list all 28 tools):
+
+```bash
+ironclaw mcp test pantry-host
+```
+
+**Step 4:** Configure the LLM provider. IronClaw defaults to its own LLM gateway — switch to Anthropic with your own API key:
+
+```bash
+ironclaw models set-provider anthropic --model claude-haiku-4-20250514
+```
+
+Add your API key to `~/.ironclaw/.env`:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+> **Tip:** Haiku is recommended for pantry queries — fast, cheap, and more than capable for tool-calling. Sonnet/Opus work too but consume significantly more tokens (28 tool definitions are sent with every message).
+
+**Step 5:** Add the Telegram channel:
+
+```bash
+ironclaw registry install telegram
+```
+
+Create a bot via [@BotFather](https://t.me/BotFather) on Telegram (`/newbot`), then add the token to `~/.ironclaw/.env`:
+
+```
+TELEGRAM_BOT_TOKEN=123456789:AABBccDDeeFFgg...
+```
+
+Enable polling in the channel config (`~/.ironclaw/channels/telegram.capabilities.json`):
+
+```json
+{
+  "config": {
+    "polling_enabled": true,
+    "dm_policy": "open"
+  }
+}
+```
+
+> Polling mode means no public URL is needed — IronClaw reaches out to Telegram, not the other way around. All data stays on your LAN.
+
+**Step 6:** Start IronClaw and test:
+
+```bash
+ironclaw run
+```
+
+Send a message to your Telegram bot — it should respond using Pantry Host tools.
+
+For production, manage IronClaw as a brew service:
+
+```bash
+brew services start ironclaw
+brew services restart ironclaw
+ironclaw status          # check system status
+ironclaw logs            # view logs
+```
+
+**Known issues (v0.23.0):**
+- **Slack:** The WASM channel registers a webhook endpoint but returns 404. Slack's `url_verification` challenge fails. Telegram (polling) works. Revisit Slack after IronClaw updates.
+- **Gateway port:** IronClaw's default gateway port is 3000, which conflicts with Pantry Host's Rex server. Change it: `ironclaw config set channels.gateway_port 3001`
+- **SECRETS_MASTER_KEY:** If `ironclaw mcp test` fails with "SECRETS_MASTER_KEY not set", generate one: `echo "SECRETS_MASTER_KEY=\"$(openssl rand -hex 32)\"" >> ~/.ironclaw/.env`
 
 ## Available Tools
 

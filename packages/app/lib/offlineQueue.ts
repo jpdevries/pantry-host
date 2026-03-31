@@ -14,6 +14,7 @@ interface QueuedMutation {
 }
 
 function load(): QueuedMutation[] {
+  if (typeof localStorage === 'undefined') return [];
   try {
     const raw = localStorage.getItem(QUEUE_KEY);
     return raw ? (JSON.parse(raw) as QueuedMutation[]) : [];
@@ -23,6 +24,7 @@ function load(): QueuedMutation[] {
 }
 
 function save(queue: QueuedMutation[]): void {
+  if (typeof localStorage === 'undefined') return;
   try {
     localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
   } catch { /* ignore */ }

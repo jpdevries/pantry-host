@@ -1,5 +1,19 @@
 import { MagnifyingGlass, ForkKnife, GearSix, TreeStructure, Microphone } from '@phosphor-icons/react';
 
+function ThoughtBubble({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative inline-block max-w-xs mx-auto mt-2">
+      {/* Tail circles */}
+      <div className="absolute -top-2 left-1/2 -translate-x-3 w-3 h-3 rounded-full bg-[var(--color-bg-body)] opacity-40" />
+      <div className="absolute -top-5 left-1/2 -translate-x-1 w-2 h-2 rounded-full bg-[var(--color-bg-body)] opacity-30" />
+      {/* Bubble */}
+      <div className="rounded-2xl bg-[var(--color-bg-body)] px-5 py-3 text-xs text-[var(--color-text-secondary)] italic space-y-0.5">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 const capabilities = [
   {
     title: 'Ask your pantry',
@@ -87,11 +101,11 @@ export default function Integrations() {
           <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed mb-5">
             Message your kitchen from apps like WhatsApp, Telegram, Discord, Slack, Signal, or iMessage&nbsp;&mdash; or use iOS Siri Shortcuts for hands&#8209;free&nbsp;voice. Connect any agent gateway that supports <abbr title="Model Context Protocol">MCP</abbr>, such as OpenClaw or&nbsp;IronClaw.
           </p>
-          <div className="text-xs text-[var(--color-text-secondary)] space-y-1 italic">
-            <p>&ldquo;How many eggs do we&nbsp;have?&rdquo;</p>
-            <p>&ldquo;What can I make for&nbsp;dinner?&rdquo;</p>
-            <p>&ldquo;Add milk to the&nbsp;list.&rdquo;</p>
-          </div>
+          <ThoughtBubble>
+            <p>What spices are on&nbsp;hand?</p>
+            <p>What can I make for&nbsp;dinner?</p>
+            <p>Add bananas to the&nbsp;list.</p>
+          </ThoughtBubble>
         </div>
         {/* Hey Siri, Pantry */}
         <div className="rounded-xl border border-[var(--color-border-card)] bg-[var(--color-bg-card)] p-6 sm:p-8 text-center">
@@ -112,11 +126,11 @@ export default function Integrations() {
           <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed mb-5">
             Ask Siri about your kitchen and hear the answer spoken&nbsp;back. Fully hands&#8209;free via a lightweight relay on your&nbsp;LAN.<br />Add ingredients, search recipes, check what&rsquo;s running low. All by&nbsp;voice.
           </p>
-          <div className="text-xs text-[var(--color-text-secondary)] space-y-1 italic">
-            <p>&ldquo;What&rsquo;s in the&nbsp;freezer?&rdquo;</p>
-            <p>&ldquo;Add oat milk to the&nbsp;pantry.&rdquo;</p>
-            <p>&ldquo;Queue the chicken&nbsp;marsala.&rdquo;</p>
-          </div>
+          <ThoughtBubble>
+            <p>What&rsquo;s in the&nbsp;freezer?</p>
+            <p>Add lettuce to the&nbsp;pantry.</p>
+            <p>List most perishable&nbsp;ingredients.</p>
+          </ThoughtBubble>
         </div>
       </div>
       {/* Logos from @lobehub/icons-static-svg (MIT) — rendered monochrome via fill="currentColor" */}

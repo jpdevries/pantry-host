@@ -19,6 +19,23 @@ export default function App({ Component, pageProps }: AppProps) {
     registerFlush(flush);
     // Flush any mutations queued while offline on startup
     flush().catch(console.error);
+
+    // TODO: Remove this workaround when Rex fixes SSR with React 19.
+    // When SSR fails (prod mode), the browser can't resolve #hash anchors
+    // against the empty document. Re-scroll to the hash target after hydration.
+    if (window.location.hash) {
+      const id = window.location.hash.slice(1);
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        // Element may not exist yet (data still loading). Retry briefly.
+        const t = setTimeout(() => {
+          document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+        }, 300);
+        return () => clearTimeout(t);
+      }
+    }
   }, []);
 
   return (

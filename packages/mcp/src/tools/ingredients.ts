@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { gql } from '../graphql-client.js';
 
-const INGREDIENT_FIELDS = `id name category quantity unit alwaysOnHand tags`;
+const INGREDIENT_FIELDS = `id name category quantity unit alwaysOnHand tags createdAt`;
 
 export function registerIngredientTools(server: McpServer) {
   server.tool(

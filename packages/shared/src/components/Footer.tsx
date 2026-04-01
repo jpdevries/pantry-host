@@ -194,6 +194,15 @@ function LogoTailscale({ size = 24 }: { size?: number }) {
   );
 }
 
+function LogoZiaArt({ size = 24 }: { size?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="10 18 232 108" width={Math.round(size * 1.575)} height={size} fill="currentColor" aria-hidden="true">
+      <title>Zia Art</title>
+      <path d="M108.49,43.05h7v57.89h-7v21.04h35.02v-21.04h-6.96V43.05h6.96V22.01h-35.02V43.05z M72.32,22.01L57.1,43.05l21.21,0l-42.06,57.89l-21.06,0.01l15.22,21.03l76.87,0v-21.04H64.96l42.33-57.89h0.01V22.01H72.32z M179.69,22.01L179.69,22.01L179.69,22.01l-35,0v99.98h21.06l27.92-38.57l27.91,38.57l15.21-21.03L179.69,22.01z M165.76,86.11V44.84l14.95,20.67L165.76,86.11z" />
+    </svg>
+  );
+}
+
 const CREDITS: { name: string; href: string; Logo: React.FC<{ size?: number }> }[] = [
   { name: 'JP DeVries', href: 'https://devries.jp', Logo: LogoJP },
   { name: 'HTML5', href: 'https://html.spec.whatwg.org/', Logo: LogoHTML5 },
@@ -212,6 +221,7 @@ const CREDITS: { name: string; href: string; Logo: React.FC<{ size?: number }> }
   { name: 'Cloudflare', href: 'https://www.cloudflare.com/', Logo: LogoCloudflare },
   { name: 'Anthropic', href: 'https://www.anthropic.com/', Logo: LogoAnthropic },
   { name: 'Tailscale', href: 'https://tailscale.com/', Logo: LogoTailscale },
+  { name: 'Zia Art', href: 'https://zia-art.com/', Logo: LogoZiaArt },
   { name: 'markup.tips', href: 'https://markup.tips/#stage', Logo: ({ size = 24 }) => <Code size={size} aria-hidden="true" /> },
 ];
 

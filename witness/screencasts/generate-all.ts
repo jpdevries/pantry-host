@@ -8,6 +8,7 @@
  *   --base-url <url>    Base URL (default: http://localhost:3000)
  *   --mp4               Also convert each .webm to .mp4 (requires ffmpeg)
  *   --flow <name>       Record a specific flow instead of "tour"
+ *   --viewport <preset> desktop, mobile, tablet, or WxH (default: desktop)
  */
 import { execFileSync } from 'child_process';
 import { mkdir } from 'fs/promises';
@@ -24,6 +25,9 @@ const convertMp4 = process.argv.includes('--mp4');
 const flowIdx = process.argv.indexOf('--flow');
 const flowName = flowIdx !== -1 ? process.argv[flowIdx + 1] : 'tour';
 
+const vpIdx = process.argv.indexOf('--viewport');
+const vpName = vpIdx !== -1 ? process.argv[vpIdx + 1] : 'desktop';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUTPUT_DIR = join(__dirname, '..', 'output', 'screencasts');
 const RECORD_SCRIPT = join(__dirname, 'record-one.ts');
@@ -32,6 +36,7 @@ async function run() {
   console.log(`\n  Pantry Host Themed Screencasts`);
   console.log(`  Base URL: ${BASE_URL}`);
   console.log(`  Flow: ${flowName}`);
+  console.log(`  Viewport: ${vpName}`);
   console.log(`  MP4: ${convertMp4 ? 'yes' : 'no'}`);
   console.log(`  Output: ${OUTPUT_DIR}\n`);
 
@@ -44,7 +49,7 @@ async function run() {
     for (const mode of MODES) {
       const label = `${palette}-${mode}`;
       try {
-        const args = ['tsx', RECORD_SCRIPT, palette, mode, '--flow', flowName, '--base-url', BASE_URL];
+        const args = ['tsx', RECORD_SCRIPT, palette, mode, '--flow', flowName, '--base-url', BASE_URL, '--viewport', vpName];
         if (convertMp4) args.push('--mp4');
 
         execFileSync('npx', args, {

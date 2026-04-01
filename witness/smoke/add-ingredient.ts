@@ -8,7 +8,7 @@ import { assertIncludes } from '../lib/assertions.js';
 const TEST_INGREDIENT = `_witness_test_${Date.now()}`;
 
 export default async function addIngredientTest(): Promise<void> {
-  await navigate('/ingredients');
+  await navigate('/ingredients#stage');
   await new Promise(r => setTimeout(r, 2000));
 
   // Click the "+ Add Item" button

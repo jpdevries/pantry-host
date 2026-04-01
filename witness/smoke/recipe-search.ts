@@ -5,7 +5,7 @@ import { navigate, type, assertVisible, getText } from '../lib/client.js';
 import { assert } from '../lib/assertions.js';
 
 export default async function recipeSearchTest(): Promise<void> {
-  await navigate('/recipes');
+  await navigate('/recipes#stage');
 
   // Wait for data to load
   await new Promise(r => setTimeout(r, 3000));

@@ -6,7 +6,7 @@ import { assert, assertGreaterThan } from '../lib/assertions.js';
 
 export default async function recipeDetailTest(): Promise<void> {
   // Go to recipes index and wait for data
-  await navigate('/recipes');
+  await navigate('/recipes#stage');
   await new Promise(r => setTimeout(r, 3000));
 
   // Find a recipe slug from the page HTML
@@ -20,7 +20,7 @@ export default async function recipeDetailTest(): Promise<void> {
   assert(allSlugs.length > 0, 'Should find at least one recipe link on /recipes');
 
   // Navigate to the recipe detail
-  await navigate(`/recipes/${allSlugs[0]}`);
+  await navigate(`/recipes/${allSlugs[0]}#stage`);
   await new Promise(r => setTimeout(r, 2000));
 
   // Title should be visible

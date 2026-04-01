@@ -67,7 +67,7 @@ export default function RecipeNewPage() {
         tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
         ingredients,
       });
-      navigate(`/recipes/${createRecipe.slug}`);
+      navigate(`/recipes/${createRecipe.slug}#stage`);
     } catch (err) {
       console.error(err);
       setSaving(false);

@@ -98,6 +98,10 @@ export async function select(target: { text?: string; selector?: string }, value
   await callTool('select', { ...target, value, returnScreenshot: false });
 }
 
+export async function hover(target: { text?: string; selector?: string; x?: number; y?: number }): Promise<void> {
+  await callTool('hover', { ...target, returnScreenshot: false });
+}
+
 export async function scroll(direction: 'up' | 'down' | 'left' | 'right', amount = 300): Promise<void> {
   await callTool('scroll', { direction, amount, returnScreenshot: false });
 }

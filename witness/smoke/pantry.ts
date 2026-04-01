@@ -5,7 +5,7 @@ import { navigate, assertVisible, getText } from '../lib/client.js';
 import { assertGreaterThan } from '../lib/assertions.js';
 
 export default async function pantryTest(): Promise<void> {
-  await navigate('/ingredients');
+  await navigate('/ingredients#stage');
 
   // Page title
   await assertVisible({ selector: 'h1' });

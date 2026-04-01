@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html><head><title>init</title></head>
+<body>
+<script>
+  var p = new URLSearchParams(location.search);
+  if (p.get('palette')) localStorage.setItem('theme-palette', p.get('palette'));
+  if (p.get('mode')) localStorage.setItem('theme-preference', p.get('mode'));
+  document.title = 'ready';
+</script>
+</body>
+</html>

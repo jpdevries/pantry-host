@@ -65,7 +65,7 @@ export default function RecipeDetailPage() {
   async function handleDelete() {
     if (!recipe || !confirm('Delete this recipe?')) return;
     await gql(`mutation($id: String!) { deleteRecipe(id: $id) }`, { id: recipe.id });
-    navigate('/recipes');
+    navigate('/recipes#stage');
   }
 
   async function handleToggleQueue() {

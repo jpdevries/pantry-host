@@ -1,7 +1,7 @@
 /**
  * Flow: Bulk import multiple recipes by pasting several URLs.
  */
-import { navigate, click, type, scroll, screenshot } from '../../lib/client.js';
+import { navigate, click, hover, type, scroll, screenshot } from '../../lib/client.js';
 
 function wait(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -16,21 +16,25 @@ const RECIPE_URLS = [
 export default async function bulkImportFlow(): Promise<void> {
   // Go to recipe import page
   await navigate('/recipes/import');
-  await wait(2000);
+  await wait(3000);
   await screenshot('bulk-01-page');
 
   // Scroll to the paste section
   await scroll('down', 300);
-  await wait(500);
+  await wait(1500);
 
-  // Paste multiple URLs
+  // Hover the textarea then paste URLs
+  await hover({ selector: '[aria-label="Recipe URLs or file content"]' });
+  await wait(400);
   await type({ selector: '[aria-label="Recipe URLs or file content"]' }, RECIPE_URLS);
-  await wait(1000);
+  await wait(2000);
   await screenshot('bulk-02-urls-pasted');
 
-  // Click "Parse URLs"
+  // Hover then click "Parse URLs"
+  await hover({ text: 'Parse URLs →' });
+  await wait(400);
   await click({ text: 'Parse URLs →' });
-  await wait(3000);
+  await wait(4000);
   await screenshot('bulk-03-fetching');
 
   // Wait for all fetches to complete (3 recipes, batched)
@@ -39,6 +43,6 @@ export default async function bulkImportFlow(): Promise<void> {
 
   // Scroll to see all parsed recipes
   await scroll('down', 400);
-  await wait(800);
+  await wait(1200);
   await screenshot('bulk-05-review-scrolled');
 }

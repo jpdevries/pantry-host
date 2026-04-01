@@ -1,4 +1,5 @@
-import { Barcode, ClipboardText, FileArrowUp, Sparkle, Leaf, Palette, WifiSlash, ShieldCheck } from '@phosphor-icons/react';
+import { Barcode, ClipboardText, FileArrowUp, Sparkle, Leaf, Palette, WifiSlash, ShieldCheck, Play } from '@phosphor-icons/react';
+import ThemedVideo from '../components/ThemedVideo';
 
 const features = [
   {
@@ -86,6 +87,57 @@ export default function Features() {
             </p>
           </div>
         ))}
+      </div>
+      <div className="flex flex-col items-center mt-16 mb-10">
+        <div className="opacity-60 mb-4">
+          <Play size={32} weight="light" />
+        </div>
+        <h3 className="text-2xl sm:text-3xl font-bold">See Pantry Host in action</h3>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 sm:grid-rows-[1fr_auto_auto] gap-x-8 gap-y-8 sm:gap-y-0">
+        <ThemedVideo
+          name="queue-recipe-mobile"
+          caption="Browse and queue recipes to inform your grocery list."
+          muted
+          loop
+          playsInline
+          controls
+          className="w-full rounded-xl shadow-2xl border border-[var(--color-border-card)]"
+          figureClassName="grid grid-rows-subgrid row-span-3 items-end"
+          captionClassName="mt-4 text-sm text-[var(--color-text-secondary)] font-serif text-center self-start"
+        />
+        <figure className="grid grid-rows-subgrid row-span-3 items-end">
+          <div />
+          <video
+            muted
+            loop
+            playsInline
+            controls
+            className="w-full rounded-xl shadow-2xl border border-[var(--color-border-card)]"
+          >
+            <source src="/videos/siri.webm" type="video/webm" />
+            <source src="/videos/siri.mp4" type="video/mp4" />
+          </video>
+          <figcaption className="mt-4 text-sm text-[var(--color-text-secondary)] font-serif text-center self-start">
+            Manage your pantry conversationally with Siri.
+          </figcaption>
+        </figure>
+        <figure className="grid grid-rows-subgrid row-span-3 items-end">
+          <div />
+          <video
+            muted
+            loop
+            playsInline
+            controls
+            className="w-full rounded-xl shadow-2xl border border-[var(--color-border-card)]"
+          >
+            <source src="/videos/barcode.webm" type="video/webm" />
+            <source src="/videos/barcode.mp4" type="video/mp4" />
+          </video>
+          <figcaption className="mt-4 text-sm text-[var(--color-text-secondary)] font-serif text-center self-start">
+            Scan barcodes to add ingredients instantly.
+          </figcaption>
+        </figure>
       </div>
     </section>
   );

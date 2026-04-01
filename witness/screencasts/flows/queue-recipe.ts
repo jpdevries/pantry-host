@@ -17,10 +17,8 @@ async function scrollDown(steps: number, pxPerStep = 300, delayMs = 1200): Promi
 
 export default async function queueRecipeFlow(): Promise<void> {
   // Go to recipes page
-  await navigate('/recipes');
-  await wait(2000);
   await navigate('/recipes#stage');
-  await wait(4000);
+  await wait(5000);
   await screenshot('queue-01-recipes');
 
   // Scroll down to see recipe cards
@@ -52,24 +50,11 @@ export default async function queueRecipeFlow(): Promise<void> {
     await screenshot('queue-04-back-at-stage');
   }
 
-  // Hover then click the grocery list toggle (header area, visible without scrolling)
-  // Unqueue first if already on list, then re-queue
-  try {
-    const removeSel = '[aria-label="Remove from grocery list"]';
-    await hover({ selector: removeSel });
-    await wait(400);
-    await click({ selector: removeSel });
-    await wait(1500);
-    const addSel = '[aria-label="Add to grocery list"]';
-    await hover({ selector: addSel });
-    await wait(400);
-    await click({ selector: addSel });
-  } catch {
-    const addSel = '[aria-label="Add to grocery list"]';
-    await hover({ selector: addSel });
-    await wait(400);
-    await click({ selector: addSel });
-  }
+  // Hover then click "+ Grocery List" (recipes are guaranteed un-queued by record-one.ts)
+  const addSel = '[aria-label="Add to grocery list"]';
+  await hover({ selector: addSel });
+  await wait(400);
+  await click({ selector: addSel });
   await wait(2500);
   await screenshot('queue-05-added');
 

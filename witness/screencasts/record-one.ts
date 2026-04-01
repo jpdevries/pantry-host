@@ -9,6 +9,7 @@
  *   --viewport <preset> Viewport size: desktop (1280x720), mobile (375x812),
  *                        tablet (768x1024), or WxH (e.g. 390x844). Default: desktop
  *   --mp4               Also convert the .webm to .mp4 (requires ffmpeg)
+ *   --clean             Remove ISE flash frames from the MP4 (requires --mp4)
  *
  * Available flows: tour, queue-recipe, smoothie-bowl, recipe-search,
  *                  this-week-menu, import-recipe, bulk-import
@@ -16,6 +17,7 @@
 import { connect, disconnect, startSession, endSession, navigate } from '../lib/client.js';
 import { type Palette, type Mode } from '../lib/themes.js';
 import { convertWebmToMp4, findSessionDir } from '../lib/convert.js';
+import { cleanVideo } from '../lib/clean-video.js';
 import { FLOWS } from './demo-flow.js';
 import { join, dirname } from 'path';
 import { mkdir } from 'fs/promises';
@@ -27,6 +29,7 @@ const mode = process.argv[3] as Mode;
 const flowIdx = process.argv.indexOf('--flow');
 const flowName = flowIdx !== -1 ? process.argv[flowIdx + 1] : 'tour';
 const convertMp4 = process.argv.includes('--mp4');
+const cleanFrames = process.argv.includes('--clean');
 
 const BASE_URL = process.argv.includes('--base-url')
   ? process.argv[process.argv.indexOf('--base-url') + 1]
@@ -88,7 +91,24 @@ async function run() {
 
   // Warm up: navigate to homepage so the SSR flash happens here, not in the flow
   await navigate('/');
-  await new Promise(r => setTimeout(r, 3000));
+  await new Promise(r => setTimeout(r, 5000));
+
+  // Clear any queued recipes before recording (via GraphQL)
+  try {
+    const res = await fetch(`${BASE_URL.replace(':3000', ':4001')}/graphql`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: '{ recipes { id queued } }' }),
+    });
+    const data = await res.json() as { data: { recipes: { id: string; queued: boolean }[] } };
+    for (const r of data.data.recipes.filter(r => r.queued)) {
+      await fetch(`${BASE_URL.replace(':3000', ':4001')}/graphql`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'mutation($id:String!){toggleRecipeQueued(id:$id){id queued}}', variables: { id: r.id } }),
+      });
+    }
+  } catch {}
 
   // Run the flow
   await flowFn();
@@ -103,6 +123,7 @@ async function run() {
       await mkdir(OUTPUT_DIR, { recursive: true });
       const mp4Path = join(OUTPUT_DIR, `${label}.mp4`);
       await convertWebmToMp4(sessionDir, mp4Path);
+      if (cleanFrames) cleanVideo(mp4Path);
       console.log(`\x1b[32m✓\x1b[0m ${label} → ${mp4Path}`);
     } else {
       console.log(`\x1b[32m✓\x1b[0m ${label} (webm only — session dir not found for mp4)`);

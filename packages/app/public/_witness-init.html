@@ -1,10 +1,31 @@
 <!DOCTYPE html>
 <html><head><title>init</title></head>
-<body>
+<body style="background:#000;margin:0">
 <script>
   var p = new URLSearchParams(location.search);
-  if (p.get('palette')) localStorage.setItem('theme-palette', p.get('palette'));
-  if (p.get('mode')) localStorage.setItem('theme-preference', p.get('mode'));
+  var palette = p.get('palette') || 'default';
+  var mode = p.get('mode') || 'dark';
+
+  if (palette) localStorage.setItem('theme-palette', palette);
+  if (mode) localStorage.setItem('theme-preference', mode);
+
+  var bg = {
+    'default-light': '#f4f4f5', 'default-dark': '#09090b',
+    'rose-light': '#fff1f2', 'rose-dark': '#1a0a10',
+    'rebecca-light': '#f3eef8', 'rebecca-dark': '#110a1f',
+    'claude-light': '#f5f0eb', 'claude-dark': '#1a1915',
+    'avocado-light': '#f5f3eb', 'avocado-dark': '#332A32',
+    'marrakech-light': '#f5ede0', 'marrakech-dark': '#1c1410',
+    'provencal-light': '#f5f0e8', 'provencal-dark': '#161418',
+    'kaiseki-light': '#f4f1ec', 'kaiseki-dark': '#141210',
+    'tuscany-light': '#f5f0e0', 'tuscany-dark': '#18150e',
+    'oaxacan-light': '#f4f0e8', 'oaxacan-dark': '#141018',
+    'pompeii-light': '#f2ede4', 'pompeii-dark': '#161210',
+    'nordic-light': '#f0f2f4', 'nordic-dark': '#10141a',
+    'ottoman-light': '#f0ede8', 'ottoman-dark': '#0e1418'
+  };
+
+  document.body.style.background = bg[palette + '-' + mode] || '#000';
   document.title = 'ready';
 </script>
 </body>

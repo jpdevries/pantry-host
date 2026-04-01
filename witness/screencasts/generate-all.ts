@@ -9,6 +9,7 @@
  *   --mp4               Also convert each .webm to .mp4 (requires ffmpeg)
  *   --flow <name>       Record a specific flow instead of "tour"
  *   --viewport <preset> desktop, mobile, tablet, or WxH (default: desktop)
+ *   --clean             Remove ISE flash frames from MP4s (requires --mp4)
  */
 import { execFileSync } from 'child_process';
 import { mkdir } from 'fs/promises';
@@ -21,6 +22,7 @@ const BASE_URL = process.argv.includes('--base-url')
   : 'http://localhost:3000';
 
 const convertMp4 = process.argv.includes('--mp4');
+const cleanFrames = process.argv.includes('--clean');
 
 const flowIdx = process.argv.indexOf('--flow');
 const flowName = flowIdx !== -1 ? process.argv[flowIdx + 1] : 'tour';
@@ -51,6 +53,7 @@ async function run() {
       try {
         const args = ['tsx', RECORD_SCRIPT, palette, mode, '--flow', flowName, '--base-url', BASE_URL, '--viewport', vpName];
         if (convertMp4) args.push('--mp4');
+        if (cleanFrames) args.push('--clean');
 
         execFileSync('npx', args, {
           stdio: 'pipe',

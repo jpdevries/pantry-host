@@ -10,3 +10,5 @@ node_modules
 dist
 packages/app/public/uploads/
 CLAUDE.local.md
+witness/output/*
+!witness/output/.gitkeep

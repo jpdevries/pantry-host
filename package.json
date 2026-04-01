@@ -11,10 +11,15 @@
     "dev:graphql": "npm run dev:graphql -w packages/app",
     "dev:marketing": "npm run dev -w packages/marketing",
     "dev:web": "npm run dev -w packages/web",
-    "dev:mcp": "npm run dev -w packages/mcp"
+    "dev:mcp": "npm run dev -w packages/mcp",
+    "test:smoke": "npx tsx witness/run-smoke.ts",
+    "screencasts": "npx tsx witness/screencasts/generate-all.ts"
   },
   "dependencies": {
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
   }
 }

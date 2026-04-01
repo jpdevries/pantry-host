@@ -1,5 +1,6 @@
 import { ShoppingCart } from '@phosphor-icons/react';
 import ThemedVideo from '../components/ThemedVideo';
+import LazyVideo from '../components/LazyVideo';
 
 export default function DemoVideos() {
   return (
@@ -26,7 +27,7 @@ export default function DemoVideos() {
         />
         <figure className="grid grid-rows-subgrid row-span-3 items-end">
           <div />
-          <video
+          <LazyVideo
             muted
             loop
             playsInline
@@ -38,14 +39,14 @@ export default function DemoVideos() {
           >
             <source src="/videos/siri.webm" type="video/webm" />
             <source src="/videos/siri.mp4" type="video/mp4" />
-          </video>
+          </LazyVideo>
           <figcaption className="mt-4 text-sm text-[var(--color-text-secondary)] font-serif text-center self-start pretty">
             Manage your pantry conversationally with Siri.
           </figcaption>
         </figure>
         <figure className="grid grid-rows-subgrid row-span-3 items-end">
           <div />
-          <video
+          <LazyVideo
             muted
             loop
             playsInline
@@ -57,7 +58,7 @@ export default function DemoVideos() {
           >
             <source src="/videos/barcode.webm" type="video/webm" />
             <source src="/videos/barcode.mp4" type="video/mp4" />
-          </video>
+          </LazyVideo>
           <figcaption className="mt-4 text-sm text-[var(--color-text-secondary)] font-serif text-center self-start pretty">
             Scan barcodes to add ingredients on the go.
           </figcaption>

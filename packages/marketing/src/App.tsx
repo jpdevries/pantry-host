@@ -3,6 +3,7 @@ import Hero from './sections/Hero';
 import Tiers from './sections/Tiers';
 import Features from './sections/Features';
 import Integrations from './sections/Integrations';
+import DemoVideos from './sections/DemoVideos';
 import { Docker, RaspberryPi } from './sections/SelfHost';
 import Philosophy from './sections/Philosophy';
 import Footer from '@pantry-host/shared/components/Footer';
@@ -60,6 +61,7 @@ function Landing() {
         <Tiers />
         <Features />
         <Integrations />
+        <DemoVideos />
         <Docker />
         <RaspberryPi />
         <Philosophy />

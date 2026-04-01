@@ -24,7 +24,7 @@ export default function ThemedVideo({
   return (
     <figure className={figureClassName}>
       <div />
-      <video key={prefix} poster={poster} preload="metadata" {...videoProps}>
+      <video key={prefix} poster={poster} preload="metadata" aria-label={caption ? `Demo: ${caption}` : undefined} {...videoProps}>
         <source src={webm} type="video/webm" />
         <source src={mp4} type="video/mp4" />
       </video>

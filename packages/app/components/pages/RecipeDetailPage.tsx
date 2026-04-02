@@ -130,9 +130,10 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
     setOwner(isOwner());
     setSupportsFullscreen(Boolean(document.documentElement.requestFullscreen || (document.documentElement as any).webkitRequestFullscreen));
 
-    // Fetch LAN IP for guest link (owner only)
+    // Fetch LAN IP for guest link (owner only).
+    // Reads from a static JSON file generated at build/start time.
     if (isOwner()) {
-      fetch('/api/network-info').then(r => r.json()).then(d => { if (d.ip) setLanIP(d.ip); }).catch(() => {});
+      fetch('/network-info.json').then(r => r.json()).then(d => { if (d.ip) setLanIP(d.ip); }).catch(() => {});
     }
   }, []);
 

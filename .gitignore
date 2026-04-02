@@ -9,6 +9,7 @@ node_modules
 .claude/worktrees/
 dist
 packages/app/public/uploads/
+packages/app/public/network-info.json
 CLAUDE.local.md
 .wrangler
 witness/output/*

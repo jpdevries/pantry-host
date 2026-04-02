@@ -346,28 +346,24 @@ export function generateRecipeICS(recipe: ExportableRecipe): string {
 
   const description = icsEsc(descParts.join('\n'));
 
-  // Use VTODO instead of VEVENT — DTSTART is optional in VTODO,
-  // so the task appears without a date. The user assigns a date
-  // in their calendar/reminders app when they're ready to cook.
-  const totalMinutes = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0);
+  // Use VEVENT with an all-day date. VTODO is not supported by iOS
+  // Calendar's webcal:// handler. All-day event for today — the user
+  // drags it to the correct date in their calendar app.
+  const today = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     'PRODID:-//Pantry Host//Recipe Calendar//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    'BEGIN:VTODO',
+    'BEGIN:VEVENT',
     `UID:${uid}`,
     `DTSTAMP:${icsTimestamp(now)}`,
+    `DTSTART;VALUE=DATE:${today}`,
+    `DTEND;VALUE=DATE:${today}`,
     icsFold(`SUMMARY:${icsEsc(recipe.title)}`),
     icsFold(`DESCRIPTION:${description}`),
   ];
-
-  if (totalMinutes) {
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-    lines.push(`DURATION:PT${h ? h + 'H' : ''}${m ? m + 'M' : ''}`);
-  }
 
   if (recipe.tags.length) {
     lines.push(icsFold(`CATEGORIES:${recipe.tags.map(icsEsc).join(',')}`));
@@ -386,7 +382,7 @@ export function generateRecipeICS(recipe: ExportableRecipe): string {
   if (recipe.servings) lines.push(`X-RECIPE-SERVINGS:${recipe.servings}`);
   if (recipe.requiredCookware.length) lines.push(icsFold(`X-RECIPE-COOKWARE:${recipe.requiredCookware.map(icsEsc).join(',')}`));
 
-  lines.push('END:VTODO');
+  lines.push('END:VEVENT');
   lines.push('END:VCALENDAR');
 
   return lines.join('\r\n');

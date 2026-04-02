@@ -12,11 +12,14 @@ function resolvePhotoUrl(photoUrl: string | null, slug: string | null, req: Next
   // Already absolute
   if (photoUrl.startsWith('http')) return photoUrl;
 
-  // Local upload — use the friendly recipe-photo endpoint (same origin, readable filename)
-  if (photoUrl.startsWith('/uploads/') && slug) {
+  // Local upload — construct absolute URL to the optimized 400px variant
+  if (photoUrl.startsWith('/uploads/')) {
     const proto = req.headers['x-forwarded-proto'] || (req.headers.host?.includes('localhost') ? 'http' : 'https');
     const host = req.headers.host;
-    if (host) return `${proto}://${host}/api/recipe-photo?slug=${slug}`;
+    if (host) {
+      const uuid = photoUrl.replace('/uploads/', '').replace(/\.[^.]+$/, '');
+      return `${proto}://${host}/uploads/${uuid}-400.jpg`;
+    }
   }
 
   return null;

@@ -6,21 +6,17 @@ import { generateRecipeICS, type ExportableRecipe } from '@pantry-host/shared/ex
  * Resolve a recipe's photo URL to an absolute HTTP URL for ICS ATTACH.
  * Priority: external URL as-is > local upload via request origin > null.
  */
-function resolvePhotoUrl(photoUrl: string | null, req: NextApiRequest): string | null {
+function resolvePhotoUrl(photoUrl: string | null, slug: string | null, req: NextApiRequest): string | null {
   if (!photoUrl) return null;
 
   // Already absolute
   if (photoUrl.startsWith('http')) return photoUrl;
 
-  // Local upload — construct absolute URL from request origin
-  if (photoUrl.startsWith('/uploads/')) {
+  // Local upload — use the friendly recipe-photo endpoint (same origin, readable filename)
+  if (photoUrl.startsWith('/uploads/') && slug) {
     const proto = req.headers['x-forwarded-proto'] || (req.headers.host?.includes('localhost') ? 'http' : 'https');
     const host = req.headers.host;
-    if (host) {
-      // Prefer the optimized 400px JPEG variant
-      const uuid = photoUrl.replace('/uploads/', '').replace(/\.[^.]+$/, '');
-      return `${proto}://${host}/uploads/${uuid}-400.jpg`;
-    }
+    if (host) return `${proto}://${host}/api/recipe-photo/${slug}.jpg`;
   }
 
   return null;
@@ -64,7 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     `;
 
     // Resolve photo URL: absolute > local via host > og:image from source
-    let photoUrl = resolvePhotoUrl(row.photo_url, req);
+    let photoUrl = resolvePhotoUrl(row.photo_url, row.slug, req);
     if (!photoUrl && row.source_url) {
       photoUrl = await fetchOgImage(row.source_url);
     }

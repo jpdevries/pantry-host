@@ -823,6 +823,7 @@
     min-width: 44px;
     background-color: var(--color-accent);
     color: var(--color-bg-body);
+    cursor: pointer;
   }
   .btn-primary:focus-visible {
     outline: 2px solid var(--color-ring-focus);
@@ -845,6 +846,7 @@
     min-height: 44px;
     min-width: 44px;
     color: var(--color-text-primary);
+    cursor: pointer;
   }
   .btn-secondary:focus-visible {
     outline: 2px solid var(--color-ring-focus);

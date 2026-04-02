@@ -744,6 +744,9 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                   navigator.clipboard.writeText(guestUrl).then(() => {
                     setGuestLinkCopied(true);
                     setTimeout(() => setGuestLinkCopied(false), 2000);
+                  }).catch(() => {
+                    // Clipboard denied (e.g. iframe, non-secure context) — prompt to copy manually
+                    window.prompt('Copy this guest link:', guestUrl);
                   });
                 }}
                 className="flex flex-col md:flex-row items-center gap-1 md:gap-2 btn-secondary text-sm justify-self-center border-0 bg-transparent md:border md:border-[var(--color-border-card)] md:bg-transparent"

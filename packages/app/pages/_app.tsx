@@ -11,7 +11,8 @@ import '../styles/globals.css';
 export default function App({ Component, pageProps }: AppProps) {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(console.error);
+      const buildHash = document.querySelector<HTMLMetaElement>('meta[name="build-hash"]')?.content || 'dev';
+      navigator.serviceWorker.register(`/sw.js?v=${buildHash}`).catch(console.error);
     }
     initTheme();
     // Flush is triggered by API coming back online, not navigator.online —

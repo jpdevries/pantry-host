@@ -1,6 +1,19 @@
 import { Html, Head, Main, NextScript } from 'next/document';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+function getBuildHash(): string {
+  try {
+    const manifest = JSON.parse(readFileSync(join(process.cwd(), '.rex/build/manifest.json'), 'utf-8'));
+    return (manifest.build_id as string)?.slice(0, 8) || 'dev';
+  } catch {
+    return 'dev';
+  }
+}
 
 export default function Document() {
+  const buildHash = getBuildHash();
+
   return (
     <Html lang="en">
       <Head>
@@ -8,6 +21,7 @@ export default function Document() {
         <link rel="icon" href="/favicon.ico" sizes="32x32" />
         <meta name="theme-color" content="#18181b" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
+        <meta name="build-hash" content={buildHash} />
         {process.env.DEFAULT_THEME && <meta name="default-palette" content={process.env.DEFAULT_THEME} />}
       </Head>
       <body>

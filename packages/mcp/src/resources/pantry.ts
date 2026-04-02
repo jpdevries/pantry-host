@@ -26,7 +26,7 @@ export function registerResources(server: McpServer) {
     { description: 'All recipes — titles, tags, and metadata' },
     async () => {
       const data = await gql<{ recipes: unknown[] }>(
-        `{ recipes { id slug title description tags servings prepTime cookTime requiredCookware queued lastMadeAt } }`,
+        `{ recipes { id slug title description tags servings prepTime cookTime requiredCookware { name } queued lastMadeAt } }`,
       );
       return {
         contents: [{

@@ -19,7 +19,7 @@ interface Recipe {
   prepTime: number | null;
   cookTime: number | null;
   tags: string[];
-  requiredCookware: string[];
+  requiredCookware: { name: string }[];
   queued: boolean;
   ingredients: RecipeIngredient[];
   createdAt: string;
@@ -28,7 +28,7 @@ interface Recipe {
 const RECIPE_QUERY = `query($id: String!) {
   recipe(id: $id) {
     id slug title description instructions servings prepTime cookTime
-    tags requiredCookware queued createdAt
+    tags requiredCookware { name } queued createdAt
     ingredients { ingredientName quantity unit }
   }
 }`;
@@ -165,7 +165,7 @@ export default function RecipeDetailPage() {
             Print
           </button>
           <a
-            href={recipeToDataURI({ ...recipe, source: '', sourceUrl: null, photoUrl: exportPhotoUrl })}
+            href={recipeToDataURI({ ...recipe, requiredCookware: recipe.requiredCookware.map(c => c.name).filter(Boolean), source: '', sourceUrl: null, photoUrl: exportPhotoUrl })}
             download={`${recipe.slug || 'recipe'}.html`}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-[var(--color-border-card)] hover:underline"
           >
@@ -173,7 +173,7 @@ export default function RecipeDetailPage() {
           </a>
           <button
             type="button"
-            onClick={() => downloadRecipeICS({ ...recipe, source: '', sourceUrl: null, photoUrl: exportPhotoUrl })}
+            onClick={() => downloadRecipeICS({ ...recipe, requiredCookware: recipe.requiredCookware.map(c => c.name).filter(Boolean), source: '', sourceUrl: null, photoUrl: exportPhotoUrl })}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-[var(--color-border-card)] hover:underline"
           >
             Add to Calendar

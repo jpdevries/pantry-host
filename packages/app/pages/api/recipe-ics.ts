@@ -46,7 +46,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const ics = generateRecipeICS(recipe);
 
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${slug}.ics"`);
     res.status(200).send(ics);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';

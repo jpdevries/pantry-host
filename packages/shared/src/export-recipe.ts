@@ -351,12 +351,13 @@ export function generateRecipeICS(recipe: ExportableRecipe): string {
   // Use VEVENT with an all-day date. VTODO is not supported by iOS
   // Calendar's webcal:// handler. All-day event for today — the user
   // drags it to the correct date in their calendar app.
-  // Timed event at 6pm today with duration = prep + cook time.
-  // User drags the block to their actual cooking time.
+  // Timed event ending at 6:30pm, starting early enough for prep + cook.
+  // "Dinner is ready at 6:30" — the block communicates when to start cooking.
   const totalMinutes = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0) || 30;
-  const start = new Date(now);
-  start.setHours(18, 0, 0, 0); // 6pm local
-  if (start <= now) start.setDate(start.getDate() + 1); // Past 6pm? Use tomorrow
+  const end = new Date(now);
+  end.setHours(18, 30, 0, 0); // 6:30pm local
+  if (end <= now) end.setDate(end.getDate() + 1); // Past 6:30pm? Use tomorrow
+  const start = new Date(end.getTime() - totalMinutes * 60_000);
   const durationH = Math.floor(totalMinutes / 60);
   const durationM = totalMinutes % 60;
   const duration = `PT${durationH ? durationH + 'H' : ''}${durationM ? durationM + 'M' : ''}`;

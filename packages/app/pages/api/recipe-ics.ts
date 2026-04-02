@@ -1,31 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
 import sql from '@/lib/db';
 import { generateRecipeICS, type ExportableRecipe } from '@pantry-host/shared/export-recipe';
-
-/**
- * For local uploads (/uploads/uuid.ext), try to read the optimized
- * 400px JPEG variant and return it as base64. Returns undefined for
- * external URLs or if the variant doesn't exist.
- */
-function getInlineImage(photoUrl: string | null): { base64: string; type: string } | undefined {
-  if (!photoUrl || !photoUrl.startsWith('/uploads/')) return undefined;
-
-  // /uploads/uuid.jpg → uuid
-  const filename = photoUrl.replace('/uploads/', '');
-  const uuid = filename.replace(/\.[^.]+$/, '');
-  const variantPath = join(process.cwd(), 'public', 'uploads', `${uuid}-400.jpg`);
-
-  if (!existsSync(variantPath)) return undefined;
-
-  try {
-    const buffer = readFileSync(variantPath);
-    return { base64: buffer.toString('base64'), type: 'image/jpeg' };
-  } catch {
-    return undefined;
-  }
-}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const slug = req.query.slug as string;
@@ -68,11 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })),
     };
 
-    const inlineImage = getInlineImage(row.photo_url);
-    const ics = generateRecipeICS(recipe, inlineImage ? {
-      inlineImageBase64: inlineImage.base64,
-      inlineImageType: inlineImage.type,
-    } : undefined);
+    const ics = generateRecipeICS(recipe);
 
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     res.status(200).send(ics);

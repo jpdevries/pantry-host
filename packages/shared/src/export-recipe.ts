@@ -307,14 +307,7 @@ function icsTimestamp(date: Date): string {
  * DTSTART defaults to now — the user repositions it in their calendar app.
  * Event duration is based on prepTime + cookTime.
  */
-export interface ICSOptions {
-  /** Base64-encoded image to inline as ATTACH. Omit to use URI reference. */
-  inlineImageBase64?: string;
-  /** MIME type of the inline image (default: image/jpeg). */
-  inlineImageType?: string;
-}
-
-export function generateRecipeICS(recipe: ExportableRecipe, options?: ICSOptions): string {
+export function generateRecipeICS(recipe: ExportableRecipe): string {
   const now = new Date();
   const uid = `recipe-${recipe.slug || recipe.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${now.getTime()}@pantryhost.app`;
 
@@ -379,12 +372,7 @@ export function generateRecipeICS(recipe: ExportableRecipe, options?: ICSOptions
   const url = recipe.sourceUrl || null;
   if (url) lines.push(icsFold(`URL:${url}`));
 
-  if (options?.inlineImageBase64) {
-    // Inline base64-encoded image (local uploads, optimized 400px variant)
-    const fmtType = options.inlineImageType || 'image/jpeg';
-    lines.push(icsFold(`ATTACH;FMTTYPE=${fmtType};ENCODING=BASE64;VALUE=BINARY:${options.inlineImageBase64}`));
-  } else if (recipe.photoUrl && recipe.photoUrl.startsWith('http')) {
-    // External URL — reference only, no inlining
+  if (recipe.photoUrl && recipe.photoUrl.startsWith('http')) {
     const fmtType = recipe.photoUrl.endsWith('.png') ? 'image/png' : 'image/jpeg';
     lines.push(icsFold(`ATTACH;FMTTYPE=${fmtType}:${recipe.photoUrl}`));
   }

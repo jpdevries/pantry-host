@@ -348,15 +348,16 @@ export function generateRecipeICS(recipe: ExportableRecipe): string {
 
   const description = icsEsc(descParts.join('\n'));
 
-  // Use VEVENT with an all-day date. VTODO is not supported by iOS
-  // Calendar's webcal:// handler. All-day event for today — the user
-  // drags it to the correct date in their calendar app.
-  // Timed event ending at 6:30pm, starting early enough for prep + cook.
-  // "Dinner is ready at 6:30" — the block communicates when to start cooking.
+  // Meal-aware end time: breakfast 8am, lunch noon, dinner 6:30pm.
+  // Event starts early enough for prep + cook so the meal is ready on time.
+  const tags = recipe.tags.map(t => t.toLowerCase());
+  const mealEndHour = tags.includes('breakfast') ? 8 : tags.includes('lunch') ? 12 : 18;
+  const mealEndMinute = tags.includes('breakfast') ? 0 : tags.includes('lunch') ? 0 : 30;
+
   const totalMinutes = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0) || 30;
   const end = new Date(now);
-  end.setHours(18, 30, 0, 0); // 6:30pm local
-  if (end <= now) end.setDate(end.getDate() + 1); // Past 6:30pm? Use tomorrow
+  end.setHours(mealEndHour, mealEndMinute, 0, 0);
+  if (end <= now) end.setDate(end.getDate() + 1);
   const start = new Date(end.getTime() - totalMinutes * 60_000);
   const durationH = Math.floor(totalMinutes / 60);
   const durationM = totalMinutes % 60;

@@ -72,10 +72,19 @@ CREATE TABLE IF NOT EXISTS cookware (
   brand       VARCHAR(255),
   tags        TEXT[] DEFAULT '{}',
   kitchen_id  TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE,
+  notes       TEXT,
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_cookware_tags ON cookware USING GIN(tags);
+
+CREATE TABLE IF NOT EXISTS recipe_cookware (
+  recipe_id   UUID NOT NULL REFERENCES recipes(id)  ON DELETE CASCADE,
+  cookware_id UUID NOT NULL REFERENCES cookware(id) ON DELETE CASCADE,
+  PRIMARY KEY (recipe_id, cookware_id)
+);
+CREATE INDEX IF NOT EXISTS idx_recipe_cookware_recipe   ON recipe_cookware(recipe_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_cookware_cookware ON recipe_cookware(cookware_id);
 
 CREATE TABLE IF NOT EXISTS recipe_ingredients (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -142,6 +151,15 @@ async function getDB(): Promise<PGlite> {
       await db.query(
         `INSERT INTO kitchens (slug, name) VALUES ('home', 'Home') ON CONFLICT (slug) DO NOTHING`
       );
+      // Migrations for existing databases
+      await db.query(`ALTER TABLE cookware ADD COLUMN IF NOT EXISTS notes TEXT`);
+      await db.query(`CREATE TABLE IF NOT EXISTS recipe_cookware (
+        recipe_id   UUID NOT NULL REFERENCES recipes(id)  ON DELETE CASCADE,
+        cookware_id UUID NOT NULL REFERENCES cookware(id) ON DELETE CASCADE,
+        PRIMARY KEY (recipe_id, cookware_id)
+      )`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_recipe_cookware_recipe   ON recipe_cookware(recipe_id)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_recipe_cookware_cookware ON recipe_cookware(cookware_id)`);
     }
   })();
 

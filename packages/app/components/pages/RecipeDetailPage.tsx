@@ -3,7 +3,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { gql } from '@/lib/gql';
 import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
-import { ArrowsOut, ArrowsIn, Trash, Heart, Printer, Circle, CheckCircle, CalendarPlus, LinkSimple, ForkKnife } from '@phosphor-icons/react';
+import { ArrowsOut, ArrowsIn, Trash, Heart, Printer, Circle, CheckCircle, CalendarPlus, LinkSimple, ForkKnife, ShareNetwork } from '@phosphor-icons/react';
 import { enqueue } from '@/lib/offlineQueue';
 import RecipeCard from '@/components/RecipeCard';
 import { Leaf } from '@phosphor-icons/react';
@@ -741,8 +741,9 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
         )}
 
         <div className="py-16">
+          <div className="flex justify-center mb-3 opacity-60"><ShareNetwork size={24} weight="light" aria-hidden /></div>
           <h2 id="share-heading" className="text-xl font-bold mb-3 md:text-center">Share {recipe.title}</h2>
-          <p className="text-sm text-[var(--color-text-secondary)] mb-6 md:text-center legible pretty md:mx-auto">Print this recipe, export it as HTML to share with a friend, or add it to your calendar for meal planning.</p>
+          <p className="text-sm text-[var(--color-text-secondary)] mb-6 md:text-center very legible pretty md:mx-auto">Print this recipe, export it as HTML to share with a friend, or add it to your calendar for meal planning.</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <button
               type="button"

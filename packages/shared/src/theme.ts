@@ -153,6 +153,22 @@ export function applyTheme() {
   }
 
   applyColorOverrides();
+
+  // Update <meta name="theme-color"> so iOS Safari's chrome (top/bottom bars)
+  // matches the active palette + mode. Uses rAF to read computed style after
+  // CSS has been applied by the data attribute changes above.
+  requestAnimationFrame(() => {
+    const bgBody = getComputedStyle(document.body).getPropertyValue('--color-bg-body').trim();
+    if (bgBody) {
+      let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.name = 'theme-color';
+        document.head.appendChild(meta);
+      }
+      meta.content = bgBody;
+    }
+  });
 }
 
 let listenerRegistered = false;

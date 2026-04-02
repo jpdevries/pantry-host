@@ -3,7 +3,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { gql } from '@/lib/gql';
 import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
-import { ArrowsOut, ArrowsIn, Trash, Heart, Printer, Circle, CheckCircle, CalendarPlus } from '@phosphor-icons/react';
+import { ArrowsOut, ArrowsIn, Trash, Heart, Printer, Circle, CheckCircle, CalendarPlus, LinkSimple } from '@phosphor-icons/react';
 import { enqueue } from '@/lib/offlineQueue';
 import RecipeCard from '@/components/RecipeCard';
 import { Leaf } from '@phosphor-icons/react';
@@ -83,6 +83,8 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
   const [recipe, setRecipe] = useState<Recipe | null>(cachedRecipe);
   const [notFound, setNotFound] = useState(false);
   const [owner, setOwner] = useState(false);
+  const [lanIP, setLanIP] = useState<string | null>(null);
+  const [guestLinkCopied, setGuestLinkCopied] = useState(false);
   const [ageVerified, setAgeVerified] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('age-verified') === 'true';
     return false;
@@ -127,6 +129,11 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
   useEffect(() => {
     setOwner(isOwner());
     setSupportsFullscreen(Boolean(document.documentElement.requestFullscreen || (document.documentElement as any).webkitRequestFullscreen));
+
+    // Fetch LAN IP for guest link (only when on HTTPS / Tailscale)
+    if (isOwner() && window.location.protocol === 'https:') {
+      fetch('/api/network-info').then(r => r.json()).then(d => { if (d.ip) setLanIP(d.ip); }).catch(() => {});
+    }
   }, []);
 
   useEffect(() => {
@@ -727,6 +734,22 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
               <CalendarPlus size={18} aria-hidden />
               Add to Calendar
             </a>
+            {lanIP && (
+              <button
+                type="button"
+                onClick={() => {
+                  const guestUrl = `http://${lanIP}:3000${window.location.pathname}`;
+                  navigator.clipboard.writeText(guestUrl).then(() => {
+                    setGuestLinkCopied(true);
+                    setTimeout(() => setGuestLinkCopied(false), 2000);
+                  });
+                }}
+                className="inline-flex items-center gap-2 btn-secondary text-sm"
+              >
+                <LinkSimple size={18} aria-hidden />
+                {guestLinkCopied ? 'Copied!' : 'Copy Guest Link'}
+              </button>
+            )}
           </div>
           <p className="text-sm text-[var(--color-text-secondary)] mt-3 md:text-center legible pretty text-center mx-auto">Print this recipe, export it as HTML to share with a friend, or add it to your calendar for meal planning.</p>
         </div>

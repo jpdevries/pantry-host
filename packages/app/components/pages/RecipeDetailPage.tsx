@@ -9,7 +9,7 @@ import RecipeCard from '@/components/RecipeCard';
 import { Leaf } from '@phosphor-icons/react';
 import { HIDDEN_TAGS } from '@pantry-host/shared/constants';
 import ResponsiveImage from '@/components/ResponsiveImage';
-import { recipeToDataURI, recipeToICSDataURI, imageToDataURI } from '@pantry-host/shared/export-recipe';
+import { recipeToDataURI, downloadRecipeICS, imageToDataURI } from '@pantry-host/shared/export-recipe';
 import Modal from '@pantry-host/shared/components/Modal';
 import { isOwner } from '@/lib/isTrustedNetwork';
 
@@ -709,14 +709,14 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
               </svg>
               Export HTML
             </a>
-            <a
-              href={recipeToICSDataURI({ ...recipe, requiredCookware: recipe.requiredCookware.map((c) => c.name), photoUrl: exportPhotoUrl })}
-              download={`${recipe.slug || 'recipe'}.ics`}
+            <button
+              type="button"
+              onClick={() => downloadRecipeICS({ ...recipe, requiredCookware: recipe.requiredCookware.map((c) => c.name), photoUrl: exportPhotoUrl })}
               className="inline-flex items-center gap-2 btn-secondary text-sm"
             >
               <CalendarPlus size={18} aria-hidden />
               Add to Calendar
-            </a>
+            </button>
           </div>
           <p className="text-sm text-[var(--color-text-secondary)] mt-3 md:text-center legible pretty text-center mx-auto">Print this recipe, export it as HTML to share with a friend, or add it to your calendar for meal planning.</p>
         </div>

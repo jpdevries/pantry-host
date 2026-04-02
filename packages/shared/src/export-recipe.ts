@@ -395,3 +395,20 @@ export function generateRecipeICS(recipe: ExportableRecipe): string {
 export function recipeToICSDataURI(recipe: ExportableRecipe): string {
   return 'data:text/calendar;charset=utf-8,' + encodeURIComponent(generateRecipeICS(recipe));
 }
+
+/**
+ * Download an ICS file via Blob URL. Works on iOS Safari where data: URI
+ * downloads are blocked. Creates a temporary link, clicks it, then cleans up.
+ */
+export function downloadRecipeICS(recipe: ExportableRecipe): void {
+  const ics = generateRecipeICS(recipe);
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${recipe.slug || 'recipe'}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

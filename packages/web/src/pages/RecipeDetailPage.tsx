@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { gql } from '@/lib/gql';
-import { recipeToDataURI, recipeToICSDataURI, imageToDataURI } from '@pantry-host/shared/export-recipe';
+import { recipeToDataURI, downloadRecipeICS, imageToDataURI } from '@pantry-host/shared/export-recipe';
 
 interface RecipeIngredient {
   ingredientName: string;
@@ -171,13 +171,13 @@ export default function RecipeDetailPage() {
           >
             Export HTML
           </a>
-          <a
-            href={recipeToICSDataURI({ ...recipe, source: '', sourceUrl: null, photoUrl: exportPhotoUrl })}
-            download={`${recipe.slug || 'recipe'}.ics`}
+          <button
+            type="button"
+            onClick={() => downloadRecipeICS({ ...recipe, source: '', sourceUrl: null, photoUrl: exportPhotoUrl })}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-[var(--color-border-card)] hover:underline"
           >
             Add to Calendar
-          </a>
+          </button>
         </div>
         <p className="text-sm text-[var(--color-text-secondary)] mt-3">Print this recipe, export it as HTML to share with a friend, or add it to your calendar for meal planning.</p>
       </div>

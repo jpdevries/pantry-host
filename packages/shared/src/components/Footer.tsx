@@ -212,6 +212,16 @@ function LogoZiaArt({ size = 24 }: { size?: number }) {
   );
 }
 
+function LogoGitLFS({ size = 24 }: { size?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 49.02 48.07" width={size} height={size} fill="currentColor" aria-hidden="true">
+      <title>Git Large File Storage</title>
+      <polygon opacity="0.6" points="24.51,28.18 24.59,48.07 49.02,33.96 49.02,14.2" />
+      <polygon points="39.56,8.73 15.13,22.84 15.13,30.77 9.46,27.5 9.46,19.57 33.9,5.46 24.44,0 0,14.11 0,33.88 24.59,48.07 24.59,28.31 49.02,14.2" />
+    </svg>
+  );
+}
+
 const CREDITS: { name: string; href: string; Logo: React.FC<{ size?: number }> }[] = [
   { name: 'JP DeVries', href: 'https://devries.jp', Logo: LogoJP },
   { name: 'HTML5', href: 'https://html.spec.whatwg.org/', Logo: LogoHTML5 },
@@ -231,6 +241,7 @@ const CREDITS: { name: string; href: string; Logo: React.FC<{ size?: number }> }
   { name: 'Anthropic', href: 'https://www.anthropic.com/', Logo: LogoAnthropic },
   { name: 'Tailscale', href: 'https://tailscale.com/', Logo: LogoTailscale },
   { name: 'Zia Art', href: 'https://zia-art.com/', Logo: LogoZiaArt },
+  { name: 'Git LFS', href: 'https://git-lfs.com/', Logo: LogoGitLFS },
   { name: 'markup.tips', href: 'https://markup.tips/#stage', Logo: ({ size = 24 }) => <Code size={size} aria-hidden="true" /> },
 ];
 
@@ -403,6 +414,12 @@ export default function Footer() {
                   <Logo size={28} />
                 </a>
               ))}
+            </div>
+            <div className="mt-4 text-[10px] leading-relaxed text-[var(--color-text-secondary)] max-w-prose pretty" style={{ opacity: 0.7 }}>
+              <p className="mb-2">Pantry Host is created and maintained by JP DeVries. Built on a lean web standards stack — HTML5, CSS3, and modern JavaScript APIs — enhanced by React, Node.js, PostgreSQL, and GraphQL. The front end fully leverages native browser capabilities before adding dependencies. A service worker handles offline caching and an &ldquo;away from pantry&rdquo; mode for use on the go.</p>
+              <p className="mb-2">Source code is authored in TypeScript, primarily via Claude Code. Rex, a Rust-based Next.js alternative by Liminal Labs, powers the server-side rendering. Packages are built with either Vite or Rex. Witness, also by Liminal Labs, automates screencasts, screenshots, and smoke tests. Open Food Facts provides barcode lookup data. A single Docker command is offered for containerized setup.</p>
+              <p className="mb-2">The self-hosted, privacy-first architecture relies on Tailscale for secure remote access and guest sharing over the local network. Pantry Host is designed to work as a Claude Code project and runs within the Claude Code preview using a dedicated &ldquo;Claude&rdquo; theme.</p>
+              <p>Logo mark illustration by Robb Sturtcman of Zia Art. HTML design patterns from markup.tips by JP DeVries. Site hosted on Cloudflare Pages.</p>
             </div>
           </details>
             <a href="https://github.com/jpdevries/pantry-host" className="transition-colors hover:text-secondary" style={{ color: 'inherit' }} aria-label="Pantry Host on GitHub">

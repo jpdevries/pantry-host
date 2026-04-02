@@ -16,7 +16,7 @@ function resolvePhotoUrl(photoUrl: string | null, slug: string | null, req: Next
   if (photoUrl.startsWith('/uploads/') && slug) {
     const proto = req.headers['x-forwarded-proto'] || (req.headers.host?.includes('localhost') ? 'http' : 'https');
     const host = req.headers.host;
-    if (host) return `${proto}://${host}/api/recipe-photo/${slug}.jpg`;
+    if (host) return `${proto}://${host}/api/recipe-photo?slug=${slug}`;
   }
 
   return null;

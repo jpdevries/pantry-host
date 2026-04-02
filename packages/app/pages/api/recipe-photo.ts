@@ -8,11 +8,11 @@ import sql from '@/lib/db';
  * Used by ICS calendar exports so iOS Calendar shows a readable
  * attachment name instead of a UUID.
  *
- * GET /api/recipe-photo/baby-banana-pancakes
+ * GET /api/recipe-photo?slug=baby-banana-pancakes
  * → 200 image/jpeg (Content-Disposition: inline; filename="baby-banana-pancakes.jpg")
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const slug = (req.query.slug as string)?.replace(/\.jpg$/, '');
+  const slug = req.query.slug as string;
   if (!slug) return res.status(400).end();
 
   try {

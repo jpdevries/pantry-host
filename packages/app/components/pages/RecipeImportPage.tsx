@@ -1,8 +1,16 @@
 import Head from 'next/head';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { gql } from '@/lib/gql';
 import { isApiOnline, API_STATUS_EVENT } from '@/lib/apiStatus';
+import {
+  searchFederationRecipes,
+  getFederationRecipe,
+  cooklangToRecipe,
+  type FederationSearchResult,
+  type FederationPagination,
+} from '@pantry-host/shared/cooklang';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 
 interface ParsedRecipe {
   title?: string;
@@ -132,6 +140,85 @@ export default function RecipeImportPage({ kitchen }: Props) {
   const [items, setItems] = useState<ImportItem[]>([]);
   const [saveProgress, setSaveProgress] = useState(0);
   const [apiOnline, setApiOnline] = useState(true);
+
+  // Cooklang federation state
+  const [clQuery, setClQuery] = useState('');
+  const [clResults, setClResults] = useState<FederationSearchResult[]>([]);
+  const [clPagination, setClPagination] = useState<FederationPagination | null>(null);
+  const [clSearching, setClSearching] = useState(false);
+  const [clLoadingMore, setClLoadingMore] = useState(false);
+  const [clSelected, setClSelected] = useState<Set<number>>(new Set());
+  const [clImporting, setClImporting] = useState(false);
+  const [clImportProgress, setClImportProgress] = useState<{ done: number; total: number } | null>(null);
+  const [clError, setClError] = useState<string | null>(null);
+  const clDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const clSearch = useCallback(async (q: string, page = 1, append = false) => {
+    if (!q.trim()) { setClResults([]); setClPagination(null); return; }
+    if (page === 1) setClSearching(true);
+    else setClLoadingMore(true);
+    setClError(null);
+    try {
+      const data = await searchFederationRecipes(q.trim(), page, 12);
+      setClResults((prev) => append ? [...prev, ...data.results] : data.results);
+      setClPagination(data.pagination);
+    } catch (err) {
+      setClError(`Search failed: ${(err as Error).message}`);
+    } finally {
+      setClSearching(false);
+      setClLoadingMore(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    clearTimeout(clDebounceRef.current);
+    if (!clQuery.trim()) { setClResults([]); setClPagination(null); return; }
+    clDebounceRef.current = setTimeout(() => clSearch(clQuery), 300);
+    return () => clearTimeout(clDebounceRef.current);
+  }, [clQuery, clSearch]);
+
+  function clToggleSelect(id: number) {
+    setClSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleCooklangImport() {
+    if (clSelected.size === 0) return;
+    setClImporting(true);
+    setClImportProgress({ done: 0, total: clSelected.size });
+    setClError(null);
+    const ids = Array.from(clSelected);
+    let done = 0;
+    for (const id of ids) {
+      try {
+        const full = await getFederationRecipe(id);
+        const recipe = cooklangToRecipe(full);
+        await gql(CREATE_RECIPE, {
+          title: recipe.title,
+          description: recipe.description || null,
+          instructions: recipe.instructions,
+          servings: recipe.servings ?? null,
+          prepTime: recipe.prepTime ?? null,
+          cookTime: recipe.cookTime ?? null,
+          tags: recipe.tags ?? [],
+          photoUrl: recipe.photoUrl ?? null,
+          ingredients: recipe.ingredients,
+          kitchenSlug: kitchen,
+        });
+      } catch (err) {
+        console.error(`Failed to import recipe ${id}:`, err);
+      }
+      done++;
+      setClImportProgress({ done, total: ids.length });
+    }
+    setClImporting(false);
+    setClImportProgress(null);
+    router.push(`${recipesBase}#stage`);
+  }
 
   useEffect(() => {
     setApiOnline(isApiOnline());
@@ -319,6 +406,105 @@ export default function RecipeImportPage({ kitchen }: Props) {
             >
               Parse URLs →
             </button>
+          </div>
+
+          {/* Cooklang Federation */}
+          <div className="mt-10 pt-8 border-t border-[var(--color-border-card)]">
+            <h2 className="text-xl font-bold mb-2">Import from Cooklang Federation</h2>
+            <p className="text-sm text-[var(--color-text-secondary)] mb-4 legible pretty">
+              Search the <a href="https://cooklang.org" className="underline" rel="noopener noreferrer">Cooklang</a> Federation for community recipes. Select the ones you want and import them.
+            </p>
+
+            <div className="relative mb-4">
+              <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" aria-hidden />
+              <input
+                type="search"
+                value={clQuery}
+                onChange={(e) => setClQuery(e.target.value)}
+                placeholder="Search federated recipes (e.g. pasta, chicken, breakfast)..."
+                className="field-input w-full pl-9"
+              />
+            </div>
+
+            {clError && <p role="alert" className="text-sm text-red-600 dark:text-red-400 mb-4">{clError}</p>}
+
+            {clSearching && clResults.length === 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="h-28 bg-[var(--color-bg-card)] animate-pulse" />
+                ))}
+              </div>
+            )}
+
+            {clResults.length > 0 && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                  {clResults.map((r) => {
+                    const isSelected = clSelected.has(r.id);
+                    return (
+                      <label
+                        key={r.id}
+                        className={`card p-4 cursor-pointer transition-colors ${isSelected ? 'border-accent bg-[var(--color-accent-subtle)]' : ''}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => clToggleSelect(r.id)}
+                            className="mt-1 w-4 h-4 shrink-0 accent-accent"
+                          />
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm leading-snug">{r.title}</p>
+                            {r.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {r.tags.slice(0, 4).map((t) => (
+                                  <span key={t} className="tag">{t}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {clPagination && clPagination.page < clPagination.total_pages && (
+                  <div className="text-center mb-4">
+                    <button
+                      type="button"
+                      onClick={() => clSearch(clQuery, clPagination.page + 1, true)}
+                      disabled={clLoadingMore}
+                      className="btn-secondary"
+                    >
+                      {clLoadingMore ? 'Loading\u2026' : `Load More (${clResults.length} of ${clPagination.total})`}
+                    </button>
+                  </div>
+                )}
+
+                {clSelected.size > 0 && (
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={handleCooklangImport}
+                      disabled={clImporting}
+                      aria-busy={clImporting}
+                      className="btn-primary"
+                    >
+                      {clImporting && clImportProgress
+                        ? `Importing ${clImportProgress.done}/${clImportProgress.total}\u2026`
+                        : `Import Selected (${clSelected.size})`}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {!clSearching && clQuery.trim() && clResults.length === 0 && (
+              <p className="text-[var(--color-text-secondary)] text-sm text-center py-8">
+                No recipes found for &ldquo;{clQuery}&rdquo;. Try a different search term.
+              </p>
+            )}
           </div>
         )}
 

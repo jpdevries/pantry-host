@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { gql } from '@/lib/gql';
 import { recipeToDataURI, downloadRecipeICS, imageToDataURI } from '@pantry-host/shared/export-recipe';
+import { downloadCooklang } from '@pantry-host/shared/cooklang';
 import { getFileURL } from '@/lib/storage-opfs';
-import { PencilSimple, Trash, Printer, CalendarPlus, Export } from '@phosphor-icons/react';
+import { PencilSimple, Trash, Printer, CalendarPlus, Export, Code } from '@phosphor-icons/react';
 
 interface RecipeIngredient {
   ingredientName: string;
@@ -210,8 +211,15 @@ export default function RecipeDetailPage() {
           >
             <CalendarPlus size={16} aria-hidden /> Add to Calendar
           </button>
+          <button
+            type="button"
+            onClick={() => downloadCooklang({ ...recipe, ingredients: recipe.ingredients.map(i => ({ ingredientName: i.ingredientName, quantity: i.quantity, unit: i.unit })) }, recipe.slug)}
+            className="btn-secondary text-sm"
+          >
+            <Code size={16} aria-hidden /> Export .cook
+          </button>
         </div>
-        <p className="text-sm text-[var(--color-text-secondary)] mt-3 legible pretty">Print this recipe, export it as HTML to share with a friend, or add it to your calendar for meal planning.</p>
+        <p className="text-sm text-[var(--color-text-secondary)] mt-3 legible pretty">Print this recipe, export it as HTML, add it to your calendar, or export as a Cooklang .cook file.</p>
       </div>
     </div>
   );

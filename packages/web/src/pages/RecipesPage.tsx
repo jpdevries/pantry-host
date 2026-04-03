@@ -126,7 +126,10 @@ export default function RecipesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Recipes</h1>
-        <Link to="/recipes/new" className="btn-primary">New recipe</Link>
+        <div className="flex gap-2">
+          <Link to="/recipes/import" className="btn-secondary">Import</Link>
+          <Link to="/recipes/new" className="btn-primary">New recipe</Link>
+        </div>
       </div>
 
       <input

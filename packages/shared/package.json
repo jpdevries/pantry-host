@@ -16,7 +16,8 @@
     "./components/Modal": "./src/components/Modal.tsx",
     "./types": "./src/types/index.ts",
     "./adapters/*": "./src/adapters/*.ts",
-    "./export-recipe": "./src/export-recipe.ts"
+    "./export-recipe": "./src/export-recipe.ts",
+    "./cooklang": "./src/cooklang.ts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

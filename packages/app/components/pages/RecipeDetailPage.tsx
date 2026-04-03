@@ -3,13 +3,14 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { gql } from '@/lib/gql';
 import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
-import { ArrowsOut, ArrowsIn, Trash, Heart, Printer, Circle, CheckCircle, CalendarPlus, LinkSimple, ForkKnife, ShareNetwork } from '@phosphor-icons/react';
+import { ArrowsOut, ArrowsIn, Trash, Heart, Printer, Circle, CheckCircle, CalendarPlus, LinkSimple, ForkKnife, ShareNetwork, Code } from '@phosphor-icons/react';
 import { enqueue } from '@/lib/offlineQueue';
 import RecipeCard from '@/components/RecipeCard';
 import { Leaf } from '@phosphor-icons/react';
 import { HIDDEN_TAGS, classifyRecipeCourse } from '@pantry-host/shared/constants';
 import ResponsiveImage from '@/components/ResponsiveImage';
 import { recipeToDataURI, imageToDataURI } from '@pantry-host/shared/export-recipe';
+import { downloadCooklang } from '@pantry-host/shared/cooklang';
 import Modal from '@pantry-host/shared/components/Modal';
 import { isOwner } from '@/lib/isTrustedNetwork';
 
@@ -781,6 +782,27 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
               <CalendarPlus size={18} aria-hidden />
               Add to Calendar
             </a>
+            <button
+              type="button"
+              onClick={() => downloadCooklang({
+                title: recipe.title,
+                description: recipe.description,
+                instructions: recipe.instructions,
+                servings: recipe.servings,
+                prepTime: recipe.prepTime,
+                cookTime: recipe.cookTime,
+                tags: recipe.tags,
+                ingredients: recipe.ingredients?.map((i: { ingredientName: string; quantity?: number | null; unit?: string | null }) => ({
+                  ingredientName: i.ingredientName,
+                  quantity: i.quantity,
+                  unit: i.unit,
+                })),
+              }, recipe.slug)}
+              className="flex flex-col md:flex-row items-center gap-1 md:gap-2 btn-secondary text-sm justify-self-center border-0 bg-transparent md:border md:border-[var(--color-border-card)] md:bg-transparent"
+            >
+              <Code size={18} aria-hidden />
+              Export .cook
+            </button>
             {lanIP && (
               <button
                 type="button"

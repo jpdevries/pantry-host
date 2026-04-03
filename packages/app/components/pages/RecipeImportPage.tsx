@@ -407,7 +407,6 @@ export default function RecipeImportPage({ kitchen }: Props) {
             >
               Parse URLs →
             </button>
-          </div>
 
           {/* Cooklang Federation */}
           <div className="mt-10 pt-8 border-t border-[var(--color-border-card)]">
@@ -506,6 +505,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
                 No recipes found for &ldquo;{clQuery}&rdquo;. Try a different search term.
               </p>
             )}
+          </div>
           </div>
         )}
 

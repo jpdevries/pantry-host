@@ -174,28 +174,51 @@ export function recipeToCooklang(recipe: {
   lines.push(`>> source: Pantry Host`);
   lines.push('');
 
-  // Ingredients as .cook inline references in a comment block
-  if (recipe.ingredients?.length) {
-    lines.push('-- Ingredients --');
-    for (const ing of recipe.ingredients) {
-      if (ing.quantity != null && ing.unit) {
-        lines.push(`-- @${ing.ingredientName}{${ing.quantity}%${ing.unit}}`);
-      } else if (ing.quantity != null) {
-        lines.push(`-- @${ing.ingredientName}{${ing.quantity}}`);
-      } else {
-        lines.push(`-- @${ing.ingredientName}{}`);
-      }
-    }
-    lines.push('');
-  }
-
-  // Instructions as plain text
   if (recipe.description) {
     lines.push(recipe.description);
     lines.push('');
   }
 
-  lines.push(recipe.instructions);
+  // Inline ingredients into instructions where they appear in the text.
+  // Track which ingredients were inlined so unmentioned ones can be listed separately.
+  const ingredients = recipe.ingredients ?? [];
+  const inlined = new Set<number>();
+
+  // Build a map of ingredient name → .cook syntax, sorted longest-first to avoid
+  // partial matches (e.g. "olive oil" before "oil")
+  const ingIndex = ingredients
+    .map((ing, i) => ({ ing, i }))
+    .sort((a, b) => b.ing.ingredientName.length - a.ing.ingredientName.length);
+
+  function formatCooklang(ing: { ingredientName: string; quantity?: number | null; unit?: string | null }): string {
+    if (ing.quantity != null && ing.unit) return `@${ing.ingredientName}{${ing.quantity}%${ing.unit}}`;
+    if (ing.quantity != null) return `@${ing.ingredientName}{${ing.quantity}}`;
+    return `@${ing.ingredientName}{}`;
+  }
+
+  let instructionText = recipe.instructions;
+
+  // Replace each ingredient's first occurrence in the instructions
+  for (const { ing, i } of ingIndex) {
+    const name = ing.ingredientName;
+    // Case-insensitive search for the ingredient name in instructions
+    const regex = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    if (regex.test(instructionText)) {
+      instructionText = instructionText.replace(regex, formatCooklang(ing));
+      inlined.add(i);
+    }
+  }
+
+  // List any ingredients not found in the instructions as standalone references
+  const unmentioned = ingredients.filter((_, i) => !inlined.has(i));
+  if (unmentioned.length > 0) {
+    for (const ing of unmentioned) {
+      lines.push(formatCooklang(ing));
+    }
+    lines.push('');
+  }
+
+  lines.push(instructionText);
 
   return lines.join('\n');
 }

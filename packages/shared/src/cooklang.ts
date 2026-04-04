@@ -224,6 +224,24 @@ export function recipeToCooklang(recipe: {
 }
 
 /**
+ * Derive a raw GitHub base URL for step photos from a Cooklang source_url.
+ * Returns null for non-GitHub sources.
+ *
+ * Input:  https://github.com/demosjarco/recipes/blob/main/recipes/Lunches/Buffalo Chicken Sandwich.cook
+ * Output: https://raw.githubusercontent.com/demosjarco/recipes/main/recipes/Lunches/Buffalo Chicken Sandwich
+ *
+ * Step N photo = `${base}.${n}.jpg`
+ */
+export function stepPhotoBaseUrl(sourceUrl: string): string | null {
+  const match = sourceUrl.match(
+    /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)\.cook$/
+  );
+  if (!match) return null;
+  const [, owner, repo, branch, path] = match;
+  return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
+}
+
+/**
  * Download a recipe as a .cook file.
  */
 export function downloadCooklang(recipe: Parameters<typeof recipeToCooklang>[0], slug?: string): void {

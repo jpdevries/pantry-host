@@ -10,7 +10,7 @@ import { Leaf } from '@phosphor-icons/react';
 import { HIDDEN_TAGS, classifyRecipeCourse } from '@pantry-host/shared/constants';
 import ResponsiveImage from '@/components/ResponsiveImage';
 import { recipeToDataURI, imageToDataURI } from '@pantry-host/shared/export-recipe';
-import { downloadCooklang } from '@pantry-host/shared/cooklang';
+import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang';
 import Modal from '@pantry-host/shared/components/Modal';
 import { isOwner } from '@/lib/isTrustedNetwork';
 
@@ -74,6 +74,45 @@ const UPDATE_INGREDIENT = `mutation UpdateIngredient($id: String!, $quantity: Fl
 interface PantryItem { id: string; name: string; quantity: number | null; unit: string | null; alwaysOnHand: boolean; }
 
 interface Props { kitchen: string; recipeId: string; }
+
+function StepPhotos({ steps, sourceUrl }: { steps: string[]; sourceUrl: string | null | undefined }) {
+  const [loadedSteps, setLoadedSteps] = useState<Set<number>>(new Set());
+  const base = sourceUrl ? stepPhotoBaseUrl(sourceUrl) : null;
+  if (!base || steps.length === 0) return null;
+
+  const hasAnyPhotos = loadedSteps.size > 0;
+
+  return (
+    <div className={`mt-12 ${hasAnyPhotos ? '' : 'hidden'}`}>
+      <h2 className="text-xl font-bold mb-4">Step by Step</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {steps.map((step, i) => {
+          const stepNum = i + 1;
+          const photoUrl = `${encodeURI(base)}.${stepNum}.jpg`;
+          return (
+            <div
+              key={stepNum}
+              className={`card overflow-hidden ${loadedSteps.has(stepNum) ? '' : 'hidden'}`}
+            >
+              <img
+                src={photoUrl}
+                alt={`Step ${stepNum}`}
+                className="w-full aspect-[4/3] object-cover"
+                loading="lazy"
+                onLoad={() => setLoadedSteps((prev) => new Set(prev).add(stepNum))}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+              <div className="p-3">
+                <span className="text-xs font-bold text-[var(--color-text-secondary)]">Step {stepNum}</span>
+                <p className="text-sm mt-1 line-clamp-3">{step}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
   const router = useRouter();
@@ -638,6 +677,8 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
               </ol>
             </section>
           </div>
+
+          <StepPhotos steps={steps} sourceUrl={recipe.sourceUrl} />
 
           {subRecipes.length > 0 && (
             <section aria-labelledby="sub-recipes-heading" className="mt-12">

@@ -10,6 +10,9 @@ import GroceryListPage from './pages/GroceryListPage';
 import CookwarePage from './pages/CookwarePage';
 import CookwareDetailPage from './pages/CookwareDetailPage';
 import MenusPage from './pages/MenusPage';
+import MenuDetailPage from './pages/MenuDetailPage';
+import MenuNewPage from './pages/MenuNewPage';
+import MenuEditPage from './pages/MenuEditPage';
 import RecipeImportPage from './pages/RecipeImportPage';
 import AccessibilityPage from './pages/AccessibilityPage';
 
@@ -29,6 +32,9 @@ export default function App() {
           <Route path="/cookware" element={<CookwarePage />} />
           <Route path="/cookware/:id" element={<CookwareDetailPage />} />
           <Route path="/menus" element={<MenusPage />} />
+          <Route path="/menus/new" element={<MenuNewPage />} />
+          <Route path="/menus/:slug" element={<MenuDetailPage />} />
+          <Route path="/menus/:slug/edit" element={<MenuEditPage />} />
           <Route path="/accessibility" element={<AccessibilityPage />} />
         </Route>
       </Routes>

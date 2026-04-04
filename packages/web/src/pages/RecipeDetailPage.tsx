@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { gql } from '@/lib/gql';
 import { recipeToDataURI, downloadRecipeICS, imageToDataURI } from '@pantry-host/shared/export-recipe';
-import { downloadCooklang } from '@pantry-host/shared/cooklang';
+import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang';
 import { getFileURL } from '@/lib/storage-opfs';
 import { PencilSimple, Trash, Printer, CalendarPlus, Export, Code } from '@phosphor-icons/react';
 
@@ -37,6 +37,49 @@ const RECIPE_QUERY = `query($id: String!) {
     ingredients { ingredientName quantity unit }
   }
 }`;
+
+function StepPhotos({ instructions, sourceUrl }: { instructions: string; sourceUrl: string | null }) {
+  const [loadedSteps, setLoadedSteps] = useState<Set<number>>(new Set());
+  const base = sourceUrl ? stepPhotoBaseUrl(sourceUrl) : null;
+  if (!base) return null;
+
+  const steps = instructions.split(/\n+/).filter((l) => /^\d+\./.test(l.trim()));
+  if (steps.length === 0) return null;
+
+  const hasAnyPhotos = loadedSteps.size > 0;
+
+  return (
+    <div className={`mt-6 ${hasAnyPhotos ? '' : 'hidden'}`}>
+      <h2 className="font-semibold mb-3">Step by Step</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {steps.map((step, i) => {
+          const stepNum = i + 1;
+          const photoUrl = `${encodeURI(base)}.${stepNum}.jpg`;
+          const stepText = step.replace(/^\d+\.\s*/, '');
+          return (
+            <div
+              key={stepNum}
+              className={`card rounded-xl overflow-hidden ${loadedSteps.has(stepNum) ? '' : 'hidden'}`}
+            >
+              <img
+                src={photoUrl}
+                alt={`Step ${stepNum}`}
+                className="w-full aspect-[4/3] object-cover"
+                loading="lazy"
+                onLoad={() => setLoadedSteps((prev) => new Set(prev).add(stepNum))}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+              <div className="p-3">
+                <span className="text-xs font-bold text-[var(--color-text-secondary)]">Step {stepNum}</span>
+                <p className="text-sm mt-1 line-clamp-3">{stepText}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function RecipeDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -196,6 +239,8 @@ export default function RecipeDetailPage() {
         <h2 className="font-semibold mb-3">Instructions</h2>
         <div className="text-sm whitespace-pre-wrap leading-relaxed">{recipe.instructions}</div>
       </div>
+
+      <StepPhotos instructions={recipe.instructions} sourceUrl={recipe.sourceUrl} />
 
       <div className="mt-6">
         <h2 className="font-semibold mb-3">Share the Love</h2>

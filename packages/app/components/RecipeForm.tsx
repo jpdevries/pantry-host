@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { UNIT_GROUPS, COMMON_INGREDIENTS } from '@pantry-host/shared/constants';
 import IngredientEditor, { resolveIngredients, type IngredientRow } from '@pantry-host/shared/components/IngredientEditor';
+import { extractCooklang, hasCooklangSyntax } from '@pantry-host/shared/cooklang-parser';
 import { gql } from '@/lib/gql';
 import { enqueue } from '@/lib/offlineQueue';
 
@@ -113,6 +114,37 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
   const [error, setError] = useState<string | null>(null);
 
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const cooklangDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Auto-extract from Cooklang syntax in instructions
+  useEffect(() => {
+    clearTimeout(cooklangDebounceRef.current);
+    if (!hasCooklangSyntax(instructions)) return;
+    cooklangDebounceRef.current = setTimeout(() => {
+      const { ingredients, cookware } = extractCooklang(instructions);
+      if (ingredients.length > 0) {
+        setIngredientRows((prev) => {
+          const extracted = ingredients.map((ing) => ({
+            ingredientName: ing.name,
+            quantity: ing.quantity?.toString() ?? '',
+            unit: ing.unit || 'whole',
+            sourceRecipeId: null,
+          }));
+          const extractedNames = new Set(extracted.map((e) => e.ingredientName.toLowerCase()));
+          const manual = prev.filter((r) => r.ingredientName.trim() && !extractedNames.has(r.ingredientName.toLowerCase()));
+          return [...extracted, ...manual];
+        });
+      }
+      if (cookware.length > 0) {
+        setCookwareInput((prev) => {
+          const existing = prev.split(',').map((s) => s.trim()).filter(Boolean);
+          const merged = [...new Set([...existing, ...cookware])];
+          return merged.join(', ');
+        });
+      }
+    }, 300);
+    return () => clearTimeout(cooklangDebounceRef.current);
+  }, [instructions]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const ingredientListRef = useRef<HTMLUListElement>(null);
   const [focusNewRecipeSelect, setFocusNewRecipeSelect] = useState(false);
@@ -239,10 +271,21 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
     setError(null);
 
     const tags = tagInput.split(',').map((t) => t.trim()).filter(Boolean);
-    const requiredCookwareIds = cookwareInput
-      .split(',')
-      .map((n) => cookwareItems.find((c) => c.name === n.trim())?.id)
-      .filter((id): id is string => Boolean(id));
+    // Resolve cookware names to IDs, auto-creating missing ones
+    const requiredCookwareIds: string[] = [];
+    for (const name of cookwareInput.split(',').map((n) => n.trim()).filter(Boolean)) {
+      const found = cookwareItems.find((c) => c.name.toLowerCase() === name.toLowerCase());
+      if (found) { requiredCookwareIds.push(found.id); }
+      else {
+        try {
+          const { addCookware } = await gql<{ addCookware: { id: string } }>(
+            `mutation($name: String!, $kitchenSlug: String) { addCookware(name: $name, kitchenSlug: $kitchenSlug) { id } }`,
+            { name, kitchenSlug },
+          );
+          requiredCookwareIds.push(addCookware.id);
+        } catch { /* skip */ }
+      }
+    }
     const ingredients = ingredientRows
       .filter((r) => r.sourceRecipeId ? true : r.ingredientName.trim())
       .map((r) => ({
@@ -259,7 +302,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
         id: initial.id,
         title: title.trim(),
         description: description || null,
-        instructions: instructions.trim(),
+        instructions: hasCooklangSyntax(instructions) ? extractCooklang(instructions).cleanedText : instructions.trim(),
         servings: servings ? parseInt(servings) : 2,
         prepTime: prepTime ? parseInt(prepTime) : null,
         cookTime: cookTime ? parseInt(cookTime) : null,
@@ -278,7 +321,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
       const variables = {
         title: title.trim(),
         description: description || null,
-        instructions: instructions.trim(),
+        instructions: hasCooklangSyntax(instructions) ? extractCooklang(instructions).cleanedText : instructions.trim(),
         servings: servings ? parseInt(servings) : 2,
         prepTime: prepTime ? parseInt(prepTime) : null,
         cookTime: cookTime ? parseInt(cookTime) : null,
@@ -439,7 +482,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
           Instructions <span aria-hidden="true" className="text-red-500">*</span>
         </label>
         <p className="text-xs text-[var(--color-text-secondary)] mb-1">
-          Each line is one step. Start lines with a number for best formatting.
+          Each line is one step. Supports <a href="https://cooklang.org" className="underline" rel="noopener noreferrer">Cooklang</a> syntax &mdash; use <code className="text-xs">@ingredient{'{'}qty%unit{'}'}</code> and <code className="text-xs">#cookware{'{}'}</code> to auto-populate.
         </p>
         <textarea
           id="recipe-instructions"
@@ -447,6 +490,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
           value={instructions}
           onChange={(e) => setInstructions(e.target.value)}
           rows={8}
+          placeholder={"1. Add @olive oil{2%tbsp} to the #skillet{}\n2. Cook @garlic{3%cloves} until golden\n3. Toss with @pasta{200%g}"}
           className="field-input w-full resize-y font-mono text-sm"
           aria-required="true"
         />

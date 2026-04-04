@@ -5,6 +5,7 @@ import { getFileURL } from '@/lib/storage-opfs';
 import { storePhotoBlob, fetchAndStorePhoto } from '@/lib/photo-helpers';
 import IngredientEditor, { resolveIngredients, type IngredientRow } from '@pantry-host/shared/components/IngredientEditor';
 import FeaturedTags from '@pantry-host/shared/components/FeaturedTags';
+import { extractCooklang, hasCooklangSyntax } from '@pantry-host/shared/cooklang-parser';
 
 const RECIPE_QUERY = `query($id: String!) {
   recipe(id: $id) {
@@ -41,6 +42,27 @@ const UPDATE_MUTATION = `mutation(
     ingredients: $ingredients
   ) { id slug }
 }`;
+
+async function resolveCookwareIds(input: string, existing: { id: string; name: string }[]): Promise<string[]> {
+  if (!input.trim()) return [];
+  const names = input.split(',').map((n) => n.trim()).filter(Boolean);
+  const ids: string[] = [];
+  for (const name of names) {
+    const found = existing.find((c) => c.name.toLowerCase() === name.toLowerCase());
+    if (found) {
+      ids.push(found.id);
+    } else {
+      try {
+        const { addCookware } = await gql<{ addCookware: { id: string } }>(
+          `mutation($name: String!) { addCookware(name: $name) { id } }`,
+          { name },
+        );
+        ids.push(addCookware.id);
+      } catch { /* skip */ }
+    }
+  }
+  return ids;
+}
 
 interface RecipeIngredient {
   ingredientName: string;
@@ -86,6 +108,37 @@ export default function RecipeEditPage() {
   const [cookwareInput, setCookwareInput] = useState('');
   const [cookwareItems, setCookwareItems] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
+  const cooklangDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Auto-extract from Cooklang syntax in instructions
+  useEffect(() => {
+    clearTimeout(cooklangDebounceRef.current);
+    if (!hasCooklangSyntax(instructions)) return;
+    cooklangDebounceRef.current = setTimeout(() => {
+      const { ingredients, cookware } = extractCooklang(instructions);
+      if (ingredients.length > 0) {
+        setIngredientRows((prev) => {
+          const extracted = ingredients.map((ing) => ({
+            ingredientName: ing.name,
+            quantity: ing.quantity?.toString() ?? '',
+            unit: ing.unit || 'whole',
+            sourceRecipeId: null,
+          }));
+          const extractedNames = new Set(extracted.map((e) => e.ingredientName.toLowerCase()));
+          const manual = prev.filter((r) => r.ingredientName.trim() && !extractedNames.has(r.ingredientName.toLowerCase()));
+          return [...extracted, ...manual];
+        });
+      }
+      if (cookware.length > 0) {
+        setCookwareInput((prev) => {
+          const existing = prev.split(',').map((s) => s.trim()).filter(Boolean);
+          const merged = [...new Set([...existing, ...cookware])];
+          return merged.join(', ');
+        });
+      }
+    }, 300);
+    return () => clearTimeout(cooklangDebounceRef.current);
+  }, [instructions]);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -195,15 +248,13 @@ export default function RecipeEditPage() {
         id: recipe.id,
         title: title.trim(),
         description: description.trim() || null,
-        instructions: instructions.trim(),
+        instructions: hasCooklangSyntax(instructions) ? extractCooklang(instructions).cleanedText : instructions.trim(),
         servings: servings ? parseInt(servings) : null,
         prepTime: prepTime ? parseInt(prepTime) : null,
         cookTime: cookTime ? parseInt(cookTime) : null,
         tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
         photoUrl: finalPhotoUrl,
-        requiredCookwareIds: cookwareInput
-          ? cookwareInput.split(',').map((n) => cookwareItems.find((c) => c.name.toLowerCase() === n.trim().toLowerCase())?.id).filter(Boolean)
-          : [],
+        requiredCookwareIds: await resolveCookwareIds(cookwareInput, cookwareItems),
         ingredients,
       });
       navigate(`/recipes/${updateRecipe.slug}#stage`);
@@ -358,8 +409,12 @@ export default function RecipeEditPage() {
             onChange={(e) => setInstructions(e.target.value)}
             required
             rows={8}
-            className="field-input w-full"
+            placeholder={"1. Add @olive oil{2%tbsp} to the #skillet{}\n2. Cook @garlic{3%cloves} until golden"}
+            className="field-input w-full font-mono text-sm"
           />
+          <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+            Supports <a href="https://cooklang.org" className="underline" rel="noopener noreferrer">Cooklang</a> syntax. Use <code className="text-xs">@ingredient{'{'}qty%unit{'}'}</code> and <code className="text-xs">#cookware{'{}'}</code> to auto-populate.
+          </p>
         </div>
 
         <div className="flex gap-3">

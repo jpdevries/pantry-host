@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { gql } from '@/lib/gql';
 import { storePhotoBlob, fetchAndStorePhoto } from '@/lib/photo-helpers';
 import IngredientEditor, { resolveIngredients, type IngredientRow } from '@pantry-host/shared/components/IngredientEditor';
 import FeaturedTags from '@pantry-host/shared/components/FeaturedTags';
+import { extractCooklang, hasCooklangSyntax } from '@pantry-host/shared/cooklang-parser';
 
 const CREATE_MUTATION = `mutation(
   $title: String!,
@@ -31,6 +32,29 @@ const CREATE_MUTATION = `mutation(
   ) { id slug }
 }`;
 
+/** Resolve cookware names to IDs, auto-creating any that don't exist */
+async function resolveCookwareIds(input: string, existing: { id: string; name: string }[]): Promise<string[]> {
+  if (!input.trim()) return [];
+  const names = input.split(',').map((n) => n.trim()).filter(Boolean);
+  const ids: string[] = [];
+  for (const name of names) {
+    const found = existing.find((c) => c.name.toLowerCase() === name.toLowerCase());
+    if (found) {
+      ids.push(found.id);
+    } else {
+      // Auto-create
+      try {
+        const { addCookware } = await gql<{ addCookware: { id: string } }>(
+          `mutation($name: String!) { addCookware(name: $name) { id } }`,
+          { name },
+        );
+        ids.push(addCookware.id);
+      } catch { /* skip on error */ }
+    }
+  }
+  return ids;
+}
+
 export default function RecipeNewPage() {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
@@ -52,6 +76,39 @@ export default function RecipeNewPage() {
   const [allRecipes, setAllRecipes] = useState<{ id: string; slug: string; title: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const cooklangDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Auto-extract ingredients + cookware from Cooklang syntax in instructions
+  useEffect(() => {
+    clearTimeout(cooklangDebounceRef.current);
+    if (!hasCooklangSyntax(instructions)) return;
+    cooklangDebounceRef.current = setTimeout(() => {
+      const { ingredients, cookware } = extractCooklang(instructions);
+      if (ingredients.length > 0) {
+        setIngredientRows((prev) => {
+          // Merge: keep manual rows, update/add extracted ones
+          const extracted = ingredients.map((ing) => ({
+            ingredientName: ing.name,
+            quantity: ing.quantity?.toString() ?? '',
+            unit: ing.unit || 'whole',
+            sourceRecipeId: null,
+          }));
+          // Keep manually added rows (ones not matching any extracted name)
+          const extractedNames = new Set(extracted.map((e) => e.ingredientName.toLowerCase()));
+          const manual = prev.filter((r) => r.ingredientName.trim() && !extractedNames.has(r.ingredientName.toLowerCase()));
+          return [...extracted, ...manual];
+        });
+      }
+      if (cookware.length > 0) {
+        setCookwareInput((prev) => {
+          const existing = prev.split(',').map((s) => s.trim()).filter(Boolean);
+          const merged = [...new Set([...existing, ...cookware])];
+          return merged.join(', ');
+        });
+      }
+    }, 300);
+    return () => clearTimeout(cooklangDebounceRef.current);
+  }, [instructions]);
 
   useEffect(() => {
     gql<{ cookware: { id: string; name: string }[] }>(`{ cookware { id name } }`)
@@ -124,15 +181,13 @@ export default function RecipeNewPage() {
       const { createRecipe } = await gql<{ createRecipe: { slug: string } }>(CREATE_MUTATION, {
         title: title.trim(),
         description: description.trim() || null,
-        instructions: instructions.trim(),
+        instructions: hasCooklangSyntax(instructions) ? extractCooklang(instructions).cleanedText : instructions.trim(),
         servings: servings ? parseInt(servings) : null,
         prepTime: prepTime ? parseInt(prepTime) : null,
         cookTime: cookTime ? parseInt(cookTime) : null,
         tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
         photoUrl: finalPhotoUrl,
-        requiredCookwareIds: cookwareInput
-          ? cookwareInput.split(',').map((n) => cookwareItems.find((c) => c.name.toLowerCase() === n.trim().toLowerCase())?.id).filter(Boolean)
-          : [],
+        requiredCookwareIds: await resolveCookwareIds(cookwareInput, cookwareItems),
         ingredients,
       });
       navigate(`/recipes/${createRecipe.slug}#stage`);
@@ -283,8 +338,12 @@ export default function RecipeNewPage() {
             onChange={(e) => setInstructions(e.target.value)}
             required
             rows={8}
-            className="field-input w-full"
+            placeholder={"1. Add @olive oil{2%tbsp} to the #skillet{}\n2. Cook @garlic{3%cloves} until golden\n3. Toss with @pasta{200%g}"}
+            className="field-input w-full font-mono text-sm"
           />
+          <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+            Supports <a href="https://cooklang.org" className="underline" rel="noopener noreferrer">Cooklang</a> syntax. Use <code className="text-xs">@ingredient{'{'}qty%unit{'}'}</code> and <code className="text-xs">#cookware{'{}'}</code> to auto-populate.
+          </p>
         </div>
 
         <button

@@ -140,9 +140,11 @@ export default function RecipeDetailPage() {
   const [exportPhotoUrl, setExportPhotoUrl] = useState<string | null>(null);
   const [displayPhotoUrl, setDisplayPhotoUrl] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
   const [subRecipes, setSubRecipes] = useState<SubRecipe[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [supportsFullscreen, setSupportsFullscreen] = useState(false);
+  const [servings, setServings] = useState(2);
   const articleRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -215,8 +217,18 @@ export default function RecipeDetailPage() {
     setRecipe({ ...recipe, queued: updated.queued });
   }
 
+  // Reset servings when recipe loads
+  useEffect(() => { if (recipe?.servings) setServings(recipe.servings); }, [recipe?.servings]);
+
   if (loading) return <div className="h-40 rounded-xl bg-[var(--color-bg-card)] animate-pulse" />;
   if (!recipe) return <p className="text-[var(--color-text-secondary)]">Recipe not found.</p>;
+
+  const baseServings = recipe.servings ?? 2;
+  const scaleFactor = servings / baseServings;
+  function scaleQty(qty: number | null) {
+    if (qty == null) return null;
+    return Math.round(qty * scaleFactor * 100) / 100;
+  }
 
   const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0);
   const steps = recipe.instructions.split('\n').map((s) => s.replace(/^\d+\.\s*/, '').trim()).filter(Boolean);
@@ -331,12 +343,16 @@ export default function RecipeDetailPage() {
             <dd>{recipe.cookTime} min</dd>
           </div>
         )}
-        {recipe.servings != null && (
-          <div>
-            <dt className="font-semibold text-xs uppercase tracking-wider text-[var(--color-text-secondary)] mb-0.5">Servings</dt>
-            <dd>{recipe.servings}</dd>
-          </div>
-        )}
+        <div>
+          <dt className="font-semibold text-xs uppercase tracking-wider text-[var(--color-text-secondary)] mb-0.5">Servings</dt>
+          <dd>
+            <div className="flex items-center gap-2" aria-label="Adjust servings">
+              <button type="button" onClick={() => setServings((s) => Math.max(1, s - 1))} aria-label="Decrease servings" className="w-7 h-7 border border-[var(--color-border-card)] rounded-lg flex items-center justify-center hover:bg-[var(--color-accent-subtle)] text-lg leading-none">&minus;</button>
+              <span className="tabular-nums font-bold w-5 text-center">{servings}</span>
+              <button type="button" onClick={() => setServings((s) => s + 1)} aria-label="Increase servings" className="w-7 h-7 border border-[var(--color-border-card)] rounded-lg flex items-center justify-center hover:bg-[var(--color-accent-subtle)] text-lg leading-none">+</button>
+            </div>
+          </dd>
+        </div>
       </dl>
 
       {/* Cookware */}
@@ -365,14 +381,28 @@ export default function RecipeDetailPage() {
           {recipe.ingredients.length === 0 ? (
             <p className="text-sm text-[var(--color-text-secondary)]">No ingredients listed.</p>
           ) : (
-            <ul className="space-y-2 legible">
-              {recipe.ingredients.map((ing, i) => (
-                <li key={i}>
-                  {ing.quantity != null && <span className="font-semibold tabular-nums">{Math.round(ing.quantity * 100) / 100}</span>}
-                  {ing.unit && <span className="text-[var(--color-text-secondary)]"> {ing.unit}</span>}
-                  {' '}{ing.ingredientName}
-                </li>
-              ))}
+            <ul role="list" className="space-y-2 legible">
+              {recipe.ingredients.map((ing, i) => {
+                const checked = checkedIngredients.has(i);
+                return (
+                  <li key={i}>
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => setCheckedIngredients((prev) => { const next = new Set(prev); next.has(i) ? next.delete(i) : next.add(i); return next; })}
+                        aria-label={ing.ingredientName}
+                        className="mt-1 w-5 h-5 border-2 border-[var(--color-border-card)] accent-[var(--color-accent)] shrink-0"
+                      />
+                      <span className={checked ? 'line-through text-[var(--color-text-secondary)]' : ''}>
+                        {scaleQty(ing.quantity) != null && <span className="font-semibold tabular-nums">{scaleQty(ing.quantity)}{' '}</span>}
+                        {ing.unit && <span>{ing.unit} </span>}
+                        {ing.ingredientName}
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>

@@ -117,3 +117,30 @@ export function extractCooklang(text: string): CooklangExtraction {
 export function hasCooklangSyntax(text: string): boolean {
   return /@[^{]+\{/.test(text) || /#[^{]+\{/.test(text);
 }
+
+/**
+ * Update a Cooklang ingredient reference in instructions text.
+ * Finds the first `@name{...}` matching the ingredient name (case-insensitive)
+ * and replaces the content with the new quantity/unit.
+ *
+ * Returns the updated text, or the original if no match found.
+ */
+export function updateCooklangIngredient(
+  text: string,
+  name: string,
+  quantity: string | null,
+  unit: string | null,
+): string {
+  // Build the replacement content: "qty%unit", "qty", or ""
+  let content = '';
+  if (quantity && unit && unit !== 'whole') content = `${quantity}%${unit}`;
+  else if (quantity) content = quantity;
+
+  // Find and replace the first @name{...} occurrence (case-insensitive name match)
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`@${escaped}\\{[^}]*\\}`, 'i');
+  if (regex.test(text)) {
+    return text.replace(regex, `@${name}{${content}}`);
+  }
+  return text;
+}

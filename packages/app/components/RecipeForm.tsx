@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { UNIT_GROUPS, COMMON_INGREDIENTS } from '@pantry-host/shared/constants';
 import IngredientEditor, { resolveIngredients, type IngredientRow } from '@pantry-host/shared/components/IngredientEditor';
-import { extractCooklang, hasCooklangSyntax } from '@pantry-host/shared/cooklang-parser';
+import { extractCooklang, hasCooklangSyntax, updateCooklangIngredient } from '@pantry-host/shared/cooklang-parser';
 import { gql } from '@/lib/gql';
 import { enqueue } from '@/lib/offlineQueue';
 
@@ -115,10 +115,12 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cooklangDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const suppressExtraction = useRef(false);
 
   // Auto-extract from Cooklang syntax in instructions
   useEffect(() => {
     clearTimeout(cooklangDebounceRef.current);
+    if (suppressExtraction.current) { suppressExtraction.current = false; return; }
     if (!hasCooklangSyntax(instructions)) return;
     cooklangDebounceRef.current = setTimeout(() => {
       const { ingredients, cookware } = extractCooklang(instructions);
@@ -145,6 +147,21 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
     }, 300);
     return () => clearTimeout(cooklangDebounceRef.current);
   }, [instructions]);
+
+  function handleIngredientChange(rows: IngredientRow[]) {
+    setIngredientRows(rows);
+    if (!hasCooklangSyntax(instructions)) return;
+    let updated = instructions;
+    for (const row of rows) {
+      if (!row.ingredientName.trim()) continue;
+      updated = updateCooklangIngredient(updated, row.ingredientName, row.quantity || null, row.unit || null);
+    }
+    if (updated !== instructions) {
+      suppressExtraction.current = true;
+      setInstructions(updated);
+    }
+  }
+
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const ingredientListRef = useRef<HTMLUListElement>(null);
   const [focusNewRecipeSelect, setFocusNewRecipeSelect] = useState(false);
@@ -468,7 +485,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
       <div className="mb-5">
         <IngredientEditor
           rows={ingredientRows}
-          onChange={setIngredientRows}
+          onChange={handleIngredientChange}
           error={error}
           onClearError={() => setError(null)}
           recipes={existingRecipes.map((r) => ({ id: r.id, slug: r.slug ?? r.id, title: r.title }))}

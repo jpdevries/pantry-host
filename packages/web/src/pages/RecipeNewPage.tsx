@@ -4,7 +4,7 @@ import { gql } from '@/lib/gql';
 import { storePhotoBlob, fetchAndStorePhoto } from '@/lib/photo-helpers';
 import IngredientEditor, { resolveIngredients, type IngredientRow } from '@pantry-host/shared/components/IngredientEditor';
 import FeaturedTags from '@pantry-host/shared/components/FeaturedTags';
-import { extractCooklang, hasCooklangSyntax } from '@pantry-host/shared/cooklang-parser';
+import { extractCooklang, hasCooklangSyntax, updateCooklangIngredient } from '@pantry-host/shared/cooklang-parser';
 
 const CREATE_MUTATION = `mutation(
   $title: String!,
@@ -60,6 +60,8 @@ export default function RecipeNewPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [instructions, setInstructions] = useState('');
+  const [instructionsFocused, setInstructionsFocused] = useState(false);
+  const [ingredientsFocused, setIngredientsFocused] = useState(false);
   const [servings, setServings] = useState('2');
   const [prepTime, setPrepTime] = useState('');
   const [cookTime, setCookTime] = useState('');
@@ -77,23 +79,23 @@ export default function RecipeNewPage() {
   const [saving, setSaving] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cooklangDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const suppressExtraction = useRef(false);
 
   // Auto-extract ingredients + cookware from Cooklang syntax in instructions
   useEffect(() => {
     clearTimeout(cooklangDebounceRef.current);
+    if (suppressExtraction.current) { suppressExtraction.current = false; return; }
     if (!hasCooklangSyntax(instructions)) return;
     cooklangDebounceRef.current = setTimeout(() => {
       const { ingredients, cookware } = extractCooklang(instructions);
       if (ingredients.length > 0) {
         setIngredientRows((prev) => {
-          // Merge: keep manual rows, update/add extracted ones
           const extracted = ingredients.map((ing) => ({
             ingredientName: ing.name,
             quantity: ing.quantity?.toString() ?? '',
             unit: ing.unit || 'whole',
             sourceRecipeId: null,
           }));
-          // Keep manually added rows (ones not matching any extracted name)
           const extractedNames = new Set(extracted.map((e) => e.ingredientName.toLowerCase()));
           const manual = prev.filter((r) => r.ingredientName.trim() && !extractedNames.has(r.ingredientName.toLowerCase()));
           return [...extracted, ...manual];
@@ -109,6 +111,21 @@ export default function RecipeNewPage() {
     }, 300);
     return () => clearTimeout(cooklangDebounceRef.current);
   }, [instructions]);
+
+  // Reverse sync: ingredient editor changes → update Cooklang in instructions
+  function handleIngredientChange(rows: IngredientRow[]) {
+    setIngredientRows(rows);
+    if (!hasCooklangSyntax(instructions)) return;
+    let updated = instructions;
+    for (const row of rows) {
+      if (!row.ingredientName.trim()) continue;
+      updated = updateCooklangIngredient(updated, row.ingredientName, row.quantity || null, row.unit || null);
+    }
+    if (updated !== instructions) {
+      suppressExtraction.current = true;
+      setInstructions(updated);
+    }
+  }
 
   useEffect(() => {
     gql<{ cookware: { id: string; name: string }[] }>(`{ cookware { id name } }`)
@@ -323,19 +340,28 @@ export default function RecipeNewPage() {
           />
         </div>
 
-        <IngredientEditor
-          rows={ingredientRows}
-          onChange={setIngredientRows}
-          error={ingredientError}
-          onClearError={() => setIngredientError(null)}
-          recipes={allRecipes}
-        />
+        <div
+          onFocus={() => setIngredientsFocused(true)}
+          onBlur={() => setIngredientsFocused(false)}
+          {...(instructionsFocused && hasCooklangSyntax(instructions) ? { inert: '', 'aria-disabled': true, style: { opacity: 0.5 } } : {})}
+        >
+          <IngredientEditor
+            rows={ingredientRows}
+            onChange={handleIngredientChange}
+            error={ingredientError}
+            onClearError={() => setIngredientError(null)}
+            recipes={allRecipes}
+          />
+        </div>
 
         <div>
+          <div {...(ingredientsFocused && hasCooklangSyntax(instructions) ? { inert: '', 'aria-disabled': true, style: { opacity: 0.5 } } : {})}>
           <label className="field-label">Instructions</label>
           <textarea
             value={instructions}
             onChange={(e) => setInstructions(e.target.value)}
+            onFocus={() => setInstructionsFocused(true)}
+            onBlur={() => setInstructionsFocused(false)}
             required
             rows={8}
             placeholder={"1. Add @olive oil{2%tbsp} to the #skillet{}\n2. Cook @garlic{3%cloves} until golden\n3. Toss with @pasta{200%g}"}
@@ -344,6 +370,7 @@ export default function RecipeNewPage() {
           <p className="text-xs text-[var(--color-text-secondary)] mt-1">
             Supports <a href="https://cooklang.org" className="underline" rel="noopener noreferrer">Cooklang</a> syntax. Use <code className="text-xs">@ingredient{'{'}qty%unit{'}'}</code> and <code className="text-xs">#cookware{'{}'}</code> to auto-populate.
           </p>
+          </div>
         </div>
 
         <button

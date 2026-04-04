@@ -5,7 +5,7 @@ import { getFileURL } from '@/lib/storage-opfs';
 import { storePhotoBlob, fetchAndStorePhoto } from '@/lib/photo-helpers';
 import IngredientEditor, { resolveIngredients, type IngredientRow } from '@pantry-host/shared/components/IngredientEditor';
 import FeaturedTags from '@pantry-host/shared/components/FeaturedTags';
-import { extractCooklang, hasCooklangSyntax } from '@pantry-host/shared/cooklang-parser';
+import { extractCooklang, hasCooklangSyntax, updateCooklangIngredient } from '@pantry-host/shared/cooklang-parser';
 
 const RECIPE_QUERY = `query($id: String!) {
   recipe(id: $id) {
@@ -95,6 +95,8 @@ export default function RecipeEditPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [instructions, setInstructions] = useState('');
+  const [instructionsFocused, setInstructionsFocused] = useState(false);
+  const [ingredientsFocused, setIngredientsFocused] = useState(false);
   const [servings, setServings] = useState('');
   const [prepTime, setPrepTime] = useState('');
   const [cookTime, setCookTime] = useState('');
@@ -109,10 +111,11 @@ export default function RecipeEditPage() {
   const [cookwareItems, setCookwareItems] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const cooklangDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const suppressExtraction = useRef(false);
 
-  // Auto-extract from Cooklang syntax in instructions
   useEffect(() => {
     clearTimeout(cooklangDebounceRef.current);
+    if (suppressExtraction.current) { suppressExtraction.current = false; return; }
     if (!hasCooklangSyntax(instructions)) return;
     cooklangDebounceRef.current = setTimeout(() => {
       const { ingredients, cookware } = extractCooklang(instructions);
@@ -139,6 +142,20 @@ export default function RecipeEditPage() {
     }, 300);
     return () => clearTimeout(cooklangDebounceRef.current);
   }, [instructions]);
+
+  function handleIngredientChange(rows: IngredientRow[]) {
+    setIngredientRows(rows);
+    if (!hasCooklangSyntax(instructions)) return;
+    let updated = instructions;
+    for (const row of rows) {
+      if (!row.ingredientName.trim()) continue;
+      updated = updateCooklangIngredient(updated, row.ingredientName, row.quantity || null, row.unit || null);
+    }
+    if (updated !== instructions) {
+      suppressExtraction.current = true;
+      setInstructions(updated);
+    }
+  }
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -393,20 +410,28 @@ export default function RecipeEditPage() {
           />
         </div>
 
+        <div
+          onFocus={() => setIngredientsFocused(true)}
+          onBlur={() => setIngredientsFocused(false)}
+          {...(instructionsFocused && hasCooklangSyntax(instructions) ? { inert: '', 'aria-disabled': true, style: { opacity: 0.5 } } : {})}
+        >
         <IngredientEditor
           rows={ingredientRows}
-          onChange={setIngredientRows}
+          onChange={handleIngredientChange}
           error={ingredientError}
           onClearError={() => setIngredientError(null)}
           recipes={allRecipes}
           defaultMode="matrix"
         />
+        </div>
 
-        <div>
+        <div {...(ingredientsFocused && hasCooklangSyntax(instructions) ? { inert: '', 'aria-disabled': true, style: { opacity: 0.5 } } : {})}>
           <label className="field-label">Instructions</label>
           <textarea
             value={instructions}
             onChange={(e) => setInstructions(e.target.value)}
+            onFocus={() => setInstructionsFocused(true)}
+            onBlur={() => setInstructionsFocused(false)}
             required
             rows={8}
             placeholder={"1. Add @olive oil{2%tbsp} to the #skillet{}\n2. Cook @garlic{3%cloves} until golden"}

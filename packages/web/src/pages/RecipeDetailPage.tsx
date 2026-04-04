@@ -39,35 +39,27 @@ const RECIPE_QUERY = `query($id: String!) {
 }`;
 
 function StepPhotos({ instructions, sourceUrl }: { instructions: string; sourceUrl: string | null }) {
-  const [loadedSteps, setLoadedSteps] = useState<Set<number>>(new Set());
   const base = sourceUrl ? stepPhotoBaseUrl(sourceUrl) : null;
   if (!base) return null;
 
   const steps = instructions.split(/\n+/).filter((l) => /^\d+\./.test(l.trim()));
   if (steps.length === 0) return null;
 
-  const hasAnyPhotos = loadedSteps.size > 0;
-
   return (
-    <div className={`mt-6 ${hasAnyPhotos ? '' : 'hidden'}`}>
-      <h2 className="font-semibold mb-3">Step by Step</h2>
+    <div className="mt-10">
+      <h2 className="text-xl font-bold mb-4">Step by Step</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {steps.map((step, i) => {
           const stepNum = i + 1;
           const photoUrl = `${encodeURI(base)}.${stepNum}.jpg`;
           const stepText = step.replace(/^\d+\.\s*/, '');
           return (
-            <div
-              key={stepNum}
-              className={`card rounded-xl overflow-hidden ${loadedSteps.has(stepNum) ? '' : 'hidden'}`}
-            >
+            <div key={stepNum} className="card rounded-xl overflow-hidden">
               <img
                 src={photoUrl}
                 alt={`Step ${stepNum}`}
                 className="w-full aspect-[4/3] object-cover"
-                loading="lazy"
-                onLoad={() => setLoadedSteps((prev) => new Set(prev).add(stepNum))}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                onError={(e) => { (e.target as HTMLImageElement).closest('.card')!.style.display = 'none'; }}
               />
               <div className="p-3">
                 <span className="text-xs font-bold text-[var(--color-text-secondary)]">Step {stepNum}</span>
@@ -139,43 +131,24 @@ export default function RecipeDetailPage() {
   if (loading) return <div className="h-40 rounded-xl bg-[var(--color-bg-card)] animate-pulse" />;
   if (!recipe) return <p className="text-[var(--color-text-secondary)]">Recipe not found.</p>;
 
+  const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0);
+  const steps = recipe.instructions.split('\n').map((s) => s.replace(/^\d+\.\s*/, '').trim()).filter(Boolean);
+
   return (
     <div>
-      <Link to="/recipes" className="text-sm text-[var(--color-text-secondary)] hover:underline mb-4 inline-block">
-        &larr; Back to recipes
-      </Link>
-
-      {displayPhotoUrl && (
-        <div className="mb-4">
-          <img
-            src={displayPhotoUrl}
-            alt={recipe.title}
-            className="w-full max-h-72 object-cover rounded-xl border border-[var(--color-border-card)]"
-          />
-        </div>
-      )}
-
-      <h1 className="text-3xl font-bold mb-2">{recipe.title}</h1>
-
-      {recipe.description && (
-        <p className="text-[var(--color-text-secondary)] mb-4">{recipe.description}</p>
-      )}
-
-      <div className="flex items-center gap-2 mb-6">
-        <button
-          onClick={handleToggleQueue}
-          className={`add-to-list-cta px-3 py-1.5 rounded-lg text-sm${recipe.queued ? ' is-active' : ''}`}
-        >
-          {recipe.queued ? 'Remove from list' : 'Add to grocery list'}
-        </button>
-        <div className="flex gap-2 ml-auto">
-          <Link
-            to={`/recipes/${slug}/edit`}
-            className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] p-2"
-            aria-label="Edit"
+      {/* Action bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 mb-6 border-b" style={{ borderColor: 'var(--color-border-card)' }}>
+        <Link to="/recipes" className="text-sm text-[var(--color-text-secondary)] hover:underline">
+          &larr; Recipes
+        </Link>
+        <div className="flex items-center gap-3 flex-wrap justify-end">
+          <button
+            onClick={handleToggleQueue}
+            className={`btn-secondary text-sm${recipe.queued ? ' border-[var(--color-accent)] text-[var(--color-accent)]' : ''}`}
           >
-            <PencilSimple size={16} aria-hidden />
-          </Link>
+            {recipe.queued ? '- Grocery List' : '+ Grocery List'}
+          </button>
+          <Link to={`/recipes/${slug}/edit`} className="btn-secondary text-sm">Edit</Link>
           {deleteConfirm ? (
             <div className="flex gap-1 items-center">
               <span className="text-xs text-[var(--color-text-secondary)] mr-1">Delete?</span>
@@ -195,49 +168,111 @@ export default function RecipeDetailPage() {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="card rounded-xl p-5">
-          <h2 className="font-semibold mb-3">Ingredients</h2>
+      {/* Photo */}
+      {displayPhotoUrl && (
+        <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
+          <img
+            src={displayPhotoUrl}
+            alt={recipe.title}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+
+      {/* Tags above title */}
+      {recipe.tags.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {recipe.tags.map((tag) => (
+            <span key={tag} className="tag">{tag}</span>
+          ))}
+        </div>
+      )}
+
+      {/* Title */}
+      <h1 className="text-4xl font-bold mb-4">{recipe.title}</h1>
+
+      {/* Description */}
+      {recipe.description && (
+        <p className="text-lg text-[var(--color-text-secondary)] leading-relaxed max-w-prose mb-5">{recipe.description}</p>
+      )}
+
+      {/* Metadata */}
+      <dl className="mt-5 flex flex-wrap gap-6 text-sm">
+        {totalTime > 0 && (
+          <div>
+            <dt className="font-semibold text-xs uppercase tracking-wider text-[var(--color-text-secondary)] mb-0.5">Total Time</dt>
+            <dd>{totalTime} min</dd>
+          </div>
+        )}
+        {recipe.prepTime != null && recipe.prepTime > 0 && (
+          <div>
+            <dt className="font-semibold text-xs uppercase tracking-wider text-[var(--color-text-secondary)] mb-0.5">Prep</dt>
+            <dd>{recipe.prepTime} min</dd>
+          </div>
+        )}
+        {recipe.cookTime != null && recipe.cookTime > 0 && (
+          <div>
+            <dt className="font-semibold text-xs uppercase tracking-wider text-[var(--color-text-secondary)] mb-0.5">Cook</dt>
+            <dd>{recipe.cookTime} min</dd>
+          </div>
+        )}
+        {recipe.servings != null && (
+          <div>
+            <dt className="font-semibold text-xs uppercase tracking-wider text-[var(--color-text-secondary)] mb-0.5">Servings</dt>
+            <dd>{recipe.servings}</dd>
+          </div>
+        )}
+      </dl>
+
+      {/* Cookware */}
+      {recipe.requiredCookware.length > 0 && (
+        <div className="mt-5">
+          <span className="font-semibold text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">Cookware</span>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {recipe.requiredCookware.map((c) => (
+              <span key={c.name} className="tag">{c.name}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Source */}
+      {recipe.sourceUrl && (
+        <p className="mt-4 text-xs text-[var(--color-text-secondary)]">
+          Source: <a href={recipe.sourceUrl} className="underline" rel="noopener noreferrer" target="_blank">{recipe.sourceUrl.includes('github.com') ? recipe.sourceUrl.replace('https://github.com/', '').split('/').slice(0, 2).join('/') : new URL(recipe.sourceUrl).hostname}</a>
+        </p>
+      )}
+
+      {/* Two-column: Ingredients | Instructions */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-10 mt-10">
+        <section>
+          <h2 className="text-xl font-bold mb-4">Ingredients</h2>
           {recipe.ingredients.length === 0 ? (
             <p className="text-sm text-[var(--color-text-secondary)]">No ingredients listed.</p>
           ) : (
-            <ul className="space-y-1.5 text-sm">
+            <ul className="space-y-2 legible">
               {recipe.ingredients.map((ing, i) => (
                 <li key={i}>
-                  {ing.quantity != null && <span className="font-medium">{ing.quantity}</span>}
+                  {ing.quantity != null && <span className="font-semibold tabular-nums">{ing.quantity}</span>}
                   {ing.unit && <span className="text-[var(--color-text-secondary)]"> {ing.unit}</span>}
                   {' '}{ing.ingredientName}
                 </li>
               ))}
             </ul>
           )}
-        </div>
+        </section>
 
-        <div className="card rounded-xl p-5">
-          <h2 className="font-semibold mb-3">Details</h2>
-          <dl className="space-y-1.5 text-sm">
-            {recipe.servings && <div><dt className="inline font-medium">Servings:</dt> <dd className="inline">{recipe.servings}</dd></div>}
-            {recipe.prepTime && <div><dt className="inline font-medium">Prep:</dt> <dd className="inline">{recipe.prepTime} min</dd></div>}
-            {recipe.cookTime && <div><dt className="inline font-medium">Cook:</dt> <dd className="inline">{recipe.cookTime} min</dd></div>}
-          </dl>
-          {recipe.tags.length > 0 && (
-            <div className="flex gap-1.5 mt-3 flex-wrap">
-              {recipe.tags.map((tag) => (
-                <span key={tag} className="tag">{tag}</span>
-              ))}
-            </div>
-          )}
-          {recipe.sourceUrl && (
-            <p className="mt-3 text-xs text-[var(--color-text-secondary)]">
-              Source: <a href={recipe.sourceUrl} className="underline" rel="noopener noreferrer" target="_blank">{recipe.sourceUrl.includes('github.com') ? recipe.sourceUrl.replace('https://github.com/', '').split('/').slice(0, 2).join('/') : new URL(recipe.sourceUrl).hostname}</a>
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-6 card rounded-xl p-5">
-        <h2 className="font-semibold mb-3">Instructions</h2>
-        <div className="text-sm whitespace-pre-wrap leading-relaxed">{recipe.instructions}</div>
+        <section>
+          <h2 className="text-xl font-bold mb-4">Instructions</h2>
+          <ol className="space-y-6 legible">
+            {steps.map((step, idx) => (
+              <li key={idx} className="flex items-baseline gap-4">
+                <span className="shrink-0 w-8 text-right text-sm tabular-nums text-[var(--color-text-secondary)] select-none" aria-hidden="true">{idx + 1}.</span>
+                <p className="leading-relaxed">{step}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
       </div>
 
       <StepPhotos instructions={recipe.instructions} sourceUrl={recipe.sourceUrl} />

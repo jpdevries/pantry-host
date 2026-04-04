@@ -76,31 +76,23 @@ interface PantryItem { id: string; name: string; quantity: number | null; unit: 
 interface Props { kitchen: string; recipeId: string; }
 
 function StepPhotos({ steps, sourceUrl }: { steps: string[]; sourceUrl: string | null | undefined }) {
-  const [loadedSteps, setLoadedSteps] = useState<Set<number>>(new Set());
   const base = sourceUrl ? stepPhotoBaseUrl(sourceUrl) : null;
   if (!base || steps.length === 0) return null;
 
-  const hasAnyPhotos = loadedSteps.size > 0;
-
   return (
-    <div className={`mt-12 ${hasAnyPhotos ? '' : 'hidden'}`}>
+    <div className="mt-12">
       <h2 className="text-xl font-bold mb-4">Step by Step</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {steps.map((step, i) => {
           const stepNum = i + 1;
           const photoUrl = `${encodeURI(base)}.${stepNum}.jpg`;
           return (
-            <div
-              key={stepNum}
-              className={`card overflow-hidden ${loadedSteps.has(stepNum) ? '' : 'hidden'}`}
-            >
+            <div key={stepNum} className="card overflow-hidden">
               <img
                 src={photoUrl}
                 alt={`Step ${stepNum}`}
                 className="w-full aspect-[4/3] object-cover"
-                loading="lazy"
-                onLoad={() => setLoadedSteps((prev) => new Set(prev).add(stepNum))}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                onError={(e) => { (e.target as HTMLImageElement).closest('.card')!.style.display = 'none'; }}
               />
               <div className="p-3">
                 <span className="text-xs font-bold text-[var(--color-text-secondary)]">Step {stepNum}</span>

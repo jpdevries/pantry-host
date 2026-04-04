@@ -4,7 +4,7 @@ import { gql } from '@/lib/gql';
 import { recipeToDataURI, downloadRecipeICS, imageToDataURI } from '@pantry-host/shared/export-recipe';
 import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang';
 import { getFileURL } from '@/lib/storage-opfs';
-import { PencilSimple, Trash, Printer, CalendarPlus, Export, Code } from '@phosphor-icons/react';
+import { PencilSimple, Trash, Printer, CalendarPlus, Export, Code, ShareNetwork } from '@phosphor-icons/react';
 
 interface RecipeIngredient {
   ingredientName: string;
@@ -242,35 +242,44 @@ export default function RecipeDetailPage() {
 
       <StepPhotos instructions={recipe.instructions} sourceUrl={recipe.sourceUrl} />
 
-      <div className="mt-6">
-        <h2 className="font-semibold mb-3">Share the Love</h2>
-        <div className="flex gap-2">
-          <button type="button" onClick={() => window.print()} className="btn-secondary text-sm">
-            <Printer size={16} aria-hidden /> Print
+      <div className="py-16">
+        <div className="flex justify-center mb-3 opacity-60"><ShareNetwork size={24} weight="light" aria-hidden /></div>
+        <h2 className="text-xl font-bold mb-3 md:text-center">Share {recipe.title}</h2>
+        <p className="text-sm text-[var(--color-text-secondary)] mb-10 md:text-center very legible pretty md:mx-auto">Print this recipe, export it as HTML to share with a friend, add it to your calendar for meal planning, or export as a Cooklang .cook file.</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="flex flex-col md:flex-row items-center gap-1 md:gap-2 btn-secondary text-sm justify-self-center border-0 bg-transparent md:border md:border-[var(--color-border-card)] md:bg-transparent"
+          >
+            <Printer size={18} aria-hidden />
+            Print Recipe
           </button>
           <a
             href={recipeToDataURI({ ...recipe, requiredCookware: recipe.requiredCookware.map(c => c.name).filter(Boolean), source: '', sourceUrl: null, photoUrl: exportPhotoUrl })}
             download={`${recipe.slug || 'recipe'}.html`}
-            className="btn-secondary text-sm"
+            className="flex flex-col md:flex-row items-center gap-1 md:gap-2 btn-secondary text-sm justify-self-center border-0 bg-transparent md:border md:border-[var(--color-border-card)] md:bg-transparent"
           >
-            <Export size={16} aria-hidden /> Export HTML
+            <Export size={18} aria-hidden />
+            Export HTML
           </a>
           <button
             type="button"
             onClick={() => downloadRecipeICS({ ...recipe, requiredCookware: recipe.requiredCookware.map(c => c.name).filter(Boolean), source: '', sourceUrl: null, photoUrl: exportPhotoUrl })}
-            className="btn-secondary text-sm"
+            className="flex flex-col md:flex-row items-center gap-1 md:gap-2 btn-secondary text-sm justify-self-center border-0 bg-transparent md:border md:border-[var(--color-border-card)] md:bg-transparent"
           >
-            <CalendarPlus size={16} aria-hidden /> Add to Calendar
+            <CalendarPlus size={18} aria-hidden />
+            Add to Calendar
           </button>
           <button
             type="button"
             onClick={() => downloadCooklang({ ...recipe, ingredients: recipe.ingredients.map(i => ({ ingredientName: i.ingredientName, quantity: i.quantity, unit: i.unit })) }, recipe.slug)}
-            className="btn-secondary text-sm"
+            className="flex flex-col md:flex-row items-center gap-1 md:gap-2 btn-secondary text-sm justify-self-center border-0 bg-transparent md:border md:border-[var(--color-border-card)] md:bg-transparent"
           >
-            <Code size={16} aria-hidden /> Export .cook
+            <Code size={18} aria-hidden />
+            Export .cook
           </button>
         </div>
-        <p className="text-sm text-[var(--color-text-secondary)] mt-3 legible pretty">Print this recipe, export it as HTML, add it to your calendar, or export as a Cooklang .cook file.</p>
       </div>
     </div>
   );

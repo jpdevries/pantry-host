@@ -9,7 +9,7 @@ const RECIPE_QUERY = `query($id: String!) {
   recipe(id: $id) {
     id slug title description instructions servings prepTime cookTime
     tags requiredCookware { id name } photoUrl
-    ingredients { ingredientName quantity unit }
+    ingredients { ingredientName quantity unit sourceRecipeId }
   }
 }`;
 
@@ -45,6 +45,7 @@ interface RecipeIngredient {
   ingredientName: string;
   quantity: number | null;
   unit: string | null;
+  sourceRecipeId: string | null;
 }
 
 interface Recipe {
@@ -116,7 +117,7 @@ export default function RecipeEditPage() {
             ingredientName: i.ingredientName,
             quantity: i.quantity?.toString() ?? '',
             unit: i.unit || 'whole',
-            sourceRecipeId: null,
+            sourceRecipeId: i.sourceRecipeId ?? null,
           }))
         );
         // Resolve photo preview

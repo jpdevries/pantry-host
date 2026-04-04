@@ -113,8 +113,12 @@ export default function IngredientEditor({ rows, onChange, error, onClearError, 
   }
 
   useEffect(() => {
-    if (mode === 'textarea' && rows.length > 0 && !textValue) {
-      setTextValue(rowsToText(rows, recipes));
+    if (mode === 'textarea' && rows.length > 0) {
+      // Re-serialize when recipes become available (needed for @slug resolution)
+      const hasRecipeRefs = rows.some((r) => r.sourceRecipeId && r.sourceRecipeId !== '__pending__');
+      if (!textValue || (hasRecipeRefs && recipes.length > 0)) {
+        setTextValue(rowsToText(rows, recipes));
+      }
     }
   }, [rows, recipes]);
 

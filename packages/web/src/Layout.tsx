@@ -23,11 +23,11 @@ function PantryHostLogo({ size = 24 }: { size?: number }) {
 }
 
 const NAV_ITEMS = [
-  { to: '/ingredients', label: 'Pantry' },
-  { to: '/list', label: 'Grocery List' },
-  { to: '/menus', label: 'Menus' },
-  { to: '/recipes', label: 'Recipes' },
-  { to: '/cookware', label: 'Cookware' },
+  { to: '/ingredients#stage', label: 'Pantry' },
+  { to: '/list#stage', label: 'Grocery List' },
+  { to: '/menus#stage', label: 'Menus' },
+  { to: '/recipes#stage', label: 'Recipes' },
+  { to: '/cookware#stage', label: 'Cookware' },
 ];
 
 export default function Layout() {
@@ -37,13 +37,23 @@ export default function Layout() {
 
   useEffect(() => { setQuote(getDailyQuote()); }, []);
 
+  // Scroll to #stage on route change — React Router doesn't handle hash scrolling
+  useEffect(() => {
+    if (location.hash === '#stage') {
+      requestAnimationFrame(() => {
+        document.getElementById('stage')?.scrollIntoView({ behavior: 'smooth' });
+      });
+    }
+  }, [location.pathname, location.hash]);
+
   function scrollToStage(e: React.MouseEvent<HTMLAnchorElement>) {
     const target = document.getElementById('stage');
     if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
   }
 
   function handleNavClick(e: React.MouseEvent<HTMLAnchorElement>, to: string) {
-    if (location.pathname === to) {
+    const path = to.replace(/#.*$/, '');
+    if (location.pathname === path) {
       const target = document.getElementById('stage');
       if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
     }
@@ -83,7 +93,8 @@ export default function Layout() {
           >
             <ul className="flex flex-wrap gap-x-8 gap-y-2 sm:justify-end lg:justify-start" role="list">
               {NAV_ITEMS.map(({ to, label }) => {
-                const active = location.pathname === to || (to !== '/' && location.pathname.startsWith(to));
+                const path = to.replace(/#.*$/, '');
+                const active = location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
                 return (
                   <li key={label}>
                     <NavLink
@@ -116,7 +127,8 @@ export default function Layout() {
         <nav aria-label="Main navigation" className="mt-auto pb-16 sm:hidden">
           <ul className="space-y-8" role="list">
             {NAV_ITEMS.map(({ to, label }) => {
-              const active = location.pathname === to || (to !== '/' && location.pathname.startsWith(to));
+              const path = to.replace(/#.*$/, '');
+                const active = location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
               return (
                 <li key={label}>
                   <NavLink

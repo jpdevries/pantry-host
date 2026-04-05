@@ -30,7 +30,7 @@ const tiers = [
       <>Run Pantry&nbsp;Host entirely in your browser. No server, no install. Your data lives in your browser via PGlite and <abbr title="Origin Private File System">OPFS</abbr>.</>,
     features: ['Works offline', 'Zero setup', 'Photo storage', 'Recipe generation, imports, and conversational pantry management*'],
     footnote: '*With Claude in\u00a0Chrome',
-    cta: { label: 'Open in browser', href: 'https://my.pantryhost.app' },
+    cta: { label: 'Open in browser', href: 'https://my.pantryhost.app/recipes/import' },
     icon: IconBrowser,
     eta: { display: 'Ready instantly', iso: 'PT0S' },
   },

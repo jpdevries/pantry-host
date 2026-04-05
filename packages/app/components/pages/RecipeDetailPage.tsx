@@ -661,9 +661,9 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                 <p className="font-semibold text-xs uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">Cookware</p>
                 <div className="flex flex-wrap gap-2">
                   {recipe.requiredCookware.map((cw) => (
-                    <span key={cw.id} className="tag">
+                    <a key={cw.id} href={kitchen === 'home' ? `/cookware/${cw.id}#stage` : `/kitchens/${kitchen}/cookware/${cw.id}#stage`} className="tag hover:underline">
                       {cw.name}{cw.brand && cw.brand !== cw.name && <em className="font-normal"> by {cw.brand}</em>}
-                    </span>
+                    </a>
                   ))}
                 </div>
               </div>
@@ -814,11 +814,11 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
           <div className="flex justify-center mb-3 opacity-60"><ShareNetwork size={24} weight="light" aria-hidden /></div>
           <h2 id="share-heading" className="text-xl font-bold mb-3 md:text-center">Share {recipe.title}</h2>
           <p className="text-sm text-[var(--color-text-secondary)] mb-10 md:text-center very legible pretty md:mx-auto">Print this recipe, export it as HTML to share with a friend, or add it to your calendar for meal planning.</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="flex flex-wrap gap-2 justify-center">
             <button
               type="button"
               onClick={() => window.print()}
-              className="flex flex-col md:flex-row items-center gap-1 md:gap-2 btn-secondary text-sm justify-self-center border-0 bg-transparent md:border md:border-[var(--color-border-card)] md:bg-transparent"
+              className="flex items-center gap-2 btn-secondary text-sm"
             >
               <Printer size={18} aria-hidden />
               Print Recipe
@@ -826,7 +826,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
             <a
               href={recipeToDataURI({ ...recipe, requiredCookware: recipe.requiredCookware.map((c) => c.name).filter(Boolean), photoUrl: exportPhotoUrl })}
               download={`${recipe.slug || 'recipe'}.html`}
-              className="flex flex-col md:flex-row items-center gap-1 md:gap-2 btn-secondary text-sm justify-self-center border-0 bg-transparent md:border md:border-[var(--color-border-card)] md:bg-transparent"
+              className="flex items-center gap-2 btn-secondary text-sm"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" width={18} height={18} fill="currentColor" aria-hidden="true">
                 <path d="M567.31 283.89l-71.78-68.16c-8.28-7.8-20.41-9.88-30.84-5.38-10.31 4.42-16.69 13.98-16.69 24.97V288h-64V131.97c0-12.7-5.1-25-14.1-33.99L286.02 14.1c-9-9-21.2-14.1-33.89-14.1H47.99C21.5.1 0 21.6 0 48.09v415.92C0 490.5 21.5 512 47.99 512h288.02c26.49 0 47.99-21.5 47.99-47.99V352h-31.99v112.01c0 8.8-7.2 16-16 16H47.99c-8.8 0-16-7.2-16-16V48.09c0-8.8 7.2-16.09 16-16.09h176.04v104.07c0 13.3 10.7 23.93 24 23.93h103.98v128H168c-4.42 0-8 3.58-8 8v16c0 4.42 3.58 8 8 8h280v52.67c0 10.98 6.38 20.55 16.69 24.97 14.93 6.45 26.88-1.61 30.88-5.39l71.72-68.12c5.62-5.33 8.72-12.48 8.72-20.12s-3.1-14.81-8.7-20.12zM256.03 128.07V32.59c2.8.7 5.3 2.1 7.4 4.2l83.88 83.88c2.1 2.1 3.5 4.6 4.2 7.4h-95.48zM480 362.88V245.12L542 304l-62 58.88z" />
@@ -836,7 +836,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
             <a
               href={`/api/recipe-ics?slug=${recipe.slug}`}
               download={`${recipe.slug || 'recipe'}.ics`}
-              className="flex flex-col md:flex-row items-center gap-1 md:gap-2 btn-secondary text-sm justify-self-center border-0 bg-transparent md:border md:border-[var(--color-border-card)] md:bg-transparent"
+              className="flex items-center gap-2 btn-secondary text-sm"
               onClick={(e) => {
                 // iOS Safari can't download ICS files. Use webcal:// protocol
                 // which triggers the native Calendar app directly.
@@ -867,7 +867,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                   unit: i.unit,
                 })),
               }, recipe.slug)}
-              className="flex flex-col md:flex-row items-center gap-1 md:gap-2 btn-secondary text-sm justify-self-center border-0 bg-transparent md:border md:border-[var(--color-border-card)] md:bg-transparent"
+              className="flex items-center gap-2 btn-secondary text-sm"
             >
               <Code size={18} aria-hidden />
               Export .cook
@@ -885,7 +885,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                     window.prompt('Copy this guest link:', guestUrl);
                   });
                 }}
-                className="flex flex-col md:flex-row items-center gap-1 md:gap-2 btn-secondary text-sm justify-self-center border-0 bg-transparent md:border md:border-[var(--color-border-card)] md:bg-transparent"
+                className="flex items-center gap-2 btn-secondary text-sm"
               >
                 <LinkSimple size={18} aria-hidden />
                 {guestLinkCopied ? 'Copied!' : 'Copy Guest Link'}

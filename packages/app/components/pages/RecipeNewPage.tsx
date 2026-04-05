@@ -7,7 +7,7 @@ interface Props { kitchen: string; }
 
 export default function RecipeNewPage({ kitchen }: Props) {
   const [existingRecipes, setExistingRecipes] = useState<{ id: string; slug?: string; title: string; source: string }[]>([]);
-  const [cookwareItems, setCookwareItems] = useState<string[]>([]);
+  const [cookwareItems, setCookwareItems] = useState<{ id: string; name: string; tags: string[] }[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
   const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
 
@@ -15,10 +15,10 @@ export default function RecipeNewPage({ kitchen }: Props) {
     const slug = kitchen || 'home';
     Promise.all([
       gql<{ recipes: { id: string; slug: string; title: string; source: string; tags: string[] }[] }>('{ recipes { id slug title source tags } }'),
-      gql<{ cookware: { name: string }[] }>(`query Cookware($kitchenSlug: String) { cookware(kitchenSlug: $kitchenSlug) { name } }`, { kitchenSlug: slug }),
+      gql<{ cookware: { id: string; name: string; tags: string[] }[] }>(`query Cookware($kitchenSlug: String) { cookware(kitchenSlug: $kitchenSlug) { id name tags } }`, { kitchenSlug: slug }),
     ]).then(([r, c]) => {
       setExistingRecipes(r.recipes);
-      setCookwareItems(c.cookware.map((i) => i.name));
+      setCookwareItems(c.cookware);
       const tags = new Set<string>();
       r.recipes.forEach((rec) => rec.tags?.forEach((t) => tags.add(t)));
       setAllTags([...tags].sort());

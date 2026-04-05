@@ -37,7 +37,7 @@ interface Recipe {
   prepTime: number | null;
   cookTime: number | null;
   tags: string[];
-  requiredCookware: { name: string }[];
+  requiredCookware: { id: string; name: string; brand: string | null }[];
   photoUrl: string | null;
   stepPhotos: string[];
   sourceUrl: string | null;
@@ -61,7 +61,7 @@ interface SubRecipe {
 const RECIPE_QUERY = `query($id: String!) {
   recipe(id: $id) {
     id slug title description instructions servings prepTime cookTime
-    tags requiredCookware { name } photoUrl stepPhotos sourceUrl queued createdAt
+    tags requiredCookware { id name brand } photoUrl stepPhotos sourceUrl queued createdAt
     ingredients { ingredientName quantity unit sourceRecipeId }
     usedIn { id slug title cookTime prepTime servings tags photoUrl }
   }
@@ -370,7 +370,9 @@ export default function RecipeDetailPage() {
           <span className="font-semibold text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">Cookware</span>
           <div className="flex flex-wrap gap-2 mt-1">
             {recipe.requiredCookware.map((c) => (
-              <span key={c.name} className="tag">{c.name}</span>
+              <Link key={c.id} to={`/cookware/${c.id}`} className="tag hover:underline">
+                {c.name}{c.brand && c.brand !== c.name && <em className="font-normal"> by {c.brand}</em>}
+              </Link>
             ))}
           </div>
         </div>

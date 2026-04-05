@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { UNIT_GROUPS, COMMON_INGREDIENTS } from '@pantry-host/shared/constants';
 import IngredientEditor, { resolveIngredients, type IngredientRow } from '@pantry-host/shared/components/IngredientEditor';
-import { extractCooklang, hasCooklangSyntax, updateCooklangIngredient } from '@pantry-host/shared/cooklang-parser';
+import { extractCooklang, hasCooklangSyntax, updateCooklangIngredient, parseCooklangMetadata } from '@pantry-host/shared/cooklang-parser';
 import { gql } from '@/lib/gql';
 import { enqueue } from '@/lib/offlineQueue';
 
@@ -38,7 +38,7 @@ interface ExistingRecipe {
 interface Props {
   initial?: RecipeData;
   existingRecipes?: ExistingRecipe[]; // for recipe-as-ingredient picker
-  cookwareItems?: { id: string; name: string }[]; // for Required Cookware datalist
+  cookwareItems?: { id: string; name: string; tags: string[] }[]; // for Required Cookware datalist
   allTags?: string[]; // for tag typeahead suggestions
   recipesBase?: string; // e.g. '/recipes' or '/kitchens/grandmas/recipes'
   kitchenSlug?: string; // for createRecipe mutation
@@ -115,16 +115,39 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pantryIngredients, setPantryIngredients] = useState<{ name: string; quantity: number | null; unit: string | null }[]>([]);
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cooklangDebounceRef = useRef<ReturnType<typeof setTimeout>>();
   const suppressExtraction = useRef(false);
+  // On edit pages, fields are pre-filled → mark dirty so metadata doesn't overwrite
+  const dirtyFields = useRef(new Set<string>(editing ? ['title', 'servings', 'prepTime', 'cookTime', 'tags'] : []));
+  const placeholderRecipe = useMemo(() => {
+    const examples = [
+      { title: 'Cucumber Salad', description: 'Crisp, cool, and ready in minutes' },
+      { title: 'Mango Avocado Bowl', description: 'Tropical and creamy with a lime kick' },
+      { title: 'Roasted Cauliflower Tacos', description: 'Smoky, spiced, and completely plant-based' },
+      { title: 'Lemon Herb Hummus', description: 'Smooth chickpea dip with fresh herbs' },
+      { title: 'Thai Peanut Noodles', description: 'Rich peanut sauce over rice noodles' },
+      { title: 'Watermelon Gazpacho', description: 'Chilled summer soup with a hint of mint' },
+      { title: 'Sweet Potato Black Bean Chili', description: 'Hearty one-pot comfort food' },
+      { title: 'Coconut Curry Lentils', description: 'Warming spices with creamy coconut milk' },
+    ];
+    return examples[Math.floor(Math.random() * examples.length)];
+  }, []);
+
+  useEffect(() => {
+    gql<{ ingredients: { name: string; quantity: number | null; unit: string | null }[] }>(
+      `query($kitchenSlug: String) { ingredients(kitchenSlug: $kitchenSlug) { name quantity unit } }`,
+      { kitchenSlug: kitchenSlug ?? 'home' },
+    ).then((d) => setPantryIngredients(d.ingredients)).catch(() => {});
+  }, [kitchenSlug]);
 
   // Auto-extract from Cooklang syntax in instructions
   useEffect(() => {
     clearTimeout(cooklangDebounceRef.current);
     if (suppressExtraction.current) { suppressExtraction.current = false; return; }
-    if (!hasCooklangSyntax(instructions)) return;
+    if (!hasCooklangSyntax(instructions) && !instructions.includes('>>')) return;
     cooklangDebounceRef.current = setTimeout(() => {
       const { ingredients, cookware } = extractCooklang(instructions);
       if (ingredients.length > 0) {
@@ -147,6 +170,12 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
           return merged.join(', ');
         });
       }
+      const meta = parseCooklangMetadata(instructions);
+      if (meta.title && !dirtyFields.current.has('title')) setTitle(meta.title);
+      if (meta.servings && !dirtyFields.current.has('servings')) setServings(meta.servings.toString());
+      if (meta.prepTime && !dirtyFields.current.has('prepTime')) setPrepTime(meta.prepTime.toString());
+      if (meta.cookTime && !dirtyFields.current.has('cookTime')) setCookTime(meta.cookTime.toString());
+      if (meta.tags?.length && !dirtyFields.current.has('tags')) setTagInput(meta.tags.join(', '));
     }, 300);
     return () => clearTimeout(cooklangDebounceRef.current);
   }, [instructions]);
@@ -256,7 +285,10 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
 
   // ---- Step Photos ----
   const instructionStepCount = useMemo(() =>
-    instructions.split('\n').filter((l) => /^\d+\./.test(l.trim())).length,
+    instructions.split('\n').filter((l) => {
+      const t = l.trim();
+      return t.length > 0 && !t.startsWith('>>');
+    }).length,
     [instructions],
   );
 
@@ -324,10 +356,13 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
     setError(null);
 
     const tags = tagInput.split(',').map((t) => t.trim()).filter(Boolean);
-    // Resolve cookware names to IDs, auto-creating missing ones
+    // Resolve cookware names to IDs (fuzzy: exact → substring → tag), auto-creating missing ones
     const requiredCookwareIds: string[] = [];
     for (const name of cookwareInput.split(',').map((n) => n.trim()).filter(Boolean)) {
-      const found = cookwareItems.find((c) => c.name.toLowerCase() === name.toLowerCase());
+      const lower = name.toLowerCase();
+      let found = cookwareItems.find((c) => c.name.toLowerCase() === lower);
+      if (!found) found = cookwareItems.find((c) => c.name.toLowerCase().includes(lower));
+      if (!found) found = cookwareItems.find((c) => c.tags?.some((t) => t.toLowerCase() === lower));
       if (found) { requiredCookwareIds.push(found.id); }
       else {
         try {
@@ -452,7 +487,8 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
           type="text"
           required
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => { dirtyFields.current.add('title'); setTitle(e.target.value); }}
+          placeholder={placeholderRecipe.title}
           className="field-input w-full"
           aria-required="true"
         />
@@ -465,6 +501,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
           id="recipe-description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          placeholder={placeholderRecipe.description}
           rows={2}
           className="field-input w-full resize-y"
         />
@@ -483,7 +520,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
                 type="number"
                 min="1"
                 value={servings}
-                onChange={(e) => setServings(e.target.value)}
+                onChange={(e) => { dirtyFields.current.add('servings'); setServings(e.target.value); }}
                 className="field-input"
               />
             </div>
@@ -497,7 +534,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
                 type="number"
                 min="0"
                 value={prepTime}
-                onChange={(e) => setPrepTime(e.target.value)}
+                onChange={(e) => { dirtyFields.current.add('prepTime'); setPrepTime(e.target.value); }}
                 className="field-input"
               />
             </div>
@@ -511,7 +548,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
                 type="number"
                 min="0"
                 value={cookTime}
-                onChange={(e) => setCookTime(e.target.value)}
+                onChange={(e) => { dirtyFields.current.add('cookTime'); setCookTime(e.target.value); }}
                 className="field-input"
               />
             </div>
@@ -536,9 +573,6 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
         <label htmlFor="recipe-instructions" className="field-label">
           Instructions <span aria-hidden="true" className="text-red-500">*</span>
         </label>
-        <p className="text-xs text-[var(--color-text-secondary)] mb-1">
-          Each line is one step. Supports <a href="https://cooklang.org" className="underline" rel="noopener noreferrer">Cooklang</a> syntax &mdash; use <code className="text-xs">@ingredient{'{'}qty%unit{'}'}</code> and <code className="text-xs">#cookware{'{}'}</code> to auto-populate.
-        </p>
         <textarea
           id="recipe-instructions"
           required
@@ -549,10 +583,62 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
           className="field-input w-full resize-y font-mono text-sm"
           aria-required="true"
         />
+        <details open className="text-xs text-[var(--color-text-secondary)] mt-1">
+          <summary className="cursor-pointer hover:underline">
+            Supports <a href="https://cooklang.org" className="underline" rel="noopener noreferrer" onClick={(e: React.MouseEvent) => e.stopPropagation()}>Cooklang</a> syntax
+          </summary>
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-xs">
+            <div>
+              <p className="font-sans font-semibold text-[var(--color-text-primary)] mb-1">Ingredients</p>
+              <p className="mb-0.5 text-[var(--color-text-secondary)]">@name{'{'}qty%unit{'}'}</p>
+              <ul className="space-y-0.5">
+                {(pantryIngredients.length > 0
+                  ? pantryIngredients.filter((i) => i.quantity && i.unit).slice(0, 3).map((i) => (
+                      <li key={i.name}>@{i.name.toLowerCase()}{'{'}{ i.quantity}%{i.unit}{'}'}</li>
+                    ))
+                  : [
+                      <li key="f">@flour{'{'}2%cup{'}'}</li>,
+                      <li key="g">@garlic{'{'}3%cloves{'}'}</li>,
+                      <li key="o">@olive oil{'{'}1%tbsp{'}'}</li>,
+                    ]
+                )}
+              </ul>
+            </div>
+            <div>
+              <p className="font-sans font-semibold text-[var(--color-text-primary)] mb-1">Cookware</p>
+              <p className="mb-0.5 text-[var(--color-text-secondary)]">#name{'{}'}</p>
+              <ul className="space-y-0.5">
+                {(cookwareItems.length > 0
+                  ? cookwareItems.slice(0, 3).map((c) => (
+                      <li key={c.id}>#{c.name.toLowerCase().replace(/\s+/g, ' ')}{'{}'}</li>
+                    ))
+                  : [
+                      <li key="s">#skillet{'{}'}</li>,
+                      <li key="o">#oven{'{}'}</li>,
+                    ]
+                )}
+              </ul>
+            </div>
+            <div>
+              <p className="font-sans font-semibold text-[var(--color-text-primary)] mb-1">Sub-recipes</p>
+              <p className="mb-0.5 text-[var(--color-text-secondary)]">@recipe-slug</p>
+              <ul className="space-y-0.5">
+                {(existingRecipes.length > 0
+                  ? existingRecipes.filter((r) => r.slug).slice(0, 3).map((r) => (
+                      <li key={r.id}>@{r.slug}</li>
+                    ))
+                  : [
+                      <li key="j">@raspberry-jam</li>,
+                    ]
+                )}
+              </ul>
+            </div>
+          </div>
+        </details>
       </div>
 
       {/* Step by Step Photos */}
-      <fieldset className="mb-6">
+      <fieldset className={stepPhotos.length === 0 ? 'hidden' : 'mb-6'}>
           <legend className="field-label">
             Step by Step Photos
           </legend>
@@ -635,7 +721,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
           type="text"
           list={allTags.length > 0 ? 'form-tags' : undefined}
           value={tagInput}
-          onChange={(e) => setTagInput(e.target.value)}
+          onChange={(e) => { dirtyFields.current.add('tags'); setTagInput(e.target.value); }}
           placeholder="e.g. quick, kid-friendly, vegetarian"
           className="field-input w-full"
         />
@@ -759,7 +845,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
         <p role="alert" className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>
       )}
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 mt-8">
         <button
           type="submit"
           disabled={saving || !title.trim() || !instructions.trim()}

@@ -111,6 +111,45 @@ export function extractCooklang(text: string): CooklangExtraction {
 }
 
 /**
+ * Parse Cooklang `>> key: value` metadata lines into structured fields.
+ * Supports: title, servings, prep time, cook time, time (mapped to cook time), tags, source.
+ */
+export interface CooklangMetadata {
+  title?: string;
+  servings?: number;
+  prepTime?: number;
+  cookTime?: number;
+  tags?: string[];
+  source?: string;
+}
+
+export function parseCooklangMetadata(text: string): CooklangMetadata {
+  const meta: CooklangMetadata = {};
+  const lines = text.split('\n');
+  for (const line of lines) {
+    const m = line.match(/^>>\s*([^:]+):\s*(.+)$/);
+    if (!m) continue;
+    const key = m[1].trim().toLowerCase();
+    const val = m[2].trim();
+    switch (key) {
+      case 'title': meta.title = val; break;
+      case 'servings': { const n = parseInt(val); if (!isNaN(n)) meta.servings = n; break; }
+      case 'prep time':
+      case 'prep_time':
+      case 'preptime': { const n = parseInt(val); if (!isNaN(n)) meta.prepTime = n; break; }
+      case 'cook time':
+      case 'cook_time':
+      case 'cooktime': { const n = parseInt(val); if (!isNaN(n)) meta.cookTime = n; break; }
+      case 'time':
+      case 'total time': { const n = parseInt(val); if (!isNaN(n)) meta.cookTime = n; break; }
+      case 'tags': meta.tags = val.split(',').map((t) => t.trim()).filter(Boolean); break;
+      case 'source': meta.source = val; break;
+    }
+  }
+  return meta;
+}
+
+/**
  * Detect if text contains Cooklang syntax.
  * Returns true if any @ingredient{}, #cookware{}, or ~{timer} patterns are found.
  */

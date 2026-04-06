@@ -84,7 +84,12 @@ export default function IngredientForm({ ingredient, onSubmit, onCancel, autoFoc
   }
 
   return (
-    <form onSubmit={handleSubmit} aria-label={editing ? 'Edit ingredient' : 'Add ingredient'} noValidate>
+    <form
+      onSubmit={handleSubmit}
+      onKeyDown={(e) => { if (e.key === 'Escape' && onCancel) onCancel(); }}
+      aria-label={editing ? 'Edit ingredient' : 'Add ingredient'}
+      noValidate
+    >
       <datalist id="common-ingredients">
         {COMMON_INGREDIENTS.map((i) => <option key={i} value={i} />)}
       </datalist>

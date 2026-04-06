@@ -15,7 +15,7 @@ function mapCategory(categories: string): string {
   if (lower.includes('frozen')) return 'frozen';
   if (lower.includes('fruit') || lower.includes('berry') || lower.includes('melon')) return 'fruit';
   if (lower.includes('produce') || lower.includes('vegetable') || lower.includes('salad')) return 'vegetables';
-  if (lower.includes('dairy') || lower.includes('milk') || lower.includes('cheese') || lower.includes('yogurt')) return 'dairy & eggs';
+  if (lower.includes('dairy') || lower.includes('milk') || lower.includes('cheese') || lower.includes('yogurt')) return 'dairy';
   if (lower.includes('egg')) return 'eggs';
   if (lower.includes('seafood') || lower.includes('fish') || lower.includes('shrimp') || lower.includes('salmon')) return 'seafood & fish';
   if (lower.includes('meat') || lower.includes('poultry') || lower.includes('chicken') || lower.includes('beef') || lower.includes('pork')) return 'meat & poultry';

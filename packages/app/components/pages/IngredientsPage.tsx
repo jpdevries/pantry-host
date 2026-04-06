@@ -5,7 +5,7 @@ import BatchScanSession from '@/components/BatchScanSession';
 import { gql } from '@/lib/gql';
 import { Camera, PencilSimple, Trash } from '@phosphor-icons/react';
 import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
-import { HIDDEN_TAGS, ALL_CATEGORIES } from '@pantry-host/shared/constants';
+import { HIDDEN_TAGS, CATEGORY_GROUPS } from '@pantry-host/shared/constants';
 import { isOwner } from '@/lib/isTrustedNetwork';
 
 interface Ingredient {
@@ -92,13 +92,6 @@ export default function IngredientsPage({ kitchen }: Props) {
   const allTags = [...new Set(ingredients.flatMap((i) => i.tags))].sort();
 
   const grouped = groupBy(ingredients, (i) => i.category ?? 'other');
-  const sortedCategories = Object.keys(grouped).sort(
-    (a, b) => {
-      const ai = (ALL_CATEGORIES as readonly string[]).indexOf(a);
-      const bi = (ALL_CATEGORIES as readonly string[]).indexOf(b);
-      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-    },
-  );
 
   return (
     <>
@@ -117,10 +110,10 @@ export default function IngredientsPage({ kitchen }: Props) {
         {allTags.map((t) => <option key={t} value={t} />)}
       </datalist>
 
-      {sortedCategories.length > 1 && (
+      {Object.keys(grouped).length > 1 && (
         <nav aria-label="Pantry categories" className="sticky top-0 z-10 bg-body-translucent backdrop-blur pt-4 pb-2 overflow-x-auto overflow-y-hidden">
           <ul className="flex gap-2 whitespace-nowrap pb-1 px-4 md:px-8" role="list">
-            {sortedCategories.map((cat) => (
+            {CATEGORY_GROUPS.flatMap((g) => g.categories).filter((cat) => grouped[cat]).map((cat) => (
               <li key={cat}>
                 <a
                   href={`#cat-${cat}`}
@@ -195,11 +188,14 @@ export default function IngredientsPage({ kitchen }: Props) {
           </div>
         )}
 
-        {sortedCategories.map((category) => (
-          <section key={category} aria-labelledby={`cat-${category}`} className="mb-10">
-            <h2 id={`cat-${category}`} className="text-xs font-bold uppercase tracking-widest text-[var(--color-text-secondary)] mb-3 scroll-mt-20">
-              {category}
-            </h2>
+        {CATEGORY_GROUPS.filter((g) => g.categories.some((c) => grouped[c])).map((group) => (
+          <section key={group.label} className="mb-10">
+            <h2 className="text-lg font-bold mb-3 scroll-mt-20">{group.label}</h2>
+            {group.categories.filter((c) => grouped[c]).map((category) => (
+              <div key={category} className="mb-4 ml-1" id={`cat-${category}`}>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--color-text-secondary)] mb-2 scroll-mt-20">
+                  {category}
+                </h3>
             <ul role="list" className="divide-y divide-[var(--color-border-card)]">
               {grouped[category].map((ing) => (
                 <li key={ing.id}>
@@ -253,6 +249,8 @@ export default function IngredientsPage({ kitchen }: Props) {
                 </li>
               ))}
             </ul>
+              </div>
+            ))}
           </section>
         ))}
       </main>

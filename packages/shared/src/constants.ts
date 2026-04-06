@@ -1,7 +1,7 @@
 export const CATEGORY_GROUPS = [
   {
     label: 'Fresh',
-    categories: ['vegetables', 'fruit', 'fresh herbs', 'dairy & eggs'],
+    categories: ['vegetables', 'fruit', 'fresh herbs', 'dairy'],
   },
   {
     label: 'Protein',

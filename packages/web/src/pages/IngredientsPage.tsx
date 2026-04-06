@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
-import { HIDDEN_TAGS, ALL_CATEGORIES } from '@pantry-host/shared/constants';
+import { HIDDEN_TAGS, ALL_CATEGORIES, CATEGORY_GROUPS } from '@pantry-host/shared/constants';
 import { Trash, PencilSimple } from '@phosphor-icons/react';
 import IngredientForm, { type IngredientFormVariables, type IngredientData } from '@pantry-host/shared/components/IngredientForm';
 import BatchScanSession from '../components/BatchScanSession';
@@ -113,15 +113,16 @@ export default function IngredientsPage() {
           Your pantry is empty. Click "+ Add Ingredient" to get started.
         </p>
       ) : (
-        Object.entries(grouped).sort(([a], [b]) => {
-          const ai = (ALL_CATEGORIES as readonly string[]).indexOf(a);
-          const bi = (ALL_CATEGORIES as readonly string[]).indexOf(b);
-          return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-        }).map(([cat, items]) => (
-          <div key={cat} className="mb-6">
-            <h2 className="font-semibold text-sm uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
+        CATEGORY_GROUPS.filter((g) => g.categories.some((c) => grouped[c])).map((group) => (
+          <div key={group.label} className="mb-8">
+            <h2 className="text-lg font-bold mb-3">{group.label}</h2>
+            {group.categories.filter((c) => grouped[c]).map((cat) => {
+              const items = grouped[cat];
+              return (
+          <div key={cat} className="mb-4 ml-1">
+            <h3 className="font-semibold text-sm uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
               {cat}
-            </h2>
+            </h3>
             <ul className="divide-y divide-[var(--color-border-card)]">
               {items.map((ing) => (
                 <li key={ing.id}>
@@ -185,6 +186,9 @@ export default function IngredientsPage() {
                 </li>
               ))}
             </ul>
+          </div>
+              );
+            })}
           </div>
         ))
       )}

@@ -104,6 +104,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // --- Wikibooks API: cache-first (static dataset, never changes) ---
+  if (url.pathname.startsWith('/api/wikibooks')) {
+    event.respondWith(
+      caches.open(ASSETS_CACHE).then((cache) =>
+        cache.match(request).then((cached) => {
+          if (cached) return cached;
+          return fetch(request).then((response) => {
+            if (response.ok) cache.put(request, response.clone());
+            return response;
+          });
+        })
+      )
+    );
+    return;
+  }
+
   // --- Rex bundles: cache-first (immutable hashed filenames) ---
   if (url.pathname.startsWith('/_rex/')) {
     event.respondWith(

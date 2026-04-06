@@ -861,6 +861,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                 prepTime: recipe.prepTime,
                 cookTime: recipe.cookTime,
                 tags: recipe.tags,
+                sourceUrl: recipe.sourceUrl,
                 ingredients: recipe.ingredients?.map((i: { ingredientName: string; quantity?: number | null; unit?: string | null }) => ({
                   ingredientName: i.ingredientName,
                   quantity: i.quantity,

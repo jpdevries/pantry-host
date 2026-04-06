@@ -24,7 +24,8 @@
     "./mealdb": "./src/mealdb.ts",
     "./publicdomainrecipes": "./src/publicdomainrecipes.ts",
     "./cooklang-parser": "./src/cooklang-parser.ts",
-    "./wikibooks": "./src/wikibooks.ts"
+    "./wikibooks": "./src/wikibooks.ts",
+    "./cocktaildb": "./src/cocktaildb.ts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

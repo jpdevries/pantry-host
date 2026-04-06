@@ -28,6 +28,16 @@ import {
 } from '@pantry-host/shared/publicdomainrecipes';
 import { MagnifyingGlass, CookingPot } from '@phosphor-icons/react';
 import { parseIngredientLine, type WikibooksEntry } from '@pantry-host/shared/wikibooks';
+import {
+  searchCocktailDB,
+  filterCocktailsByCategory,
+  getCocktailDBRecipe,
+  getCocktailDBCategories,
+  drinkToRecipe,
+  type CocktailDBDrink,
+  type CocktailDBSearchResult,
+  type CocktailDBCategory,
+} from '@pantry-host/shared/cocktaildb';
 
 // ── Cooklang image cache + throttled fetcher ────────────────────────────────
 const clImageCache = new Map<number, string | null>();
@@ -245,7 +255,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
   const clDebounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Community tab state
-  type CommunityTab = 'cooklang' | 'mealdb' | 'publicdomain' | 'wikibooks';
+  type CommunityTab = 'cooklang' | 'mealdb' | 'cocktaildb' | 'publicdomain' | 'wikibooks';
   const [communityTab, setCommunityTab] = useState<CommunityTab>('cooklang');
 
   // Wikibooks state (server-side cached, no client download)
@@ -255,6 +265,17 @@ export default function RecipeImportPage({ kitchen }: Props) {
   const [wbSearching, setWbSearching] = useState(false);
   const [wbSelected, setWbSelected] = useState<Set<string>>(new Set());
   const [wbLoaded, setWbLoaded] = useState(false);
+
+  // CocktailDB state
+  const [cdQuery, setCdQuery] = useState('');
+  const [cdCategory, setCdCategory] = useState('');
+  const [cdCategories, setCdCategories] = useState<CocktailDBCategory[]>([]);
+  const [cdResults, setCdResults] = useState<(CocktailDBDrink | CocktailDBSearchResult)[]>([]);
+  const [cdSearching, setCdSearching] = useState(false);
+  const [cdSelected, setCdSelected] = useState<Set<string>>(new Set());
+  const cdDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => { getCocktailDBCategories().then(setCdCategories).catch(() => {}); }, []);
 
   // TheMealDB state
   const [mdQuery, setMdQuery] = useState('');
@@ -655,6 +676,9 @@ export default function RecipeImportPage({ kitchen }: Props) {
               }} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${communityTab === 'wikibooks' ? 'border-accent text-accent' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
                 Wikibooks
               </button>
+              <button role="tab" aria-selected={communityTab === 'cocktaildb'} onClick={() => setCommunityTab('cocktaildb')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${communityTab === 'cocktaildb' ? 'border-accent text-accent' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
+                TheCocktailDB
+              </button>
             </div>
 
             {communityTab === 'cooklang' && (<>
@@ -954,6 +978,104 @@ export default function RecipeImportPage({ kitchen }: Props) {
               <p className="text-xs text-[var(--color-text-secondary)] mt-6 text-center">
                 Recipes from <a href="https://en.wikibooks.org/wiki/Cookbook" className="underline" rel="noopener noreferrer">Wikibooks Cookbook</a> · CC-BY-SA-4.0
               </p>
+            </>)}
+
+            {communityTab === 'cocktaildb' && (<>
+              {typeof window !== 'undefined' && localStorage.getItem('age-verified') !== 'true' ? (
+                <div className="text-center py-12">
+                  <p className="text-[var(--color-text-secondary)] mb-2">TheCocktailDB contains alcoholic drink recipes.</p>
+                  <p className="text-[var(--color-text-secondary)] text-sm mb-6">You must be 21 or older to browse this content.</p>
+                  <button onClick={() => { localStorage.setItem('age-verified', 'true'); setCommunityTab('cocktaildb'); }} className="btn-primary">I am 21 or older</button>
+                </div>
+              ) : (<>
+              <div className="flex gap-2 mb-4">
+                <div className="relative flex-1">
+                  <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" aria-hidden />
+                  <input
+                    type="search"
+                    value={cdQuery}
+                    onChange={(e) => {
+                      setCdQuery(e.target.value);
+                      clearTimeout(cdDebounceRef.current);
+                      const q = e.target.value;
+                      if (!q.trim()) { setCdResults([]); return; }
+                      cdDebounceRef.current = setTimeout(async () => {
+                        setCdSearching(true); setCdCategory('');
+                        try { setCdResults(await searchCocktailDB(q.trim())); } catch { /* skip */ }
+                        finally { setCdSearching(false); }
+                      }, 300);
+                    }}
+                    placeholder="Search cocktails (e.g. margarita, mojito)…"
+                    className="field-input w-full pl-9"
+                  />
+                </div>
+                {cdCategories.length > 0 && (
+                  <select
+                    value={cdCategory}
+                    onChange={async (e) => {
+                      if (!e.target.value) return;
+                      setCdCategory(e.target.value); setCdQuery(''); setCdSearching(true);
+                      try { setCdResults(await filterCocktailsByCategory(e.target.value)); } catch { /* skip */ }
+                      finally { setCdSearching(false); }
+                    }}
+                    className="field-select w-auto"
+                  >
+                    <option value="">Category</option>
+                    {cdCategories.map((c) => <option key={c.strCategory} value={c.strCategory}>{c.strCategory}</option>)}
+                  </select>
+                )}
+              </div>
+
+              {cdSearching && <div className="h-40 rounded-xl bg-[var(--color-bg-card)] animate-pulse" />}
+
+              {cdResults.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {cdResults.map((r) => {
+                    const id = 'idDrink' in r ? r.idDrink : '';
+                    const name = 'strDrink' in r ? r.strDrink : '';
+                    const thumb = 'strDrinkThumb' in r ? r.strDrinkThumb : null;
+                    return (
+                      <label key={id} className={`card overflow-hidden cursor-pointer transition-colors ${cdSelected.has(id) ? 'ring-2 ring-accent' : ''}`}>
+                        {thumb && <img src={thumb} alt={name} className="w-full aspect-[4/3] object-cover" loading="lazy" />}
+                        <div className="p-3 flex items-start gap-2">
+                          <input type="checkbox" checked={cdSelected.has(id)} onChange={() => setCdSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; })} className="mt-1 accent-accent" />
+                          <div>
+                            <p className="font-semibold text-sm">{name}</p>
+                            {('strCategory' in r && r.strCategory) && <span className="tag text-xs mr-1">{r.strCategory}</span>}
+                            {('strAlcoholic' in r && r.strAlcoholic) && <span className="tag text-xs">{r.strAlcoholic}</span>}
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+
+              {cdSelected.size > 0 && (
+                <div className="sticky bottom-4 mt-6 flex justify-center">
+                  <button
+                    onClick={async () => {
+                      const ids = Array.from(cdSelected);
+                      for (const id of ids) {
+                        try {
+                          let drink = cdResults.find((r) => ('idDrink' in r ? r.idDrink : '') === id) as CocktailDBDrink | undefined;
+                          if (!drink || !('strInstructions' in drink)) drink = await getCocktailDBRecipe(id) ?? undefined;
+                          if (!drink) continue;
+                          const recipe = drinkToRecipe(drink);
+                          await gql(CREATE_RECIPE, { title: recipe.title, description: null, instructions: recipe.instructions, servings: null, prepTime: null, cookTime: null, tags: recipe.tags, photoUrl: recipe.photoUrl, sourceUrl: recipe.sourceUrl, ingredients: recipe.ingredients, kitchenSlug: kitchen });
+                        } catch { /* skip */ }
+                        await new Promise((resolve) => setTimeout(resolve, 1200));
+                      }
+                      setCdSelected(new Set());
+                      router.push(`${recipesBase}#stage`);
+                    }}
+                    className="btn-primary shadow-lg"
+                  >
+                    Import {cdSelected.size} selected
+                  </button>
+                </div>
+              )}
+            </>)}
             </>)}
 
           </div>

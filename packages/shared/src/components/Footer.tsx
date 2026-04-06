@@ -243,6 +243,24 @@ function LogoCooklang({ size = 24 }: { size?: number }) {
   );
 }
 
+function LogoWikibooks({ size = 24 }: { size?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width={size} height={size} fill="currentColor" aria-hidden="true">
+      <title>Wikibooks</title>
+      <g transform="translate(-50,-12.4375)">
+        <path d="M 191.65664,115.97593 C 196.93351,182.00184 208.45394,245.91983 242.85479,307.46513 L 255.86467,307.56221 L 338.15581,234.14292 L 259.72068,35.943307 L 203.18059,89.951746 Z" opacity="0.2" />
+        <path d="M 125.84082,116.04509 C 131.11769,182.071 144.61911,246.8316 179.01996,308.3769 L 199.35471,308.55962 L 261.32293,230.84125 L 193.90486,36.012472 L 137.36477,90.020911 Z" opacity="0.35" />
+        <path d="M 50.218883,114.63177 C 55.595535,183.91551 77.233973,245.97178 102.67801,306.33668 L 129.48015,306.00572 L 199.88087,225.96804 L 118.28293,34.599156 L 61.742841,88.607595 Z" opacity="0.5" />
+        <g transform="translate(1.82723,0)">
+          <path d="M 261.5,16.5 C 234.31308,42.801966 207.4375,68.875 207.4375,68.875 L 217.09375,88.53125 C 230.18732,75.550025 243.35503,64.133911 255.90625,51.4375 C 282.33951,109.4727 300.35033,156.24917 322.50468,218.08448 C 329.75739,238.17246 328.27859,239.07126 310.94218,249.92823 C 283.08742,263.77995 274.26937,272.86547 241.0711,308.1875 L 263.78985,308.1875 C 291.54329,283.09599 301.84538,274.24081 336.59843,255.92823 C 348.89232,248.83035 350.578,239.86966 345.53593,225.92823 C 329.27475,180.73146 294.04485,83.322614 261.5,16.5 Z" opacity="0.6" />
+          <path d="M 190.625,17.125 C 170.73743,30.549352 155.39633,49.869448 138.09375,66.4375 L 145.1875,89.0625 C 158.72867,78.391834 170.51307,65.526043 182.6875,53.34375 L 248.34375,218.03125 C 252.12949,229.18194 246.16733,239.10365 234.1875,249.90625 C 219.83826,261.43896 190.29493,288.32681 176.90625,308.8125 L 197.28125,308.8125 C 218.6659,286.84657 222.52645,283.86504 246.875,262.78125 C 263.22134,246.10281 277.989,237.56053 270.28125,216.1875 L 190.625,17.125 Z" opacity="0.8" />
+          <path d="M 123.5,16.0625 C 118.19865,17.841698 113.78789,21.260515 109.65625,24.875 C 53.567692,78.847012 51.3125,81.125 51.3125,81.125 C 48.361035,83.867742 48.114516,87.87735 48.15625,91.90625 L 48.391654,114.63177 C 48.391654,114.63177 74.295878,89.450054 112.96875,52.21875 C 133.78717,106.45643 155.51427,160.40524 176.90625,214.4375 C 179.83575,222.60083 172.82402,229.2909 163.9375,238.21875 C 151.66395,250.19233 125.99284,274.84011 99.71875,307.75 L 126.0625,307.75 L 189.375,238.3125 C 195.39428,230.03457 202.87819,221.9413 199.71875,214.4375 L 123.5,16.0625 Z" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
 const CREDITS: { name: string; href: string; Logo: React.FC<{ size?: number }> }[] = [
   { name: 'JP DeVries', href: 'https://devries.jp', Logo: LogoJP },
   { name: 'HTML5', href: 'https://html.spec.whatwg.org/', Logo: LogoHTML5 },
@@ -261,6 +279,8 @@ const CREDITS: { name: string; href: string; Logo: React.FC<{ size?: number }> }
   { name: 'Cooklang', href: 'https://cooklang.org/', Logo: LogoCooklang },
   { name: 'TheMealDB', href: 'https://www.themealdb.com/', Logo: LogoTheMealDB },
   { name: 'Public Domain Recipes', href: 'https://publicdomainrecipes.com/', Logo: ({ size = 24 }) => <BowlSteam size={size} aria-hidden="true" /> },
+  { name: 'Wikibooks Cookbook', href: 'https://en.wikibooks.org/wiki/Cookbook', Logo: LogoWikibooks },
+  { name: 'TheCocktailDB', href: 'https://www.thecocktaildb.com/', Logo: LogoTheMealDB },
   { name: 'Cloudflare', href: 'https://www.cloudflare.com/', Logo: LogoCloudflare },
   { name: 'Anthropic', href: 'https://www.anthropic.com/', Logo: LogoAnthropic },
   { name: 'Tailscale', href: 'https://tailscale.com/', Logo: LogoTailscale },
@@ -441,7 +461,7 @@ export default function Footer() {
             </div>
             <div className="mt-4 legible text-zinc-500 dark:text-zinc-400 max-w-prose pretty">
               <p className="mb-2">Pantry Host is created and maintained by JP DeVries. Built on a lean web standards stack — HTML5, CSS3, and modern JavaScript APIs — enhanced by React, Node.js, PostgreSQL, and GraphQL. The front end fully leverages native browser capabilities before adding dependencies. A service worker handles offline caching and an &ldquo;away from pantry&rdquo; mode for use on the go.</p>
-              <p className="mb-2">Source code is authored in TypeScript, primarily via Claude Code. Rex, a Rust-based Next.js alternative by Liminal Labs, powers the server-side rendering. Packages are built with either Vite or Rex. Witness, also by Liminal Labs, automates screencasts, screenshots, and smoke tests. Open Food Facts provides barcode lookup data. The Cooklang Federation, TheMealDB, and Public Domain Recipes provide federated recipe search and import. A single Docker command is offered for containerized setup.</p>
+              <p className="mb-2">Source code is authored in TypeScript, primarily via Claude Code. Rex, a Rust-based Next.js alternative by Liminal Labs, powers the server-side rendering. Packages are built with either Vite or Rex. Witness, also by Liminal Labs, automates screencasts, screenshots, and smoke tests. Open Food Facts provides barcode lookup data. The Cooklang Federation, TheMealDB, TheCocktailDB, Public Domain Recipes, and Wikibooks Cookbook (CC-BY-SA) provide federated recipe search and import. A single Docker command is offered for containerized setup.</p>
               <p className="mb-2">The self-hosted, privacy-first architecture relies on Tailscale for secure remote access and guest sharing over the local network. Pantry Host is designed to work as a Claude Code project and runs within the Claude Code preview using a dedicated &ldquo;Claude&rdquo; theme.</p>
               <p>Logo mark illustration by Robb Sturtcman of Zia Art. HTML design patterns from markup.tips by JP DeVries. Site hosted on Cloudflare Pages.</p>
             </div>

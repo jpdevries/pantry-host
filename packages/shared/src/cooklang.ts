@@ -161,6 +161,7 @@ export function recipeToCooklang(recipe: {
   prepTime?: number | null;
   cookTime?: number | null;
   tags?: string[];
+  sourceUrl?: string | null;
   ingredients?: { ingredientName: string; quantity?: number | null; unit?: string | null }[];
 }): string {
   const lines: string[] = [];
@@ -172,6 +173,7 @@ export function recipeToCooklang(recipe: {
   if (recipe.cookTime) lines.push(`>> cook time: ${recipe.cookTime} minutes`);
   if (recipe.tags?.length) lines.push(`>> tags: ${recipe.tags.join(', ')}`);
   lines.push(`>> source: Pantry Host`);
+  if (recipe.sourceUrl) lines.push(`>> source url: ${recipe.sourceUrl}`);
   lines.push('');
 
   if (recipe.description) {

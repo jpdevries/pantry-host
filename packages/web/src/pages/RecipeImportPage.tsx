@@ -26,6 +26,16 @@ import {
 } from '@pantry-host/shared/publicdomainrecipes';
 import { MagnifyingGlass, CookingPot, DownloadSimple } from '@phosphor-icons/react';
 import { searchWikibooks, parseIngredientLine, type WikibooksEntry } from '@pantry-host/shared/wikibooks';
+import {
+  searchCocktailDB,
+  filterCocktailsByCategory,
+  getCocktailDBRecipe,
+  getCocktailDBCategories,
+  drinkToRecipe,
+  type CocktailDBDrink,
+  type CocktailDBSearchResult,
+  type CocktailDBCategory,
+} from '@pantry-host/shared/cocktaildb';
 import { isWikibooksDownloaded, loadWikibooksData, downloadWikibooksDataset } from '@/lib/wikibooks-store';
 
 const CREATE_MUTATION = `mutation(
@@ -41,7 +51,7 @@ const CREATE_MUTATION = `mutation(
   ) { id slug }
 }`;
 
-type Tab = 'mealdb' | 'publicdomain' | 'cooklang' | 'wikibooks';
+type Tab = 'mealdb' | 'cocktaildb' | 'publicdomain' | 'cooklang' | 'wikibooks';
 
 // ── Cooklang image cache + throttled fetcher ────────────────────────────────
 
@@ -371,6 +381,167 @@ function MealDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
 
 // ── Public Domain Tab ───────────────────────────────────────────────────────
 
+// ── CocktailDB Tab ───────────────────────────────────────────────────────────
+
+function CocktailDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
+  const [ageVerified, setAgeVerified] = useState(() =>
+    typeof window !== 'undefined' && localStorage.getItem('age-verified') === 'true'
+  );
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('');
+  const [categories, setCategories] = useState<CocktailDBCategory[]>([]);
+  const [results, setResults] = useState<(CocktailDBDrink | CocktailDBSearchResult)[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => { if (ageVerified) getCocktailDBCategories().then(setCategories).catch(() => {}); }, [ageVerified]);
+
+  if (!ageVerified) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-[var(--color-text-secondary)] mb-2">
+          TheCocktailDB contains alcoholic drink recipes.
+        </p>
+        <p className="text-[var(--color-text-secondary)] text-sm mb-6">
+          You must be 21 or older to browse this content.
+        </p>
+        <button
+          onClick={() => { localStorage.setItem('age-verified', 'true'); setAgeVerified(true); }}
+          className="btn-primary"
+        >
+          I am 21 or older
+        </button>
+      </div>
+    );
+  }
+
+  const searchByName = useCallback(async (q: string) => {
+    if (!q.trim()) { setResults([]); return; }
+    setSearching(true); setError(null); setCategory('');
+    try { setResults(await searchCocktailDB(q.trim())); }
+    catch (err) { setError(`Search failed: ${(err as Error).message}`); }
+    finally { setSearching(false); }
+  }, []);
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    if (!query.trim()) { if (!category) setResults([]); return; }
+    debounceRef.current = setTimeout(() => searchByName(query), 300);
+    return () => clearTimeout(debounceRef.current);
+  }, [query, searchByName]);
+
+  async function handleCategoryFilter(cat: string) {
+    setCategory(cat); setQuery(''); setSearching(true); setError(null);
+    try { setResults(await filterCocktailsByCategory(cat)); }
+    catch (err) { setError(`Filter failed: ${(err as Error).message}`); }
+    finally { setSearching(false); }
+  }
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
+
+  async function handleImport() {
+    if (selected.size === 0) return;
+    setImportProgress({ done: 0, total: selected.size });
+    const ids = Array.from(selected);
+    for (let i = 0; i < ids.length; i++) {
+      try {
+        let drink = results.find((r) => ('idDrink' in r ? r.idDrink : '') === ids[i]) as CocktailDBDrink | undefined;
+        if (!drink || !('strInstructions' in drink)) drink = await getCocktailDBRecipe(ids[i]) ?? undefined;
+        if (!drink) throw new Error('Drink not found');
+        const recipe = drinkToRecipe(drink);
+        await gql(CREATE_MUTATION, {
+          title: recipe.title, description: null, instructions: recipe.instructions,
+          servings: null, prepTime: null, cookTime: null,
+          tags: recipe.tags, photoUrl: recipe.photoUrl, sourceUrl: recipe.sourceUrl,
+          ingredients: recipe.ingredients,
+        });
+      } catch { /* skip */ }
+      setImportProgress({ done: i + 1, total: ids.length });
+      if (i < ids.length - 1) await new Promise((r) => setTimeout(r, 1200));
+    }
+    setSelected(new Set()); setImportProgress(null);
+    navigate('/recipes#stage');
+  }
+
+  return (
+    <>
+      <div className="flex gap-2 mb-4">
+        <div className="relative flex-1">
+          <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" aria-hidden />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search cocktails (e.g. margarita, mojito)…"
+            className="field-input w-full pl-9"
+          />
+        </div>
+        {categories.length > 0 && (
+          <select
+            value={category}
+            onChange={(e) => { if (e.target.value) handleCategoryFilter(e.target.value); }}
+            className="field-select w-auto"
+          >
+            <option value="">Category</option>
+            {categories.map((c) => <option key={c.strCategory} value={c.strCategory}>{c.strCategory}</option>)}
+          </select>
+        )}
+      </div>
+
+      {error && <p className="text-sm text-red-500 mb-4">{error}</p>}
+
+      {searching && <div className="h-40 rounded-xl bg-[var(--color-bg-card)] animate-pulse" />}
+
+      {importProgress && (
+        <div className="mb-4 p-3 card text-sm text-center">
+          Importing {importProgress.done} of {importProgress.total}…
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {results.map((r) => {
+          const id = 'idDrink' in r ? r.idDrink : '';
+          const name = 'strDrink' in r ? r.strDrink : '';
+          const thumb = 'strDrinkThumb' in r ? r.strDrinkThumb : null;
+          return (
+            <label key={id} className={`card overflow-hidden cursor-pointer transition-colors ${selected.has(id) ? 'ring-2 ring-[var(--color-accent)]' : ''}`}>
+              {thumb && (
+                <picture>
+                  <source media="(prefers-reduced-data: reduce)" srcSet={`${thumb}/preview`} />
+                  <img src={thumb} srcSet={`${thumb}/preview 1x, ${thumb} 2x`} alt={name} className="w-full aspect-[4/3] object-cover" loading="lazy" />
+                </picture>
+              )}
+              <div className="p-3 flex items-start gap-2">
+                <input type="checkbox" checked={selected.has(id)} onChange={() => toggleSelect(id)} className="mt-1 accent-[var(--color-accent)]" />
+                <div>
+                  <p className="font-semibold text-sm">{name}</p>
+                  {('strCategory' in r && r.strCategory) && <span className="tag text-xs mr-1">{r.strCategory}</span>}
+                  {('strAlcoholic' in r && r.strAlcoholic) && <span className="tag text-xs">{r.strAlcoholic}</span>}
+                </div>
+              </div>
+            </label>
+          );
+        })}
+      </div>
+
+      {selected.size > 0 && (
+        <div className="sticky bottom-4 mt-6 flex justify-center">
+          <button onClick={handleImport} disabled={!!importProgress} className="btn-primary shadow-lg">
+            Import {selected.size} selected
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ── Public Domain Tab ────────────────────────────────────────────────────────
+
 function PublicDomainTab({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PDREntry[]>([]);
@@ -514,12 +685,21 @@ export default function RecipeImportPage() {
         >
           Wikibooks
         </button>
+        <button
+          role="tab"
+          aria-selected={tab === 'cocktaildb'}
+          onClick={() => setTab('cocktaildb')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === 'cocktaildb' ? 'border-[var(--color-accent)] text-[var(--color-accent)]' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
+        >
+          TheCocktailDB
+        </button>
       </div>
 
       {tab === 'mealdb' && <MealDBTab navigate={navigate} />}
       {tab === 'publicdomain' && <PublicDomainTab navigate={navigate} />}
       {tab === 'cooklang' && <CooklangTab navigate={navigate} />}
       {tab === 'wikibooks' && <WikibooksTab navigate={navigate} />}
+      {tab === 'cocktaildb' && <CocktailDBTab navigate={navigate} />}
     </div>
   );
 }

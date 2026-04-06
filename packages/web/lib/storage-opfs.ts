@@ -76,12 +76,53 @@ async function getAppDir(): Promise<FileSystemDirectoryHandle> {
   return root.getDirectoryHandle(ROOT_DIR, { create: true });
 }
 
+// ── JSON worker (offloads parse/stringify from main thread) ──────────────────
+
+let jsonWorker: Worker | null = null;
+let requestId = 0;
+const pending = new Map<number, (value: unknown) => void>();
+
+function getJsonWorker(): Worker | null {
+  if (jsonWorker) return jsonWorker;
+  try {
+    jsonWorker = new Worker(new URL('./json-worker.ts', import.meta.url), { type: 'module' });
+    jsonWorker.onmessage = (e: MessageEvent<{ id: number; result: unknown }>) => {
+      const resolve = pending.get(e.data.id);
+      if (resolve) { pending.delete(e.data.id); resolve(e.data.result); }
+    };
+    return jsonWorker;
+  } catch {
+    return null; // CSP or unsupported — fall back to main thread
+  }
+}
+
+function workerParse<T>(text: string): Promise<T> {
+  const w = getJsonWorker();
+  if (!w) return Promise.resolve(JSON.parse(text) as T);
+  const id = ++requestId;
+  return new Promise((resolve) => {
+    pending.set(id, resolve as (v: unknown) => void);
+    w.postMessage({ type: 'parse', payload: text, id });
+  });
+}
+
+function workerStringify(data: unknown): Promise<string> {
+  const w = getJsonWorker();
+  if (!w) return Promise.resolve(JSON.stringify(data));
+  const id = ++requestId;
+  return new Promise((resolve) => {
+    pending.set(id, resolve as (v: unknown) => void);
+    w.postMessage({ type: 'stringify', payload: data, id });
+  });
+}
+
 /** Store a JSON-serializable value in OPFS app directory */
 export async function putData(filename: string, data: unknown): Promise<void> {
   const dir = await getAppDir();
   const handle = await dir.getFileHandle(filename, { create: true });
   const writable = await handle.createWritable();
-  await writable.write(JSON.stringify(data));
+  const json = await workerStringify(data);
+  await writable.write(json);
   await writable.close();
 }
 
@@ -92,7 +133,7 @@ export async function getData<T>(filename: string): Promise<T | null> {
     const handle = await dir.getFileHandle(filename);
     const file = await handle.getFile();
     const text = await file.text();
-    return JSON.parse(text) as T;
+    return workerParse<T>(text);
   } catch {
     return null;
   }

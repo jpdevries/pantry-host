@@ -7,7 +7,7 @@ import {
   Camera, PencilSimple, Trash,
   Leaf, Bone, Egg, Package, Snowflake, DotsThree,
   Carrot, OrangeSlice, Plant, Cow, Drop, Knife, Fish,
-  Cube, Grains, Nut, Jar, JarLabel, Pepper, Bread,
+  Cube, Grains, Acorn, Jar, JarLabel, Pepper, Bread,
   ForkKnife, Coffee, Cookie,
 } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
@@ -30,7 +30,7 @@ const CAT_ICONS: Record<string, ReactNode> = {
   'eggs': <Egg size={16} aria-hidden />,
   'tofu & tempeh': <Cube size={16} aria-hidden />,
   'legumes & pulses': <Grains size={16} aria-hidden />,
-  'nuts & seeds': <Nut size={16} aria-hidden />,
+  'nuts & seeds': <Acorn size={16} aria-hidden />,
   'plant-based milks': <Drop size={16} aria-hidden />,
   'dry goods & grains': <Grains size={16} aria-hidden />,
   'canned & jarred': <Jar size={16} aria-hidden />,

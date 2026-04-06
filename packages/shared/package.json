@@ -15,6 +15,7 @@
     "./components/AccessibilityPreferences": "./src/components/AccessibilityPreferences.tsx",
     "./components/Modal": "./src/components/Modal.tsx",
     "./components/IngredientEditor": "./src/components/IngredientEditor.tsx",
+    "./components/IngredientForm": "./src/components/IngredientForm.tsx",
     "./components/FeaturedTags": "./src/components/FeaturedTags.tsx",
     "./types": "./src/types/index.ts",
     "./adapters/*": "./src/adapters/*.ts",

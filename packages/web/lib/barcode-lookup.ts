@@ -23,6 +23,7 @@ function mapCategory(categories: string): string {
   if (lower.includes('meat') || lower.includes('poultry') || lower.includes('chicken') || lower.includes('beef') || lower.includes('pork')) return 'meat & poultry';
   if (lower.includes('tofu') || lower.includes('tempeh') || lower.includes('soy')) return 'tofu & tempeh';
   if (lower.includes('bean') || lower.includes('lentil') || lower.includes('legume') || lower.includes('chickpea')) return 'legumes & pulses';
+  if (lower.includes('almond milk') || lower.includes('oat milk') || lower.includes('soy milk') || lower.includes('coconut milk') || lower.includes('plant-based milk') || lower.includes('rice milk')) return 'plant-based milks';
   if (lower.includes('nut') || lower.includes('seed') || lower.includes('almond') || lower.includes('peanut')) return 'nuts & seeds';
   if (lower.includes('deli') || lower.includes('charcuterie') || lower.includes('sausage') || lower.includes('salami')) return 'deli & charcuterie';
   if (lower.includes('beverage') || lower.includes('drink') || lower.includes('juice') || lower.includes('soda') || lower.includes('water') || lower.includes('coffee') || lower.includes('tea')) return 'beverages';

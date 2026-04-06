@@ -31,6 +31,7 @@ const CAT_ICONS: Record<string, ReactNode> = {
   'tofu & tempeh': <Cube size={16} aria-hidden />,
   'legumes & pulses': <Grains size={16} aria-hidden />,
   'nuts & seeds': <Nut size={16} aria-hidden />,
+  'plant-based milks': <Drop size={16} aria-hidden />,
   'dry goods & grains': <Grains size={16} aria-hidden />,
   'canned & jarred': <Jar size={16} aria-hidden />,
   'condiments & sauces': <JarLabel size={16} aria-hidden />,

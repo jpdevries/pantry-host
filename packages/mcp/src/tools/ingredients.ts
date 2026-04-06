@@ -29,7 +29,7 @@ export function registerIngredientTools(server: McpServer) {
     'Add an ingredient to the pantry.',
     {
       name: z.string().describe('Ingredient name'),
-      category: z.enum(['vegetables', 'fruit', 'fresh herbs', 'dairy', 'meat & poultry', 'seafood & fish', 'eggs', 'tofu & tempeh', 'legumes & pulses', 'nuts & seeds', 'dry goods & grains', 'canned & jarred', 'condiments & sauces', 'herbs & spices', 'oils & vinegars', 'baking', 'frozen', 'deli & charcuterie', 'beverages', 'snacks', 'other']).optional().describe('Category'),
+      category: z.enum(['vegetables', 'fruit', 'fresh herbs', 'dairy', 'meat & poultry', 'seafood & fish', 'eggs', 'tofu & tempeh', 'legumes & pulses', 'nuts & seeds', 'plant-based milks', 'dry goods & grains', 'canned & jarred', 'condiments & sauces', 'herbs & spices', 'oils & vinegars', 'baking', 'frozen', 'deli & charcuterie', 'beverages', 'snacks', 'other']).optional().describe('Category'),
       quantity: z.number().optional().describe('Quantity'),
       unit: z.string().optional().describe('Unit (e.g. cup, oz, lb, whole)'),
       alwaysOnHand: z.boolean().optional().describe('If true, never track quantity'),

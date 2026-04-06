@@ -5,7 +5,7 @@ export const CATEGORY_GROUPS = [
   },
   {
     label: 'Protein',
-    categories: ['meat & poultry', 'seafood & fish', 'eggs', 'tofu & tempeh', 'legumes & pulses', 'nuts & seeds'],
+    categories: ['meat & poultry', 'seafood & fish', 'eggs', 'tofu & tempeh', 'legumes & pulses', 'nuts & seeds', 'plant-based milks'],
   },
   {
     label: 'Shelf Stable',

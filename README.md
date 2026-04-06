@@ -12,6 +12,12 @@ Want to access the API away from home? You can't. Unless you set up a [Tailscale
 
 ---
 
+## Project Origin
+
+Pantry Host was founded in Forest Grove, Oregon (45.5246° N, 123.1106° W), on the ancestral homeland of the Atfalati Kalapuya people. See [SOVEREIGNTY.md](SOVEREIGNTY.md).
+
+---
+
 ## Features
 
 - **Pantry** — track ingredients by category with quantities and tags; batch-scan groceries with your camera

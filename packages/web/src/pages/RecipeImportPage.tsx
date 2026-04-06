@@ -195,7 +195,7 @@ function CooklangTab({ navigate }: { navigate: ReturnType<typeof useNavigate> })
     <>
       <div className="relative mb-6">
         <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" aria-hidden />
-        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search Cooklang recipes (e.g. pasta, chicken)..." className="field-input w-full pl-9" autoFocus />
+        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="pasta, breakfast, soup" className="field-input w-full pl-9" autoFocus />
       </div>
       {error && <p role="alert" className="text-sm text-red-400 mb-4">{error}</p>}
       {searching && results.length === 0 && (
@@ -308,15 +308,21 @@ function MealDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
 
   return (
     <>
-      <div className="flex gap-3 mb-6">
-        <div className="relative flex-1">
-          <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" aria-hidden />
-          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search TheMealDB (e.g. chicken, pasta)..." className="field-input w-full pl-9" />
+      <div className="flex gap-3 mb-6 items-end">
+        <div className="flex-1">
+          <label htmlFor="mealdb-search" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Search</label>
+          <div className="relative">
+            <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" aria-hidden />
+            <input id="mealdb-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="pasta, curry, salad" className="field-input w-full pl-9" />
+          </div>
         </div>
-        <select value={category} onChange={(e) => { if (e.target.value) handleCategoryFilter(e.target.value); }} className="field-select w-auto">
-          <option value="">Category</option>
-          {categories.map((c) => <option key={c.idCategory} value={c.strCategory}>{c.strCategory}</option>)}
-        </select>
+        <div>
+          <label htmlFor="mealdb-category" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Category</label>
+          <select id="mealdb-category" value={category} onChange={(e) => { if (e.target.value) handleCategoryFilter(e.target.value); }} className="field-select w-auto">
+            <option value="">All categories</option>
+            {categories.map((c) => <option key={c.idCategory} value={c.strCategory}>{c.strCategory}</option>)}
+          </select>
+        </div>
       </div>
 
       {error && <p role="alert" className="text-sm text-red-400 mb-4">{error}</p>}
@@ -399,6 +405,21 @@ function CocktailDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> 
 
   useEffect(() => { if (ageVerified) getCocktailDBCategories().then(setCategories).catch(() => {}); }, [ageVerified]);
 
+  const searchByName = useCallback(async (q: string) => {
+    if (!q.trim()) { setResults([]); return; }
+    setSearching(true); setError(null); setCategory('');
+    try { setResults(await searchCocktailDB(q.trim())); }
+    catch (err) { setError(`Search failed: ${(err as Error).message}`); }
+    finally { setSearching(false); }
+  }, []);
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    if (!query.trim()) { if (!category) setResults([]); return; }
+    debounceRef.current = setTimeout(() => searchByName(query), 300);
+    return () => clearTimeout(debounceRef.current);
+  }, [query, searchByName]);
+
   if (!ageVerified) {
     return (
       <div className="text-center py-12">
@@ -417,21 +438,6 @@ function CocktailDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> 
       </div>
     );
   }
-
-  const searchByName = useCallback(async (q: string) => {
-    if (!q.trim()) { setResults([]); return; }
-    setSearching(true); setError(null); setCategory('');
-    try { setResults(await searchCocktailDB(q.trim())); }
-    catch (err) { setError(`Search failed: ${(err as Error).message}`); }
-    finally { setSearching(false); }
-  }, []);
-
-  useEffect(() => {
-    clearTimeout(debounceRef.current);
-    if (!query.trim()) { if (!category) setResults([]); return; }
-    debounceRef.current = setTimeout(() => searchByName(query), 300);
-    return () => clearTimeout(debounceRef.current);
-  }, [query, searchByName]);
 
   async function handleCategoryFilter(cat: string) {
     setCategory(cat); setQuery(''); setSearching(true); setError(null);
@@ -470,26 +476,34 @@ function CocktailDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> 
 
   return (
     <>
-      <div className="flex gap-2 mb-4">
-        <div className="relative flex-1">
+      <div className="flex gap-2 mb-4 items-end">
+        <div className="flex-1">
+          <label htmlFor="cocktaildb-search" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Search</label>
+          <div className="relative">
           <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" aria-hidden />
           <input
+            id="cocktaildb-search"
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search cocktails (e.g. margarita, mojito)…"
+            placeholder="margarita, mojito, old fashioned"
             className="field-input w-full pl-9"
           />
+          </div>
         </div>
         {categories.length > 0 && (
-          <select
-            value={category}
-            onChange={(e) => { if (e.target.value) handleCategoryFilter(e.target.value); }}
-            className="field-select w-auto"
-          >
-            <option value="">Category</option>
-            {categories.map((c) => <option key={c.strCategory} value={c.strCategory}>{c.strCategory}</option>)}
-          </select>
+          <div>
+            <label htmlFor="cocktaildb-category" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Category</label>
+            <select
+              id="cocktaildb-category"
+              value={category}
+              onChange={(e) => { if (e.target.value) handleCategoryFilter(e.target.value); }}
+              className="field-select w-auto"
+            >
+              <option value="">All categories</option>
+              {categories.map((c) => <option key={c.strCategory} value={c.strCategory}>{c.strCategory}</option>)}
+            </select>
+          </div>
         )}
       </div>
 

@@ -689,7 +689,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
                 type="search"
                 value={clQuery}
                 onChange={(e) => setClQuery(e.target.value)}
-                placeholder="Search federated recipes (e.g. pasta, chicken, breakfast)..."
+                placeholder="pasta, breakfast, soup"
                 className="field-input w-full pl-9"
               />
             </div>
@@ -752,15 +752,21 @@ export default function RecipeImportPage({ kitchen }: Props) {
 
             {communityTab === 'mealdb' && (
             <>
-            <div className="flex gap-3 mb-4">
-              <div className="relative flex-1">
-                <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" aria-hidden />
-                <input type="search" value={mdQuery} onChange={(e) => setMdQuery(e.target.value)} placeholder="Search TheMealDB (e.g. chicken, pasta)..." className="field-input w-full pl-9" />
+            <div className="flex gap-3 mb-4 items-end">
+              <div className="flex-1">
+                <label htmlFor="mealdb-search" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Search</label>
+                <div className="relative">
+                  <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" aria-hidden />
+                  <input id="mealdb-search" type="search" value={mdQuery} onChange={(e) => setMdQuery(e.target.value)} placeholder="pasta, curry, salad" className="field-input w-full pl-9" />
+                </div>
               </div>
-              <select value={mdCategory} onChange={(e) => { if (e.target.value) handleMdCategoryFilter(e.target.value); }} className="field-select w-auto">
-                <option value="">Category</option>
-                {mdCategories.map((c) => <option key={c.idCategory} value={c.strCategory}>{c.strCategory}</option>)}
-              </select>
+              <div>
+                <label htmlFor="mealdb-category" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Category</label>
+                <select id="mealdb-category" value={mdCategory} onChange={(e) => { if (e.target.value) handleMdCategoryFilter(e.target.value); }} className="field-select w-auto">
+                  <option value="">All categories</option>
+                  {mdCategories.map((c) => <option key={c.idCategory} value={c.strCategory}>{c.strCategory}</option>)}
+                </select>
+              </div>
             </div>
 
             {mdError && <p role="alert" className="text-sm text-red-600 dark:text-red-400 mb-4">{mdError}</p>}
@@ -988,29 +994,35 @@ export default function RecipeImportPage({ kitchen }: Props) {
                   <button onClick={() => { localStorage.setItem('age-verified', 'true'); setCommunityTab('cocktaildb'); }} className="btn-primary">I am 21 or older</button>
                 </div>
               ) : (<>
-              <div className="flex gap-2 mb-4">
-                <div className="relative flex-1">
-                  <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" aria-hidden />
-                  <input
-                    type="search"
-                    value={cdQuery}
-                    onChange={(e) => {
-                      setCdQuery(e.target.value);
-                      clearTimeout(cdDebounceRef.current);
-                      const q = e.target.value;
-                      if (!q.trim()) { setCdResults([]); return; }
-                      cdDebounceRef.current = setTimeout(async () => {
-                        setCdSearching(true); setCdCategory('');
-                        try { setCdResults(await searchCocktailDB(q.trim())); } catch { /* skip */ }
-                        finally { setCdSearching(false); }
-                      }, 300);
-                    }}
-                    placeholder="Search cocktails (e.g. margarita, mojito)…"
-                    className="field-input w-full pl-9"
-                  />
+              <div className="flex gap-2 mb-4 items-end">
+                <div className="flex-1">
+                  <label htmlFor="cocktaildb-search" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Search</label>
+                  <div className="relative">
+                    <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" aria-hidden />
+                    <input
+                      id="cocktaildb-search"
+                      type="search"
+                      value={cdQuery}
+                      onChange={(e) => {
+                        setCdQuery(e.target.value);
+                        clearTimeout(cdDebounceRef.current);
+                        const q = e.target.value;
+                        if (!q.trim()) { setCdResults([]); return; }
+                        cdDebounceRef.current = setTimeout(async () => {
+                          setCdSearching(true); setCdCategory('');
+                          try { setCdResults(await searchCocktailDB(q.trim())); } catch { /* skip */ }
+                          finally { setCdSearching(false); }
+                        }, 300);
+                      }}
+                      placeholder="margarita, mojito, old fashioned"
+                      className="field-input w-full pl-9"
+                    />
+                  </div>
                 </div>
-                {cdCategories.length > 0 && (
+                {cdCategories.length > 0 && (<div>
+                  <label htmlFor="cocktaildb-category" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Category</label>
                   <select
+                    id="cocktaildb-category"
                     value={cdCategory}
                     onChange={async (e) => {
                       if (!e.target.value) return;
@@ -1020,10 +1032,10 @@ export default function RecipeImportPage({ kitchen }: Props) {
                     }}
                     className="field-select w-auto"
                   >
-                    <option value="">Category</option>
+                    <option value="">All categories</option>
                     {cdCategories.map((c) => <option key={c.strCategory} value={c.strCategory}>{c.strCategory}</option>)}
                   </select>
-                )}
+                </div>)}
               </div>
 
               {cdSearching && <div className="h-40 rounded-xl bg-[var(--color-bg-card)] animate-pulse" />}

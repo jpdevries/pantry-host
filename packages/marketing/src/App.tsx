@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Hero from './sections/Hero';
 import Tiers from './sections/Tiers';
 import Features from './sections/Features';
@@ -83,14 +83,12 @@ function AccessibilityPage() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <div className="bg-[var(--color-bg-body)] text-[var(--color-text-primary)] transition-colors">
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/accessibility" element={<AccessibilityPage />} />
-        </Routes>
-        <Footer />
-      </div>
-    </BrowserRouter>
+    <div className="bg-[var(--color-bg-body)] text-[var(--color-text-primary)] transition-colors">
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/accessibility" element={<AccessibilityPage />} />
+      </Routes>
+      <Footer />
+    </div>
   );
 }

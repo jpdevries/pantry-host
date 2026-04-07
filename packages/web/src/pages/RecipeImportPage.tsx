@@ -313,7 +313,7 @@ function MealDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
 
   return (
     <>
-      <div className="flex gap-3 mb-6 items-end">
+      <div className="flex flex-col sm:flex-row gap-3 mb-6 sm:items-end">
         <div className="flex-1">
           <label htmlFor="mealdb-search" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Search</label>
           <div className="relative">
@@ -323,7 +323,7 @@ function MealDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
         </div>
         <div>
           <label htmlFor="mealdb-category" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Category</label>
-          <select id="mealdb-category" value={category} onChange={(e) => { if (e.target.value) handleCategoryFilter(e.target.value); }} className="field-select w-auto">
+          <select id="mealdb-category" value={category} onChange={(e) => { if (e.target.value) handleCategoryFilter(e.target.value); }} className="field-select w-full sm:w-auto">
             <option value="">All categories</option>
             {categories.map((c) => <option key={c.idCategory} value={c.strCategory}>{c.strCategory}</option>)}
           </select>
@@ -486,7 +486,7 @@ function CocktailDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> 
 
   return (
     <>
-      <div className="flex gap-2 mb-4 items-end">
+      <div className="flex flex-col sm:flex-row gap-2 mb-4 sm:items-end">
         <div className="flex-1">
           <label htmlFor="cocktaildb-search" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Search</label>
           <div className="relative">
@@ -508,7 +508,7 @@ function CocktailDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> 
               id="cocktaildb-category"
               value={category}
               onChange={(e) => { if (e.target.value) handleCategoryFilter(e.target.value); }}
-              className="field-select w-auto"
+              className="field-select w-full sm:w-auto"
             >
               <option value="">All categories</option>
               {categories.map((c) => <option key={c.strCategory} value={c.strCategory}>{c.strCategory}</option>)}
@@ -670,9 +670,36 @@ function PublicDomainTab({ navigate }: { navigate: ReturnType<typeof useNavigate
 
 // ── Main Import Page ────────────────────────────────────────────────────────
 
+const TAB_ORDER: Tab[] = ['mealdb', 'publicdomain', 'cooklang', 'wikibooks', 'cocktaildb'];
+const TAB_LABELS: Record<Tab, string> = {
+  mealdb: 'TheMealDB',
+  publicdomain: 'Public Domain',
+  cooklang: 'Cooklang',
+  wikibooks: 'Wikibooks',
+  cocktaildb: 'TheCocktailDB',
+};
+
 export default function RecipeImportPage() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('mealdb');
+
+  const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    const idx = TAB_ORDER.indexOf(tab);
+    let next = idx;
+    if (e.key === 'ArrowRight') next = (idx + 1) % TAB_ORDER.length;
+    else if (e.key === 'ArrowLeft') next = (idx - 1 + TAB_ORDER.length) % TAB_ORDER.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = TAB_ORDER.length - 1;
+    else return;
+    e.preventDefault();
+    const nextTab = TAB_ORDER[next];
+    setTab(nextTab);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`tab-${nextTab}`);
+      el?.focus();
+      el?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    });
+  };
 
   return (
     <div>
@@ -686,54 +713,32 @@ export default function RecipeImportPage() {
       </p>
 
       {/* Tab toggle */}
-      <div className="flex gap-1 mb-6 border-b border-[var(--color-border-card)] overflow-x-auto" role="tablist">
-        <button
-          role="tab"
-          aria-selected={tab === 'mealdb'}
-          onClick={() => setTab('mealdb')}
-          className={`px-4 py-2 text-sm font-medium whitespace-nowrap shrink-0 border-b-2 transition-colors ${tab === 'mealdb' ? 'border-[var(--color-accent)] text-[var(--color-accent)]' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
-        >
-          TheMealDB
-        </button>
-        <button
-          role="tab"
-          aria-selected={tab === 'publicdomain'}
-          onClick={() => setTab('publicdomain')}
-          className={`px-4 py-2 text-sm font-medium whitespace-nowrap shrink-0 border-b-2 transition-colors ${tab === 'publicdomain' ? 'border-[var(--color-accent)] text-[var(--color-accent)]' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
-        >
-          Public Domain
-        </button>
-        <button
-          role="tab"
-          aria-selected={tab === 'cooklang'}
-          onClick={() => setTab('cooklang')}
-          className={`px-4 py-2 text-sm font-medium whitespace-nowrap shrink-0 border-b-2 transition-colors ${tab === 'cooklang' ? 'border-[var(--color-accent)] text-[var(--color-accent)]' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
-        >
-          Cooklang
-        </button>
-        <button
-          role="tab"
-          aria-selected={tab === 'wikibooks'}
-          onClick={() => setTab('wikibooks')}
-          className={`px-4 py-2 text-sm font-medium whitespace-nowrap shrink-0 border-b-2 transition-colors ${tab === 'wikibooks' ? 'border-[var(--color-accent)] text-[var(--color-accent)]' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
-        >
-          Wikibooks
-        </button>
-        <button
-          role="tab"
-          aria-selected={tab === 'cocktaildb'}
-          onClick={() => setTab('cocktaildb')}
-          className={`px-4 py-2 text-sm font-medium whitespace-nowrap shrink-0 border-b-2 transition-colors ${tab === 'cocktaildb' ? 'border-[var(--color-accent)] text-[var(--color-accent)]' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
-        >
-          TheCocktailDB
-        </button>
+      <div className="flex gap-1 mb-6 border-b border-[var(--color-border-card)] overflow-x-auto" role="tablist" aria-label="Recipe sources">
+        {TAB_ORDER.map((key) => {
+          const active = tab === key;
+          return (
+            <button
+              key={key}
+              id={`tab-${key}`}
+              role="tab"
+              aria-selected={active}
+              aria-controls={`tabpanel-${key}`}
+              tabIndex={active ? 0 : -1}
+              onKeyDown={handleTabKeyDown}
+              onClick={() => setTab(key)}
+              className={`px-4 py-2 text-sm font-medium whitespace-nowrap shrink-0 border-b-2 transition-colors ${active ? 'border-[var(--color-accent)] text-[var(--color-accent)]' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
+            >
+              {TAB_LABELS[key]}
+            </button>
+          );
+        })}
       </div>
 
-      {tab === 'mealdb' && <MealDBTab navigate={navigate} />}
-      {tab === 'publicdomain' && <PublicDomainTab navigate={navigate} />}
-      {tab === 'cooklang' && <CooklangTab navigate={navigate} />}
-      {tab === 'wikibooks' && <WikibooksTab navigate={navigate} />}
-      {tab === 'cocktaildb' && <CocktailDBTab navigate={navigate} />}
+      {tab === 'mealdb' && <div role="tabpanel" id="tabpanel-mealdb" aria-labelledby="tab-mealdb"><MealDBTab navigate={navigate} /></div>}
+      {tab === 'publicdomain' && <div role="tabpanel" id="tabpanel-publicdomain" aria-labelledby="tab-publicdomain"><PublicDomainTab navigate={navigate} /></div>}
+      {tab === 'cooklang' && <div role="tabpanel" id="tabpanel-cooklang" aria-labelledby="tab-cooklang"><CooklangTab navigate={navigate} /></div>}
+      {tab === 'wikibooks' && <div role="tabpanel" id="tabpanel-wikibooks" aria-labelledby="tab-wikibooks"><WikibooksTab navigate={navigate} /></div>}
+      {tab === 'cocktaildb' && <div role="tabpanel" id="tabpanel-cocktaildb" aria-labelledby="tab-cocktaildb"><CocktailDBTab navigate={navigate} /></div>}
     </div>
   );
 }

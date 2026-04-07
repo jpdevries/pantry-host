@@ -262,6 +262,30 @@ export default function RecipeImportPage({ kitchen }: Props) {
   // Community tab state
   type CommunityTab = 'cooklang' | 'mealdb' | 'cocktaildb' | 'publicdomain' | 'wikibooks';
   const [communityTab, setCommunityTab] = useState<CommunityTab>('cooklang');
+  const COMMUNITY_TAB_ORDER: CommunityTab[] = ['cooklang', 'mealdb', 'publicdomain', 'wikibooks', 'cocktaildb'];
+  const handleCommunityTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    const idx = COMMUNITY_TAB_ORDER.indexOf(communityTab);
+    let next = idx;
+    if (e.key === 'ArrowRight') next = (idx + 1) % COMMUNITY_TAB_ORDER.length;
+    else if (e.key === 'ArrowLeft') next = (idx - 1 + COMMUNITY_TAB_ORDER.length) % COMMUNITY_TAB_ORDER.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = COMMUNITY_TAB_ORDER.length - 1;
+    else return;
+    e.preventDefault();
+    const nextTab = COMMUNITY_TAB_ORDER[next];
+    if (nextTab === 'wikibooks' && !wbLoaded && !wbSearching) {
+      setWbSearching(true);
+      fetch('/api/wikibooks?limit=48').then((r) => r.json())
+        .then((d) => { setWbResults(d.results); setWbTotal(d.total); setWbLoaded(true); })
+        .catch(() => {}).finally(() => setWbSearching(false));
+    }
+    setCommunityTab(nextTab);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`tab-${nextTab}`);
+      el?.focus();
+      el?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    });
+  };
 
   // Wikibooks state (server-side cached, no client download)
   const [wbResults, setWbResults] = useState<WikibooksEntry[]>([]);
@@ -658,35 +682,37 @@ export default function RecipeImportPage({ kitchen }: Props) {
             </p>
 
             {/* Tab toggle */}
-            <div className="flex gap-1 mb-6 border-b border-[var(--color-border-card)] overflow-x-auto" role="tablist">
-              <button role="tab" aria-selected={communityTab === 'cooklang'} onClick={() => setCommunityTab('cooklang')} className={`px-4 py-2 text-sm font-medium whitespace-nowrap shrink-0 border-b-2 transition-colors ${communityTab === 'cooklang' ? 'border-accent text-accent' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
-                Cooklang
-              </button>
-              <button role="tab" aria-selected={communityTab === 'mealdb'} onClick={() => setCommunityTab('mealdb')} className={`px-4 py-2 text-sm font-medium whitespace-nowrap shrink-0 border-b-2 transition-colors ${communityTab === 'mealdb' ? 'border-accent text-accent' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
-                TheMealDB
-              </button>
-              <button role="tab" aria-selected={communityTab === 'publicdomain'} onClick={() => setCommunityTab('publicdomain')} className={`px-4 py-2 text-sm font-medium whitespace-nowrap shrink-0 border-b-2 transition-colors ${communityTab === 'publicdomain' ? 'border-accent text-accent' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
-                Public Domain
-              </button>
-              <button role="tab" aria-selected={communityTab === 'wikibooks'} onClick={() => {
-                setCommunityTab('wikibooks');
-                if (!wbLoaded && !wbSearching) {
-                  setWbSearching(true);
-                  fetch('/api/wikibooks?limit=48')
-                    .then((r) => r.json())
-                    .then((d) => { setWbResults(d.results); setWbTotal(d.total); setWbLoaded(true); })
-                    .catch(() => {})
-                    .finally(() => setWbSearching(false));
-                }
-              }} className={`px-4 py-2 text-sm font-medium whitespace-nowrap shrink-0 border-b-2 transition-colors ${communityTab === 'wikibooks' ? 'border-accent text-accent' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
-                Wikibooks
-              </button>
-              <button role="tab" aria-selected={communityTab === 'cocktaildb'} onClick={() => setCommunityTab('cocktaildb')} className={`px-4 py-2 text-sm font-medium whitespace-nowrap shrink-0 border-b-2 transition-colors ${communityTab === 'cocktaildb' ? 'border-accent text-accent' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
-                TheCocktailDB
-              </button>
+            <div className="flex gap-1 mb-6 border-b border-[var(--color-border-card)] overflow-x-auto" role="tablist" aria-label="Recipe sources">
+              {COMMUNITY_TAB_ORDER.map((key) => {
+                const label = key === 'cooklang' ? 'Cooklang' : key === 'mealdb' ? 'TheMealDB' : key === 'publicdomain' ? 'Public Domain' : key === 'wikibooks' ? 'Wikibooks' : 'TheCocktailDB';
+                const active = communityTab === key;
+                return (
+                  <button
+                    key={key}
+                    id={`tab-${key}`}
+                    role="tab"
+                    aria-selected={active}
+                    aria-controls={`tabpanel-${key}`}
+                    tabIndex={active ? 0 : -1}
+                    onKeyDown={handleCommunityTabKeyDown}
+                    onClick={() => {
+                      if (key === 'wikibooks' && !wbLoaded && !wbSearching) {
+                        setWbSearching(true);
+                        fetch('/api/wikibooks?limit=48').then((r) => r.json())
+                          .then((d) => { setWbResults(d.results); setWbTotal(d.total); setWbLoaded(true); })
+                          .catch(() => {}).finally(() => setWbSearching(false));
+                      }
+                      setCommunityTab(key);
+                    }}
+                    className={`px-4 py-2 text-sm font-medium whitespace-nowrap shrink-0 border-b-2 transition-colors ${active ? 'border-accent text-accent' : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
 
-            {communityTab === 'cooklang' && (<>
+            {communityTab === 'cooklang' && (<div role="tabpanel" id="tabpanel-cooklang" aria-labelledby="tab-cooklang">
 
             <div className="relative mb-4">
               <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" aria-hidden />
@@ -753,11 +779,11 @@ export default function RecipeImportPage({ kitchen }: Props) {
                 No recipes found for &ldquo;{clQuery}&rdquo;. Try a different search term.
               </p>
             )}
-            </>)}
+            </div>)}
 
             {communityTab === 'mealdb' && (
-            <>
-            <div className="flex gap-3 mb-4 items-end">
+            <div role="tabpanel" id="tabpanel-mealdb" aria-labelledby="tab-mealdb">
+            <div className="flex flex-col sm:flex-row gap-3 mb-4 sm:items-end">
               <div className="flex-1">
                 <label htmlFor="mealdb-search" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Search</label>
                 <div className="relative">
@@ -767,7 +793,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
               </div>
               <div>
                 <label htmlFor="mealdb-category" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Category</label>
-                <select id="mealdb-category" value={mdCategory} onChange={(e) => { if (e.target.value) handleMdCategoryFilter(e.target.value); }} className="field-select w-auto">
+                <select id="mealdb-category" value={mdCategory} onChange={(e) => { if (e.target.value) handleMdCategoryFilter(e.target.value); }} className="field-select w-full sm:w-auto">
                   <option value="">All categories</option>
                   {mdCategories.map((c) => <option key={c.idCategory} value={c.strCategory}>{c.strCategory}</option>)}
                 </select>
@@ -837,9 +863,9 @@ export default function RecipeImportPage({ kitchen }: Props) {
             {!mdSearching && (mdQuery.trim() || mdCategory) && mdResults.length === 0 && (
               <p className="text-[var(--color-text-secondary)] text-sm text-center py-8">No results found.</p>
             )}
-            </>)}
+            </div>)}
 
-            {communityTab === 'publicdomain' && (<>
+            {communityTab === 'publicdomain' && (<div role="tabpanel" id="tabpanel-publicdomain" aria-labelledby="tab-publicdomain">
             <div className="relative mb-4">
               <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" aria-hidden />
               <input type="search" value={pdrQuery} onChange={(e) => setPdrQuery(e.target.value)} placeholder="Search 408 public domain recipes..." className="field-input w-full pl-9" />
@@ -893,9 +919,9 @@ export default function RecipeImportPage({ kitchen }: Props) {
             {pdrQuery.trim() && pdrResults.length === 0 && (
               <p className="text-[var(--color-text-secondary)] text-sm text-center py-8">No recipes found for &ldquo;{pdrQuery}&rdquo;.</p>
             )}
-            </>)}
+            </div>)}
 
-            {communityTab === 'wikibooks' && (<>
+            {communityTab === 'wikibooks' && (<div role="tabpanel" id="tabpanel-wikibooks" aria-labelledby="tab-wikibooks">
               <div className="relative mb-4">
                 <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" aria-hidden />
                 <input
@@ -1004,9 +1030,9 @@ export default function RecipeImportPage({ kitchen }: Props) {
               <p className="text-xs text-[var(--color-text-secondary)] mt-6 text-center">
                 Recipes from <a href="https://en.wikibooks.org/wiki/Cookbook" className="underline" rel="noopener noreferrer">Wikibooks Cookbook</a> · CC-BY-SA-4.0
               </p>
-            </>)}
+            </div>)}
 
-            {communityTab === 'cocktaildb' && (<>
+            {communityTab === 'cocktaildb' && (<div role="tabpanel" id="tabpanel-cocktaildb" aria-labelledby="tab-cocktaildb">
               {typeof window !== 'undefined' && localStorage.getItem('age-verified') !== 'true' ? (
                 <div className="text-center py-12">
                   <p className="text-[var(--color-text-secondary)] mb-2">TheCocktailDB contains alcoholic drink recipes.</p>
@@ -1014,7 +1040,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
                   <button onClick={() => { localStorage.setItem('age-verified', 'true'); setCommunityTab('cocktaildb'); }} className="btn-primary">I am 21 or older</button>
                 </div>
               ) : (<>
-              <div className="flex gap-2 mb-4 items-end">
+              <div className="flex flex-col sm:flex-row gap-2 mb-4 sm:items-end">
                 <div className="flex-1">
                   <label htmlFor="cocktaildb-search" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Search</label>
                   <div className="relative">
@@ -1050,7 +1076,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
                       try { setCdResults(await filterCocktailsByCategory(e.target.value)); } catch { /* skip */ }
                       finally { setCdSearching(false); }
                     }}
-                    className="field-select w-auto"
+                    className="field-select w-full sm:w-auto"
                   >
                     <option value="">All categories</option>
                     {cdCategories.map((c) => <option key={c.strCategory} value={c.strCategory}>{c.strCategory}</option>)}
@@ -1113,7 +1139,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
                 </div>
               )}
             </>)}
-            </>)}
+            </div>)}
 
           </div>
           </div>

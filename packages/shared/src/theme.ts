@@ -98,6 +98,7 @@ export function getCurrentMode(): 'light' | 'dark' {
   const pref = getThemePreference();
   if (pref === 'dark') return 'dark';
   if (pref === 'light') return 'light';
+  if (typeof window === 'undefined') return 'light';
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 

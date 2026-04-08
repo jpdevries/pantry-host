@@ -261,39 +261,6 @@ function LogoWikibooks({ size = 24 }: { size?: number }) {
   );
 }
 
-function LogoRecipeAPI({ size = 24 }: { size?: number }) {
-  // Monotone mark evoking "recipe data exposed as a JSON API": two curly
-  // braces flanking three ingredient-line rectangles. Not a trace of the
-  // recipe-api.com wordmark — that's an attribution / trademark matter.
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
-      <title>Recipe API</title>
-      {/* Left curly brace */}
-      <path
-        d="M7.5 3.5 Q4 3.5 4 6.5 L4 10 Q4 12 2 12 Q4 12 4 14 L4 17.5 Q4 20.5 7.5 20.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Right curly brace */}
-      <path
-        d="M16.5 3.5 Q20 3.5 20 6.5 L20 10 Q20 12 22 12 Q20 12 20 14 L20 17.5 Q20 20.5 16.5 20.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Three ingredient-line rectangles in the middle */}
-      <rect x="8" y="8" width="8" height="1.4" rx="0.7" />
-      <rect x="8" y="11.3" width="8" height="1.4" rx="0.7" />
-      <rect x="8" y="14.6" width="6" height="1.4" rx="0.7" />
-    </svg>
-  );
-}
-
 const CREDITS: { name: string; href: string; Logo: React.FC<{ size?: number }> }[] = [
   { name: 'JP DeVries', href: 'https://devries.jp', Logo: LogoJP },
   { name: 'HTML5', href: 'https://html.spec.whatwg.org/', Logo: LogoHTML5 },
@@ -314,7 +281,6 @@ const CREDITS: { name: string; href: string; Logo: React.FC<{ size?: number }> }
   { name: 'Public Domain Recipes', href: 'https://publicdomainrecipes.com/', Logo: ({ size = 24 }) => <BowlSteam size={size} aria-hidden="true" /> },
   { name: 'Wikibooks Cookbook', href: 'https://en.wikibooks.org/wiki/Cookbook', Logo: LogoWikibooks },
   { name: 'TheCocktailDB', href: 'https://www.thecocktaildb.com/', Logo: LogoTheMealDB },
-  { name: 'Recipe API', href: 'https://recipe-api.com/', Logo: LogoRecipeAPI },
   { name: 'Cloudflare', href: 'https://www.cloudflare.com/', Logo: LogoCloudflare },
   { name: 'Anthropic', href: 'https://www.anthropic.com/', Logo: LogoAnthropic },
   { name: 'Tailscale', href: 'https://tailscale.com/', Logo: LogoTailscale },

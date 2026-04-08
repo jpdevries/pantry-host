@@ -22,6 +22,12 @@ export default function Document() {
         <meta name="theme-color" content="#f4f4f5" media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
+        {/* iOS Add-to-Home-Screen: launch fullscreen with a dark status bar. */}
+        {/* Viewport is injected by Rex; viewport-fit=cover would require a Rex override. */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Pantry Host" />
         <meta name="build-hash" content={buildHash} />
         {process.env.DEFAULT_THEME && <meta name="default-palette" content={process.env.DEFAULT_THEME} />}
       </Head>

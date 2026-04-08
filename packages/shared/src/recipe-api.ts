@@ -92,6 +92,22 @@ export interface RecipeAPIInstructionStep {
   } | null;
 }
 
+export interface RecipeAPIEquipmentItem {
+  name: string;
+  required: boolean;
+  alternative: string | null;
+}
+
+/** Keyed by storage location: "refrigerator", "freezer", "pantry", etc. */
+export type RecipeAPIStorage = Record<string, { notes: string | null; duration: string | null } | null | undefined>;
+
+export interface RecipeAPITroubleshootingItem {
+  symptom: string;
+  likely_cause: string | null;
+  prevention: string | null;
+  [key: string]: unknown;
+}
+
 /** Full shape returned by GET /api/v1/recipes/{id}. */
 export interface RecipeAPIRecipe {
   id: string;
@@ -106,11 +122,11 @@ export interface RecipeAPIRecipe {
   nutrition: unknown;      // full 32-nutrient table; we don't persist yet
   ingredients: RecipeAPIIngredientGroup[];
   instructions: RecipeAPIInstructionStep[];
-  equipment: string[];
-  chef_notes: string | null;
+  equipment: RecipeAPIEquipmentItem[];
+  chef_notes: string[] | null;
   cultural_context: string | null;
-  storage: string | null;
-  troubleshooting: string | null;
+  storage: RecipeAPIStorage | null;
+  troubleshooting: RecipeAPITroubleshootingItem[] | null;
 }
 
 export interface RecipeAPISearchParams {
@@ -210,6 +226,39 @@ export function parseIsoDurationMinutes(iso: string | null | undefined): number 
 }
 
 /**
+ * Render an ISO 8601 duration as a short human string.
+ *   "P4D" → "4 days"
+ *   "P3M" → "3 months"
+ *   "PT1H30M" → "1h 30m"
+ *   "PT45M" → "45m"
+ * Returns null for anything we can't parse so callers can omit.
+ */
+export function formatIsoDuration(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  // Date portion: P#Y#M#D
+  const dateMatch = iso.match(/^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)D)?$/);
+  if (dateMatch) {
+    const [, y, mo, d] = dateMatch;
+    const parts: string[] = [];
+    if (y) parts.push(`${y} year${y === '1' ? '' : 's'}`);
+    if (mo) parts.push(`${mo} month${mo === '1' ? '' : 's'}`);
+    if (d) parts.push(`${d} day${d === '1' ? '' : 's'}`);
+    if (parts.length) return parts.join(' ');
+  }
+  // Time portion: PT#H#M#S
+  const timeMatch = iso.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (timeMatch) {
+    const [, h, m, s] = timeMatch;
+    const parts: string[] = [];
+    if (h) parts.push(`${h}h`);
+    if (m) parts.push(`${m}m`);
+    if (s) parts.push(`${s}s`);
+    if (parts.length) return parts.join(' ');
+  }
+  return null;
+}
+
+/**
  * Convert a recipe-api.com full Recipe into the Pantry Host ParsedRecipe shape.
  *
  *  - Ingredient groups are flattened. If a group has a name, it's prefixed to
@@ -241,17 +290,22 @@ export function recipeApiToParsed(r: RecipeAPIRecipe): ParsedRecipe {
     }
   }
 
+  // The recipe detail page at packages/{app,web}/.../RecipeDetailPage.tsx
+  // renders instructions as `split('\n').map(strip-leading-number).ol()` —
+  // every line becomes a numbered step. That's fine for bare sentences but
+  // destroys any headings, bullets, or bold labels. So we emit ONLY the
+  // numbered cook steps here and drop the rich metadata (equipment, storage,
+  // chef_notes, troubleshooting) — same as we already drop nutrients.
+  //
+  // TODO: when Pantry Host adds first-class fields for equipment / notes /
+  // storage / troubleshooting on the Recipe schema, plumb them through via
+  // new ParsedRecipe fields instead of concatenating into instructions.
   const instructionLines = r.instructions
     .sort((a, b) => a.step_number - b.step_number)
     .map((s) => {
-      const cue = s.structured?.doneness ? ` *(${s.structured.doneness})*` : '';
+      const cue = s.structured?.doneness ? ` (${s.structured.doneness})` : '';
       return `${s.step_number}. ${s.text}${cue}`;
     });
-  if (r.equipment.length > 0) {
-    instructionLines.unshift(`**Equipment:** ${r.equipment.join(', ')}`, '');
-  }
-  if (r.storage) instructionLines.push('', `**Storage:** ${r.storage}`);
-  if (r.chef_notes) instructionLines.push('', `**Chef's notes:** ${r.chef_notes}`);
 
   const tags = Array.from(
     new Set(

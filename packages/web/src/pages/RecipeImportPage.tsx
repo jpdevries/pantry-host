@@ -1013,6 +1013,7 @@ function RecipeAPITab({ navigate }: { navigate: ReturnType<typeof useNavigate> }
   const [apiKey, setApiKey] = useState<string>(() =>
     typeof window !== 'undefined' ? (localStorage.getItem(RECIPE_API_KEY_STORAGE) ?? '') : ''
   );
+  const [keyInput, setKeyInput] = useState('');
   // Re-read if Settings page saves a new key (dispatches a synthetic storage event).
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1111,16 +1112,56 @@ function RecipeAPITab({ navigate }: { navigate: ReturnType<typeof useNavigate> }
     return (
       <div className="max-w-md mx-auto text-center py-8">
         <h2 className="text-xl font-bold mb-2">Recipe API</h2>
-        <p className="text-sm text-[var(--color-text-secondary)] mb-6 legible pretty">
+        <p className="text-sm text-[var(--color-text-secondary)] mb-4 legible pretty">
           <a href="https://recipe-api.com" target="_blank" rel="noopener noreferrer" className="underline">recipe-api.com</a>
           {' '}is a JSON API with structured ingredients, USDA nutrition data, and
-          dietary flags. A free tier is available (100 requests/day). Add your key
-          in Settings to unlock this tab — it stays in your browser and is never
-          sent to a Pantry Host server.
+          dietary flags. A free tier is available (100 requests/day) — grab a key
+          from{' '}
+          <a href="https://recipe-api.com/pricing" target="_blank" rel="noopener noreferrer" className="underline">recipe-api.com/pricing</a>
+          {' '}and paste it below. The key stays in your browser; it is never sent
+          to a Pantry&nbsp;Host server.
         </p>
-        <Link to="/settings#stage" className="btn-primary inline-block">
-          Add key in Settings
-        </Link>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const k = keyInput.trim();
+            if (!k) return;
+            localStorage.setItem(RECIPE_API_KEY_STORAGE, k);
+            setApiKey(k);
+            setKeyInput('');
+            // Mirror the Settings page's synthetic storage event so other
+            // listeners (this same tab's other components) can react.
+            try {
+              window.dispatchEvent(
+                new StorageEvent('storage', {
+                  key: RECIPE_API_KEY_STORAGE,
+                  newValue: k,
+                  storageArea: localStorage,
+                }),
+              );
+            } catch { /* legacy webview without StorageEvent constructor */ }
+          }}
+          className="flex flex-col gap-3"
+        >
+          <label htmlFor="recipe-api-key-input" className="sr-only">API key</label>
+          <input
+            id="recipe-api-key-input"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={keyInput}
+            onChange={(e) => setKeyInput(e.target.value)}
+            placeholder="rapi_..."
+            className="field-input w-full"
+          />
+          <button type="submit" disabled={!keyInput.trim()} className="btn-primary">
+            Save key
+          </button>
+        </form>
+        <p className="mt-4 text-xs text-[var(--color-text-secondary)]">
+          Or manage all your keys on the{' '}
+          <Link to="/settings#stage" className="underline">Settings page</Link>.
+        </p>
       </div>
     );
   }

@@ -306,10 +306,12 @@ export default function RecipeImportPage({ kitchen }: Props) {
   const [cdAgeVerified, setCdAgeVerified] = useState(() =>
     typeof window !== 'undefined' && localStorage.getItem('age-verified') === 'true'
   );
+  // Recipe API tab is ALWAYS present; the panel itself shows a keyless
+  // empty-state with both an inline form and a Settings link when no key
+  // is configured. This matches the web package's UX.
   const COMMUNITY_TAB_ORDER: CommunityTab[] = (
     ['cooklang', 'mealdb', 'recipe-api', 'publicdomain', 'wikibooks', 'cocktaildb'] as CommunityTab[]
   ).filter((k) => {
-    if (k === 'recipe-api' && !recipeApiKey) return false;
     if (k === 'cocktaildb' && !showCocktailDB) return false;
     return true;
   });
@@ -380,6 +382,8 @@ export default function RecipeImportPage({ kitchen }: Props) {
   const [raImporting, setRaImporting] = useState(false);
   const [raImportProgress, setRaImportProgress] = useState<{ done: number; total: number } | null>(null);
   const [raError, setRaError] = useState<string | null>(null);
+  const [raKeyInput, setRaKeyInput] = useState('');
+  const [raKeySaving, setRaKeySaving] = useState(false);
   const raDebounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Fetch the owner-only key from the Rex API route on mount. Returns null
@@ -1304,6 +1308,73 @@ export default function RecipeImportPage({ kitchen }: Props) {
             </div>)}
 
             {communityTab === 'recipe-api' && (<div role="tabpanel" id="tabpanel-recipe-api" aria-labelledby="tab-recipe-api">
+              {!recipeApiKey && (
+                <div className="max-w-md mx-auto text-center py-8">
+                  <h2 className="text-xl font-bold mb-2">Recipe API</h2>
+                  <p className="text-sm text-[var(--color-text-secondary)] mb-4 legible pretty">
+                    <a href="https://recipe-api.com" target="_blank" rel="noopener noreferrer" className="underline">recipe-api.com</a>
+                    {' '}is a JSON API with structured ingredients, USDA nutrition data, and
+                    dietary flags. A free tier is available (100 requests/day) — grab a key
+                    from{' '}
+                    <a href="https://recipe-api.com/pricing" target="_blank" rel="noopener noreferrer" className="underline">recipe-api.com/pricing</a>
+                    {' '}and paste it below. The key is stored on this machine in your
+                    Settings overrides file and never leaves it.
+                  </p>
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const k = raKeyInput.trim();
+                      if (!k) return;
+                      setRaKeySaving(true);
+                      try {
+                        const res = await fetch('/api/settings-write', {
+                          method: 'POST',
+                          headers: { 'content-type': 'application/json' },
+                          body: JSON.stringify({ values: { RECIPE_API_KEY: k } }),
+                        });
+                        if (!res.ok) {
+                          const body = await res.text().catch(() => '');
+                          setRaError(`Couldn't save key: ${body || res.status}`);
+                          return;
+                        }
+                        // Re-fetch the key from the owner-gated route so the rest
+                        // of the page picks it up immediately, no reload needed.
+                        const k2 = await fetch('/api/recipe-api-key').then((r) => r.json()).then((d: { key: string | null }) => d.key);
+                        setRecipeApiKey(k2);
+                        setRaKeyInput('');
+                        setRaError(null);
+                      } catch (err) {
+                        setRaError(`Couldn't save key: ${(err as Error).message}`);
+                      } finally {
+                        setRaKeySaving(false);
+                      }
+                    }}
+                    className="flex flex-col gap-3"
+                  >
+                    <label htmlFor="recipe-api-key-input" className="sr-only">API key</label>
+                    <input
+                      id="recipe-api-key-input"
+                      type="password"
+                      autoComplete="off"
+                      spellCheck={false}
+                      value={raKeyInput}
+                      onChange={(e) => setRaKeyInput(e.target.value)}
+                      placeholder="rapi_..."
+                      className="field-input w-full"
+                    />
+                    <button type="submit" disabled={!raKeyInput.trim() || raKeySaving} className="btn-primary">
+                      {raKeySaving ? 'Saving…' : 'Save key'}
+                    </button>
+                  </form>
+                  {raError && <p role="alert" className="text-sm text-red-400 mt-3">{raError}</p>}
+                  <p className="mt-4 text-xs text-[var(--color-text-secondary)]">
+                    Or manage all your settings on the{' '}
+                    <a href="/settings#stage" className="underline">Settings page</a>.
+                  </p>
+                </div>
+              )}
+
+              {recipeApiKey && (<>
               <div className="flex flex-col sm:flex-row gap-3 mb-6 sm:items-end">
                 <div className="flex-1">
                   <label htmlFor="recipe-api-search" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Search</label>
@@ -1384,8 +1455,11 @@ export default function RecipeImportPage({ kitchen }: Props) {
               )}
 
               <p className="text-xs text-[var(--color-text-secondary)] mt-8 text-center">
-                Powered by <a href="https://recipe-api.com" target="_blank" rel="noopener noreferrer" className="underline">recipe-api.com</a>. Key loaded from <code>RECIPE_API_KEY</code> in <code>.env.local</code>.
+                Powered by <a href="https://recipe-api.com" target="_blank" rel="noopener noreferrer" className="underline">recipe-api.com</a>.
+                {' '}
+                <a href="/settings#stage" className="underline">Manage key in Settings</a>.
               </p>
+              </>)}
             </div>)}
 
           </div>

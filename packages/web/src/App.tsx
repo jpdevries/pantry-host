@@ -15,6 +15,7 @@ import MenuNewPage from './pages/MenuNewPage';
 import MenuEditPage from './pages/MenuEditPage';
 import RecipeImportPage from './pages/RecipeImportPage';
 import AccessibilityPage from './pages/AccessibilityPage';
+import SettingsPage from './pages/SettingsPage';
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/menus/:slug" element={<MenuDetailPage />} />
           <Route path="/menus/:slug/edit" element={<MenuEditPage />} />
           <Route path="/accessibility" element={<AccessibilityPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

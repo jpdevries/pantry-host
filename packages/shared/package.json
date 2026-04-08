@@ -18,6 +18,8 @@
     "./components/IngredientForm": "./src/components/IngredientForm.tsx",
     "./components/FeaturedTags": "./src/components/FeaturedTags.tsx",
     "./components/NutritionFacts": "./src/components/NutritionFacts.tsx",
+    "./components/SettingsPage": "./src/components/SettingsPage.tsx",
+    "./settings-schema": "./src/settings-schema.ts",
     "./types": "./src/types/index.ts",
     "./adapters/*": "./src/adapters/*.ts",
     "./export-recipe": "./src/export-recipe.ts",

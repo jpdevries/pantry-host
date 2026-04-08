@@ -11,6 +11,7 @@ dist
 packages/app/public/uploads/
 packages/app/.cache/
 packages/app/public/network-info.json
+packages/app/.settings-overrides.json
 CLAUDE.local.md
 .wrangler
 witness/output/*

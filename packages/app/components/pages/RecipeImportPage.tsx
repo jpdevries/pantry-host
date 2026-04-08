@@ -285,14 +285,18 @@ export default function RecipeImportPage({ kitchen }: Props) {
   // the owner-gated /api/recipe-api-key route. Guests on HTTP LAN IPs get
   // null and the tab stays hidden.
   const [recipeApiKey, setRecipeApiKey] = useState<string | null>(null);
-  // TheCocktailDB tab visibility comes from a server-injected meta tag
-  // (<meta name="show-cocktaildb" content="true|false"> set from the
-  // SHOW_COCKTAILDB env var in .env.local). Defaults to true.
+  // TheCocktailDB tab visibility. Defaults to true; gets overridden by
+  // /api/settings-read which merges process.env (sourced from .env.local
+  // at server startup) with any /settings page overrides.
   const [showCocktailDB, setShowCocktailDB] = useState(true);
   useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const meta = document.querySelector<HTMLMetaElement>('meta[name="show-cocktaildb"]');
-    if (meta?.content === 'false') setShowCocktailDB(false);
+    fetch('/api/settings-read')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { values?: Record<string, string | null> } | null) => {
+        if (j?.values?.SHOW_COCKTAILDB === 'false') setShowCocktailDB(false);
+        else setShowCocktailDB(true);
+      })
+      .catch(() => {});
   }, []);
   // Cocktail age gate — backed by state so clicking "I am 21 or older" triggers
   // a re-render. Previously read localStorage directly at render time, which

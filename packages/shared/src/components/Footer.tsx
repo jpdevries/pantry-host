@@ -435,13 +435,21 @@ export default function Footer() {
 
           </div>
 
-          {/* Accessibility preferences link */}
-          <a
-            href="/accessibility#stage"
-            className="mt-3 inline-block text-xs underline text-zinc-500 dark:text-zinc-400 hover:text-[var(--color-text-secondary)]"
-          >
-            Accessibility Preferences
-          </a>
+          {/* Accessibility preferences + Settings links */}
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            <a
+              href="/accessibility#stage"
+              className="underline text-zinc-500 dark:text-zinc-400 hover:text-[var(--color-text-secondary)]"
+            >
+              Accessibility Preferences
+            </a>
+            <a
+              href="/settings#stage"
+              className="underline text-zinc-500 dark:text-zinc-400 hover:text-[var(--color-text-secondary)]"
+            >
+              Settings
+            </a>
+          </div>
 
           {/* Credits + GitHub */}
           <div className="mt-6 flex items-start justify-between">

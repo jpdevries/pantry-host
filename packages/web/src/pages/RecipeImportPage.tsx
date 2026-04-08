@@ -702,7 +702,7 @@ function PublicDomainTab({ navigate }: { navigate: ReturnType<typeof useNavigate
 
 // ── Main Import Page ────────────────────────────────────────────────────────
 
-const TAB_ORDER: Tab[] = ['mealdb', 'publicdomain', 'recipe-api', 'cooklang', 'wikibooks', 'cocktaildb'];
+const ALL_TAB_ORDER: Tab[] = ['mealdb', 'publicdomain', 'recipe-api', 'cooklang', 'wikibooks', 'cocktaildb'];
 const TAB_LABELS: Record<Tab, string> = {
   mealdb: 'TheMealDB',
   publicdomain: 'Public Domain',
@@ -714,6 +714,22 @@ const TAB_LABELS: Record<Tab, string> = {
 
 export default function RecipeImportPage() {
   const navigate = useNavigate();
+  // Honor the Settings-page toggle for TheCocktailDB.
+  const [showCocktailDB, setShowCocktailDB] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('show-cocktaildb') !== 'false';
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (e: StorageEvent) => {
+      if (e.key === 'show-cocktaildb') {
+        setShowCocktailDB(e.newValue !== 'false');
+      }
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
+  const TAB_ORDER: Tab[] = ALL_TAB_ORDER.filter((k) => k !== 'cocktaildb' || showCocktailDB);
   const [tab, setTab] = useState<Tab>('mealdb');
 
   const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -997,7 +1013,15 @@ function RecipeAPITab({ navigate }: { navigate: ReturnType<typeof useNavigate> }
   const [apiKey, setApiKey] = useState<string>(() =>
     typeof window !== 'undefined' ? (localStorage.getItem(RECIPE_API_KEY_STORAGE) ?? '') : ''
   );
-  const [keyInput, setKeyInput] = useState('');
+  // Re-read if Settings page saves a new key (dispatches a synthetic storage event).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (e: StorageEvent) => {
+      if (e.key === RECIPE_API_KEY_STORAGE) setApiKey(e.newValue ?? '');
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('');
   const [categories, setCategories] = useState<RecipeAPICategoryCount[]>([]);
@@ -1083,52 +1107,20 @@ function RecipeAPITab({ navigate }: { navigate: ReturnType<typeof useNavigate> }
     else navigate('/recipes#stage');
   }
 
-  function saveKey(e: React.FormEvent) {
-    e.preventDefault();
-    const k = keyInput.trim();
-    if (!k) return;
-    localStorage.setItem(RECIPE_API_KEY_STORAGE, k);
-    setApiKey(k);
-    setKeyInput('');
-  }
-
-  function clearKey() {
-    localStorage.removeItem(RECIPE_API_KEY_STORAGE);
-    setApiKey('');
-    setResults([]);
-    setCategories([]);
-    setSelected(new Set());
-  }
-
   if (!apiKey) {
     return (
       <div className="max-w-md mx-auto text-center py-8">
         <h2 className="text-xl font-bold mb-2">Recipe API</h2>
-        <p className="text-sm text-[var(--color-text-secondary)] mb-4 legible pretty">
+        <p className="text-sm text-[var(--color-text-secondary)] mb-6 legible pretty">
           <a href="https://recipe-api.com" target="_blank" rel="noopener noreferrer" className="underline">recipe-api.com</a>
-          {' '}is a paid JSON API with structured ingredients, USDA nutrition data, and
-          dietary flags. A free tier is available (100 requests/day) — grab a key
-          from{' '}
-          <a href="https://recipe-api.com/pricing" target="_blank" rel="noopener noreferrer" className="underline">recipe-api.com/pricing</a>
-          {' '}and paste it below. The key stays in your browser; it is never sent to
-          any Pantry Host server.
+          {' '}is a JSON API with structured ingredients, USDA nutrition data, and
+          dietary flags. A free tier is available (100 requests/day). Add your key
+          in Settings to unlock this tab — it stays in your browser and is never
+          sent to a Pantry Host server.
         </p>
-        <form onSubmit={saveKey} className="flex flex-col gap-3">
-          <label htmlFor="recipe-api-key-input" className="sr-only">API key</label>
-          <input
-            id="recipe-api-key-input"
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            value={keyInput}
-            onChange={(e) => setKeyInput(e.target.value)}
-            placeholder="rapi_..."
-            className="field-input w-full"
-          />
-          <button type="submit" disabled={!keyInput.trim()} className="btn-primary">
-            Save key
-          </button>
-        </form>
+        <Link to="/settings#stage" className="btn-primary inline-block">
+          Add key in Settings
+        </Link>
       </div>
     );
   }
@@ -1261,7 +1253,7 @@ function RecipeAPITab({ navigate }: { navigate: ReturnType<typeof useNavigate> }
       <p className="text-xs text-[var(--color-text-secondary)] mt-8 text-center">
         Powered by <a href="https://recipe-api.com" target="_blank" rel="noopener noreferrer" className="underline">recipe-api.com</a>.
         {' '}
-        <button type="button" onClick={clearKey} className="underline">Change key</button>
+        <Link to="/settings#stage" className="underline">Manage key in Settings</Link>
       </p>
     </>
   );

@@ -48,6 +48,7 @@ import {
   type RecipeAPICategoryCount,
 } from '@pantry-host/shared/recipe-api';
 import CommunityDatasources from '@pantry-host/shared/components/CommunityDatasources';
+import ImportGrid, { captureActiveElement, restoreFocus } from '@pantry-host/shared/components/ImportGrid';
 
 // ── Cooklang detail cache + throttled fetcher ──────────────────────────────
 //
@@ -347,6 +348,42 @@ export default function RecipeImportPage({ kitchen }: Props) {
   const [wbSearching, setWbSearching] = useState(false);
   const [wbSelected, setWbSelected] = useState<Set<string>>(new Set());
   const [wbLoaded, setWbLoaded] = useState(false);
+  const [wbImporting, setWbImporting] = useState(false);
+  const [wbImportProgress, setWbImportProgress] = useState<{ done: number; total: number } | null>(null);
+
+  async function handleWikibooksImport() {
+    const toImport = wbResults.filter((r) => wbSelected.has(r.slug));
+    if (toImport.length === 0) return;
+    const prevFocus = captureActiveElement();
+    setWbImporting(true);
+    setWbImportProgress({ done: 0, total: toImport.length });
+    let failed = 0;
+    for (let i = 0; i < toImport.length; i++) {
+      const r = toImport[i];
+      try {
+        await gql(CREATE_RECIPE, {
+          title: r.title,
+          description: null,
+          instructions: r.instructions,
+          servings: r.servings,
+          prepTime: null,
+          cookTime: null,
+          tags: r.tags,
+          photoUrl: null,
+          sourceUrl: r.sourceUrl,
+          ingredients: r.ingredients.map(parseIngredientLine),
+          kitchenSlug: kitchen,
+        });
+      } catch { failed++; }
+      setWbImportProgress({ done: i + 1, total: toImport.length });
+      if (i < toImport.length - 1) await new Promise((res) => setTimeout(res, 1200));
+    }
+    setWbImporting(false);
+    setWbImportProgress(null);
+    setWbSelected(new Set());
+    if (failed > 0) restoreFocus(prevFocus);
+    else router.push(`${recipesBase}#stage`);
+  }
 
   // CocktailDB state
   const [cdQuery, setCdQuery] = useState('');
@@ -355,9 +392,41 @@ export default function RecipeImportPage({ kitchen }: Props) {
   const [cdResults, setCdResults] = useState<(CocktailDBDrink | CocktailDBSearchResult)[]>([]);
   const [cdSearching, setCdSearching] = useState(false);
   const [cdSelected, setCdSelected] = useState<Set<string>>(new Set());
+  const [cdImporting, setCdImporting] = useState(false);
+  const [cdImportProgress, setCdImportProgress] = useState<{ done: number; total: number } | null>(null);
   const cdDebounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => { getCocktailDBCategories().then(setCdCategories).catch(() => {}); }, []);
+
+  async function handleCocktailDBImport() {
+    if (cdSelected.size === 0) return;
+    const prevFocus = captureActiveElement();
+    setCdImporting(true);
+    setCdImportProgress({ done: 0, total: cdSelected.size });
+    const ids = Array.from(cdSelected);
+    let failed = 0;
+    for (let i = 0; i < ids.length; i++) {
+      try {
+        let drink = cdResults.find((r) => ('idDrink' in r ? r.idDrink : '') === ids[i]) as CocktailDBDrink | undefined;
+        if (!drink || !('strInstructions' in drink)) drink = await getCocktailDBRecipe(ids[i]) ?? undefined;
+        if (!drink) throw new Error('Drink not found');
+        const recipe = drinkToRecipe(drink);
+        await gql(CREATE_RECIPE, {
+          title: recipe.title, description: null, instructions: recipe.instructions,
+          servings: null, prepTime: null, cookTime: null,
+          tags: recipe.tags, photoUrl: recipe.photoUrl, sourceUrl: recipe.sourceUrl,
+          ingredients: recipe.ingredients, kitchenSlug: kitchen,
+        });
+      } catch { failed++; }
+      setCdImportProgress({ done: i + 1, total: ids.length });
+      if (i < ids.length - 1) await new Promise((res) => setTimeout(res, 1200));
+    }
+    setCdImporting(false);
+    setCdImportProgress(null);
+    setCdSelected(new Set());
+    if (failed > 0) restoreFocus(prevFocus);
+    else router.push(`${recipesBase}#stage`);
+  }
 
   // TheMealDB state
   const [mdQuery, setMdQuery] = useState('');
@@ -443,6 +512,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
 
   async function handleRecipeApiImport() {
     if (!recipeApiKey || raSelected.size === 0) return;
+    const prevFocus = captureActiveElement();
     setRaImporting(true);
     setRaImportProgress({ done: 0, total: raSelected.size });
     setRaError(null);
@@ -476,8 +546,8 @@ export default function RecipeImportPage({ kitchen }: Props) {
     }
     setRaImporting(false);
     setRaImportProgress(null);
-    if (failed > 0 && failed === ids.length) setRaError('All imports failed. Try again in a minute.');
-    else if (failed > 0) setRaError(`${done - failed} of ${ids.length} imported. ${failed} failed.`);
+    if (failed > 0 && failed === ids.length) { setRaError('All imports failed. Try again in a minute.'); restoreFocus(prevFocus); }
+    else if (failed > 0) { setRaError(`${done - failed} of ${ids.length} imported. ${failed} failed.`); restoreFocus(prevFocus); }
     else router.push(`${recipesBase}#stage`);
   }
 
@@ -497,6 +567,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
 
   async function handlePdrImport() {
     if (pdrSelected.size === 0) return;
+    const prevFocus = captureActiveElement();
     setPdrImporting(true); setPdrImportProgress({ done: 0, total: pdrSelected.size }); setPdrError(null);
     const slugs = Array.from(pdrSelected);
     let done = 0, failed = 0;
@@ -513,8 +584,8 @@ export default function RecipeImportPage({ kitchen }: Props) {
       done++; setPdrImportProgress({ done, total: slugs.length });
     }
     setPdrImporting(false); setPdrImportProgress(null);
-    if (failed > 0 && failed === slugs.length) setPdrError('All imports failed.');
-    else if (failed > 0) setPdrError(`${done - failed} of ${slugs.length} imported. ${failed} failed.`);
+    if (failed > 0 && failed === slugs.length) { setPdrError('All imports failed.'); restoreFocus(prevFocus); }
+    else if (failed > 0) { setPdrError(`${done - failed} of ${slugs.length} imported. ${failed} failed.`); restoreFocus(prevFocus); }
     else router.push(`${recipesBase}#stage`);
   }
 
@@ -555,6 +626,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
 
   async function handleCooklangImport() {
     if (clSelected.size === 0) return;
+    const prevFocus = captureActiveElement();
     setClImporting(true);
     setClImportProgress({ done: 0, total: clSelected.size });
     setClError(null);
@@ -594,8 +666,10 @@ export default function RecipeImportPage({ kitchen }: Props) {
     setClImportProgress(null);
     if (failed > 0 && failed === ids.length) {
       setClError(`All ${failed} imports failed. The Cooklang Federation may be rate-limiting requests \u2014 try again in a minute.`);
+      restoreFocus(prevFocus);
     } else if (failed > 0) {
       setClError(`${done - failed} of ${ids.length} recipes imported. ${failed} failed (rate limit). Try importing the rest in a minute.`);
+      restoreFocus(prevFocus);
     } else {
       router.push(`${recipesBase}#stage`);
     }
@@ -630,6 +704,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
 
   async function handleMealDBImport() {
     if (mdSelected.size === 0) return;
+    const prevFocus = captureActiveElement();
     setMdImporting(true); setMdImportProgress({ done: 0, total: mdSelected.size }); setMdError(null);
     const ids = Array.from(mdSelected);
     let done = 0, failed = 0;
@@ -649,8 +724,8 @@ export default function RecipeImportPage({ kitchen }: Props) {
       done++; setMdImportProgress({ done, total: ids.length });
     }
     setMdImporting(false); setMdImportProgress(null);
-    if (failed > 0 && failed === ids.length) setMdError('All imports failed.');
-    else if (failed > 0) setMdError(`${done - failed} of ${ids.length} imported. ${failed} failed.`);
+    if (failed > 0 && failed === ids.length) { setMdError('All imports failed.'); restoreFocus(prevFocus); }
+    else if (failed > 0) { setMdError(`${done - failed} of ${ids.length} imported. ${failed} failed.`); restoreFocus(prevFocus); }
     else router.push(`${recipesBase}#stage`);
   }
 
@@ -904,11 +979,17 @@ export default function RecipeImportPage({ kitchen }: Props) {
 
             {clResults.length > 0 && (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4" onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && clSelected.size > 0) { e.preventDefault(); handleCooklangImport(); } }} aria-keyshortcuts="Meta+Enter">
+                <ImportGrid
+                  importing={clImporting}
+                  importingLabel={clImportProgress ? `Importing ${clImportProgress.done}/${clImportProgress.total}…` : undefined}
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4"
+                  onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && clSelected.size > 0) { e.preventDefault(); handleCooklangImport(); } }}
+                  ariaKeyshortcuts="Meta+Enter"
+                >
                   {clResults.map((r) => (
                     <CooklangCard key={r.id} result={r} selected={clSelected.has(r.id)} selectedCount={clSelected.size} onImport={handleCooklangImport} onToggle={() => clToggleSelect(r.id)} />
                   ))}
-                </div>
+                </ImportGrid>
 
                 {clPagination && clPagination.page < clPagination.total_pages && (
                   <div className="text-center mb-4">
@@ -977,7 +1058,13 @@ export default function RecipeImportPage({ kitchen }: Props) {
 
             {mdResults.length > 0 && (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4" onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && mdSelected.size > 0) { e.preventDefault(); handleMealDBImport(); } }} aria-keyshortcuts="Meta+Enter">
+                <ImportGrid
+                  importing={mdImporting}
+                  importingLabel={mdImportProgress ? `Importing ${mdImportProgress.done}/${mdImportProgress.total}…` : undefined}
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4"
+                  onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && mdSelected.size > 0) { e.preventDefault(); handleMealDBImport(); } }}
+                  ariaKeyshortcuts="Meta+Enter"
+                >
                   {mdResults.map((r) => {
                     const isSel = mdSelected.has(r.idMeal);
                     const thumb = r.strMealThumb;
@@ -1012,7 +1099,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
                       </label>
                     );
                   })}
-                </div>
+                </ImportGrid>
 
                 {mdSelected.size > 0 && (
                   <div className="text-center">
@@ -1042,7 +1129,13 @@ export default function RecipeImportPage({ kitchen }: Props) {
 
             {pdrResults.length > 0 && (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4" onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && pdrSelected.size > 0) { e.preventDefault(); handlePdrImport(); } }} aria-keyshortcuts="Meta+Enter">
+                <ImportGrid
+                  importing={pdrImporting}
+                  importingLabel={pdrImportProgress ? `Importing ${pdrImportProgress.done}/${pdrImportProgress.total}…` : undefined}
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4"
+                  onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && pdrSelected.size > 0) { e.preventDefault(); handlePdrImport(); } }}
+                  ariaKeyshortcuts="Meta+Enter"
+                >
                   {pdrResults.map((r) => {
                     const isSel = pdrSelected.has(r.slug);
                     return (
@@ -1071,7 +1164,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
                       </label>
                     );
                   })}
-                </div>
+                </ImportGrid>
 
                 {pdrSelected.size > 0 && (
                   <div className="text-center">
@@ -1129,7 +1222,13 @@ export default function RecipeImportPage({ kitchen }: Props) {
               )}
 
               {wbResults.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && wbSelected.size > 0) { e.preventDefault(); /* import */ } }} aria-keyshortcuts="Meta+Enter">
+                <ImportGrid
+                  importing={wbImporting}
+                  importingLabel={wbImportProgress ? `Importing ${wbImportProgress.done}/${wbImportProgress.total}…` : undefined}
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+                  onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && wbSelected.size > 0) { e.preventDefault(); handleWikibooksImport(); } }}
+                  ariaKeyshortcuts="Meta+Enter"
+                >
                   {wbResults.map((r) => (
                     <label key={r.slug} className={`group card p-4 cursor-pointer transition-colors ${wbSelected.has(r.slug) ? 'ring-2 ring-accent' : ''}`}>
                       <div className="flex items-start gap-3">
@@ -1157,36 +1256,20 @@ export default function RecipeImportPage({ kitchen }: Props) {
                         </div>
                       </div>
                       {wbSelected.has(r.slug) && wbSelected.size > 0 && (
-                        <button type="button" onClick={(e) => { e.preventDefault(); }} className="hidden group-focus-within:block btn-primary text-xs mt-2 w-full">
+                        <button type="button" onClick={(e) => { e.preventDefault(); handleWikibooksImport(); }} className="hidden group-focus-within:block btn-primary text-xs mt-2 w-full">
                           Import {wbSelected.size} selected
                         </button>
                       )}
                     </label>
                   ))}
-                </div>
+                </ImportGrid>
               )}
 
               {wbSelected.size > 0 && (
                 <div className="sticky bottom-4 mt-6 flex justify-center">
                   <button
-                    onClick={async () => {
-                      const toImport = wbResults.filter((r) => wbSelected.has(r.slug));
-                      for (const r of toImport) {
-                        try {
-                          await gql(`mutation($title: String!, $instructions: String!, $servings: Int, $tags: [String!], $sourceUrl: String, $ingredients: [RecipeIngredientInput!]!) { createRecipe(title: $title, instructions: $instructions, servings: $servings, tags: $tags, sourceUrl: $sourceUrl, ingredients: $ingredients) { id } }`, {
-                            title: r.title,
-                            instructions: r.instructions,
-                            servings: r.servings,
-                            tags: r.tags,
-                            sourceUrl: r.sourceUrl,
-                            ingredients: r.ingredients.map(parseIngredientLine),
-                          });
-                        } catch { /* skip */ }
-                        await new Promise((resolve) => setTimeout(resolve, 1200));
-                      }
-                      setWbSelected(new Set());
-                      router.push(`${recipesBase}#stage`);
-                    }}
+                    onClick={handleWikibooksImport}
+                    disabled={wbImporting}
                     className="btn-primary shadow-lg"
                   >
                     Import {wbSelected.size} selected
@@ -1254,7 +1337,13 @@ export default function RecipeImportPage({ kitchen }: Props) {
               {cdSearching && <div className="h-40 rounded-xl bg-[var(--color-bg-card)] animate-pulse" />}
 
               {cdResults.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && cdSelected.size > 0) { e.preventDefault(); } }} aria-keyshortcuts="Meta+Enter">
+                <ImportGrid
+                  importing={cdImporting}
+                  importingLabel={cdImportProgress ? `Importing ${cdImportProgress.done}/${cdImportProgress.total}…` : undefined}
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+                  onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && cdSelected.size > 0) { e.preventDefault(); handleCocktailDBImport(); } }}
+                  ariaKeyshortcuts="Meta+Enter"
+                >
                   {cdResults.map((r) => {
                     const id = 'idDrink' in r ? r.idDrink : '';
                     const name = 'strDrink' in r ? r.strDrink : '';
@@ -1271,34 +1360,21 @@ export default function RecipeImportPage({ kitchen }: Props) {
                           </div>
                         </div>
                         {cdSelected.has(id) && cdSelected.size > 0 && (
-                          <button type="button" onClick={(e) => { e.preventDefault(); }} className="hidden group-focus-within:block btn-primary text-xs mx-3 mb-3 w-[calc(100%-1.5rem)]">
+                          <button type="button" onClick={(e) => { e.preventDefault(); handleCocktailDBImport(); }} className="hidden group-focus-within:block btn-primary text-xs mx-3 mb-3 w-[calc(100%-1.5rem)]">
                             Import {cdSelected.size} selected
                           </button>
                         )}
                       </label>
                     );
                   })}
-                </div>
+                </ImportGrid>
               )}
 
               {cdSelected.size > 0 && (
                 <div className="sticky bottom-4 mt-6 flex justify-center">
                   <button
-                    onClick={async () => {
-                      const ids = Array.from(cdSelected);
-                      for (const id of ids) {
-                        try {
-                          let drink = cdResults.find((r) => ('idDrink' in r ? r.idDrink : '') === id) as CocktailDBDrink | undefined;
-                          if (!drink || !('strInstructions' in drink)) drink = await getCocktailDBRecipe(id) ?? undefined;
-                          if (!drink) continue;
-                          const recipe = drinkToRecipe(drink);
-                          await gql(CREATE_RECIPE, { title: recipe.title, description: null, instructions: recipe.instructions, servings: null, prepTime: null, cookTime: null, tags: recipe.tags, photoUrl: recipe.photoUrl, sourceUrl: recipe.sourceUrl, ingredients: recipe.ingredients, kitchenSlug: kitchen });
-                        } catch { /* skip */ }
-                        await new Promise((resolve) => setTimeout(resolve, 1200));
-                      }
-                      setCdSelected(new Set());
-                      router.push(`${recipesBase}#stage`);
-                    }}
+                    onClick={handleCocktailDBImport}
+                    disabled={cdImporting}
                     className="btn-primary shadow-lg"
                   >
                     Import {cdSelected.size} selected
@@ -1408,7 +1484,13 @@ export default function RecipeImportPage({ kitchen }: Props) {
               )}
 
               {raResults.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6" onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && raSelected.size > 0) { e.preventDefault(); handleRecipeApiImport(); } }} aria-keyshortcuts="Meta+Enter">
+                <ImportGrid
+                  importing={raImporting}
+                  importingLabel={raImportProgress ? `Importing ${raImportProgress.done}/${raImportProgress.total}…` : undefined}
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6"
+                  onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && raSelected.size > 0) { e.preventDefault(); handleRecipeApiImport(); } }}
+                  ariaKeyshortcuts="Meta+Enter"
+                >
                   {raResults.map((r) => {
                     const isSelected = raSelected.has(r.id);
                     return (
@@ -1438,7 +1520,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
                       </label>
                     );
                   })}
-                </div>
+                </ImportGrid>
               )}
 
               {raSelected.size > 0 && !raImportProgress && (

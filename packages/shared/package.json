@@ -20,6 +20,7 @@
     "./components/NutritionFacts": "./src/components/NutritionFacts.tsx",
     "./components/SettingsPage": "./src/components/SettingsPage.tsx",
     "./components/CommunityDatasources": "./src/components/CommunityDatasources.tsx",
+    "./components/ImportGrid": "./src/components/ImportGrid.tsx",
     "./settings-schema": "./src/settings-schema.ts",
     "./types": "./src/types/index.ts",
     "./adapters/*": "./src/adapters/*.ts",

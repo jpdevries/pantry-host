@@ -46,6 +46,7 @@ import {
   type RecipeAPICategoryCount,
 } from '@pantry-host/shared/recipe-api';
 import CommunityDatasources from '@pantry-host/shared/components/CommunityDatasources';
+import ImportGrid, { captureActiveElement, restoreFocus } from '@pantry-host/shared/components/ImportGrid';
 
 const CREATE_MUTATION = `mutation(
   $title: String!, $description: String, $instructions: String!,
@@ -199,6 +200,7 @@ function CooklangTab({ navigate }: { navigate: ReturnType<typeof useNavigate> })
 
   async function handleImport() {
     if (selected.size === 0) return;
+    const prevFocus = captureActiveElement();
     setImporting(true);
     setImportProgress({ done: 0, total: selected.size });
     setError(null);
@@ -224,8 +226,8 @@ function CooklangTab({ navigate }: { navigate: ReturnType<typeof useNavigate> })
       if (done < ids.length) await new Promise((r) => setTimeout(r, 1200));
     }
     setImporting(false); setImportProgress(null);
-    if (failed > 0 && failed === ids.length) setError('All imports failed. Try again in a minute.');
-    else if (failed > 0) setError(`${done - failed} of ${ids.length} imported. ${failed} failed.`);
+    if (failed > 0 && failed === ids.length) { setError('All imports failed. Try again in a minute.'); restoreFocus(prevFocus); }
+    else if (failed > 0) { setError(`${done - failed} of ${ids.length} imported. ${failed} failed.`); restoreFocus(prevFocus); }
     else navigate('/recipes#stage');
   }
 
@@ -241,11 +243,17 @@ function CooklangTab({ navigate }: { navigate: ReturnType<typeof useNavigate> })
       )}
       {results.length > 0 && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6" onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && selected.size > 0) { e.preventDefault(); handleImport(); } }} aria-keyshortcuts="Meta+Enter">
+          <ImportGrid
+            importing={importing}
+            importingLabel={importProgress ? `Importing ${importProgress.done}/${importProgress.total}…` : undefined}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"
+            onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && selected.size > 0) { e.preventDefault(); handleImport(); } }}
+            ariaKeyshortcuts="Meta+Enter"
+          >
             {results.map((r) => (
               <CooklangCard key={r.id} result={r} selected={selected.has(r.id)} selectedCount={selected.size} onImport={handleImport} onToggle={() => { setSelected((p) => { const n = new Set(p); n.has(r.id) ? n.delete(r.id) : n.add(r.id); return n; }); }} />
             ))}
-          </div>
+          </ImportGrid>
           {pagination && pagination.page < pagination.total_pages && (
             <div className="text-center mb-6">
               <button type="button" onClick={() => search(query, pagination.page + 1, true)} disabled={loadingMore} className="btn-secondary">
@@ -314,6 +322,7 @@ function MealDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
 
   async function handleImport() {
     if (selected.size === 0) return;
+    const prevFocus = captureActiveElement();
     setImporting(true);
     setImportProgress({ done: 0, total: selected.size });
     setError(null);
@@ -339,6 +348,7 @@ function MealDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
       setImportProgress({ done, total: ids.length });
     }
     setImporting(false); setImportProgress(null);
+    if (failed > 0) restoreFocus(prevFocus);
     if (failed > 0 && failed === ids.length) setError('All imports failed.');
     else if (failed > 0) setError(`${done - failed} of ${ids.length} imported. ${failed} failed.`);
     else navigate('/recipes#stage');
@@ -371,7 +381,13 @@ function MealDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
 
       {results.length > 0 && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6" onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && selected.size > 0) { e.preventDefault(); handleImport(); } }} aria-keyshortcuts="Meta+Enter">
+          <ImportGrid
+            importing={importing}
+            importingLabel={importProgress ? `Importing ${importProgress.done}/${importProgress.total}…` : undefined}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"
+            onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && selected.size > 0) { e.preventDefault(); handleImport(); } }}
+            ariaKeyshortcuts="Meta+Enter"
+          >
             {results.map((r) => {
               const isSel = selected.has(r.idMeal);
               const thumb = r.strMealThumb;
@@ -406,7 +422,7 @@ function MealDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
                 </label>
               );
             })}
-          </div>
+          </ImportGrid>
 
           {selected.size > 0 && (
             <div className="sticky bottom-4 z-10 flex justify-center">
@@ -442,6 +458,7 @@ function CocktailDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> 
   const [results, setResults] = useState<(CocktailDBDrink | CocktailDBSearchResult)[]>([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -495,8 +512,11 @@ function CocktailDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> 
 
   async function handleImport() {
     if (selected.size === 0) return;
+    const prevFocus = captureActiveElement();
+    setImporting(true);
     setImportProgress({ done: 0, total: selected.size });
     const ids = Array.from(selected);
+    let failed = 0;
     for (let i = 0; i < ids.length; i++) {
       try {
         let drink = results.find((r) => ('idDrink' in r ? r.idDrink : '') === ids[i]) as CocktailDBDrink | undefined;
@@ -509,12 +529,14 @@ function CocktailDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> 
           tags: recipe.tags, photoUrl: recipe.photoUrl, sourceUrl: recipe.sourceUrl,
           ingredients: recipe.ingredients,
         });
-      } catch { /* skip */ }
+      } catch { failed++; }
       setImportProgress({ done: i + 1, total: ids.length });
       if (i < ids.length - 1) await new Promise((r) => setTimeout(r, 1200));
     }
+    setImporting(false);
     setSelected(new Set()); setImportProgress(null);
-    navigate('/recipes#stage');
+    if (failed > 0) restoreFocus(prevFocus);
+    else navigate('/recipes#stage');
   }
 
   return (
@@ -560,7 +582,13 @@ function CocktailDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> 
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && selected.size > 0) { e.preventDefault(); handleImport(); } }} aria-keyshortcuts="Meta+Enter">
+      <ImportGrid
+        importing={importing}
+        importingLabel={importProgress ? `Importing ${importProgress.done}/${importProgress.total}…` : undefined}
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+        onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && selected.size > 0) { e.preventDefault(); handleImport(); } }}
+        ariaKeyshortcuts="Meta+Enter"
+      >
         {results.map((r) => {
           const id = 'idDrink' in r ? r.idDrink : '';
           const name = 'strDrink' in r ? r.strDrink : '';
@@ -589,11 +617,11 @@ function CocktailDBTab({ navigate }: { navigate: ReturnType<typeof useNavigate> 
             </label>
           );
         })}
-      </div>
+      </ImportGrid>
 
       {selected.size > 0 && (
         <div className="sticky bottom-4 mt-6 flex justify-center">
-          <button onClick={handleImport} disabled={!!importProgress} className="btn-primary shadow-lg">
+          <button onClick={handleImport} disabled={importing} className="btn-primary shadow-lg">
             Import {selected.size} selected
           </button>
         </div>
@@ -618,6 +646,7 @@ function PublicDomainTab({ navigate }: { navigate: ReturnType<typeof useNavigate
 
   async function handleImport() {
     if (selected.size === 0) return;
+    const prevFocus = captureActiveElement();
     setImporting(true);
     setImportProgress({ done: 0, total: selected.size });
     setError(null);
@@ -637,8 +666,8 @@ function PublicDomainTab({ navigate }: { navigate: ReturnType<typeof useNavigate
       setImportProgress({ done, total: slugs.length });
     }
     setImporting(false); setImportProgress(null);
-    if (failed > 0 && failed === slugs.length) setError('All imports failed.');
-    else if (failed > 0) setError(`${done - failed} of ${slugs.length} imported. ${failed} failed.`);
+    if (failed > 0 && failed === slugs.length) { setError('All imports failed.'); restoreFocus(prevFocus); }
+    else if (failed > 0) { setError(`${done - failed} of ${slugs.length} imported. ${failed} failed.`); restoreFocus(prevFocus); }
     else navigate('/recipes#stage');
   }
 
@@ -653,7 +682,13 @@ function PublicDomainTab({ navigate }: { navigate: ReturnType<typeof useNavigate
 
       {results.length > 0 && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6" onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && selected.size > 0) { e.preventDefault(); handleImport(); } }} aria-keyshortcuts="Meta+Enter">
+          <ImportGrid
+            importing={importing}
+            importingLabel={importProgress ? `Importing ${importProgress.done}/${importProgress.total}…` : undefined}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"
+            onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && selected.size > 0) { e.preventDefault(); handleImport(); } }}
+            ariaKeyshortcuts="Meta+Enter"
+          >
             {results.map((r) => {
               const isSel = selected.has(r.slug);
               return (
@@ -682,7 +717,7 @@ function PublicDomainTab({ navigate }: { navigate: ReturnType<typeof useNavigate
                 </label>
               );
             })}
-          </div>
+          </ImportGrid>
 
           {selected.size > 0 && (
             <div className="sticky bottom-4 z-10 flex justify-center">
@@ -806,6 +841,7 @@ function WikibooksTab({ navigate }: { navigate: (path: string) => void }) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
 
   // Check if already downloaded on mount
@@ -846,7 +882,11 @@ function WikibooksTab({ navigate }: { navigate: (path: string) => void }) {
 
   async function handleImport() {
     const toImport = data.filter((r) => selected.has(r.slug));
+    if (toImport.length === 0) return;
+    const prevFocus = captureActiveElement();
+    setImporting(true);
     setImportProgress({ done: 0, total: toImport.length });
+    let failed = 0;
 
     for (let i = 0; i < toImport.length; i++) {
       const r = toImport[i];
@@ -863,14 +903,15 @@ function WikibooksTab({ navigate }: { navigate: (path: string) => void }) {
           sourceUrl: r.sourceUrl,
           ingredients: r.ingredients.map(parseIngredientLine),
         });
-      } catch { /* skip failed */ }
+      } catch { failed++; }
       setImportProgress({ done: i + 1, total: toImport.length });
       if (i < toImport.length - 1) await new Promise((r) => setTimeout(r, 1200));
     }
 
+    setImporting(false);
     setSelected(new Set());
     setImportProgress(null);
-    if (toImport.length === 1) navigate(`/recipes#stage`);
+    if (failed > 0) restoreFocus(prevFocus);
     else navigate('/recipes#stage');
   }
 
@@ -944,7 +985,13 @@ function WikibooksTab({ navigate }: { navigate: (path: string) => void }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && selected.size > 0) { e.preventDefault(); handleImport(); } }} aria-keyshortcuts="Meta+Enter">
+      <ImportGrid
+        importing={importing}
+        importingLabel={importProgress ? `Importing ${importProgress.done}/${importProgress.total}…` : undefined}
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+        onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && selected.size > 0) { e.preventDefault(); handleImport(); } }}
+        ariaKeyshortcuts="Meta+Enter"
+      >
         {results.map((r) => (
           <label
             key={r.slug}
@@ -983,11 +1030,11 @@ function WikibooksTab({ navigate }: { navigate: (path: string) => void }) {
             )}
           </label>
         ))}
-      </div>
+      </ImportGrid>
 
       {selected.size > 0 && (
         <div className="sticky bottom-4 mt-6 flex justify-center">
-          <button onClick={handleImport} disabled={!!importProgress} className="btn-primary shadow-lg">
+          <button onClick={handleImport} disabled={importing} className="btn-primary shadow-lg">
             Import {selected.size} selected
           </button>
         </div>
@@ -1074,6 +1121,7 @@ function RecipeAPITab({ navigate }: { navigate: ReturnType<typeof useNavigate> }
 
   async function handleImport() {
     if (!apiKey || selected.size === 0) return;
+    const prevFocus = captureActiveElement();
     setImporting(true);
     setImportProgress({ done: 0, total: selected.size });
     setError(null);
@@ -1106,8 +1154,8 @@ function RecipeAPITab({ navigate }: { navigate: ReturnType<typeof useNavigate> }
     }
     setImporting(false);
     setImportProgress(null);
-    if (failed > 0 && failed === ids.length) setError('All imports failed. Try again in a minute.');
-    else if (failed > 0) setError(`${done - failed} of ${ids.length} imported. ${failed} failed.`);
+    if (failed > 0 && failed === ids.length) { setError('All imports failed. Try again in a minute.'); restoreFocus(prevFocus); }
+    else if (failed > 0) { setError(`${done - failed} of ${ids.length} imported. ${failed} failed.`); restoreFocus(prevFocus); }
     else navigate('/recipes#stage');
   }
 
@@ -1219,7 +1267,9 @@ function RecipeAPITab({ navigate }: { navigate: ReturnType<typeof useNavigate> }
       )}
 
       {results.length > 0 && (
-        <div
+        <ImportGrid
+          importing={importing}
+          importingLabel={importProgress ? `Importing ${importProgress.done}/${importProgress.total}…` : undefined}
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6"
           onKeyDown={(e) => {
             if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && selected.size > 0) {
@@ -1227,7 +1277,7 @@ function RecipeAPITab({ navigate }: { navigate: ReturnType<typeof useNavigate> }
               handleImport();
             }
           }}
-          aria-keyshortcuts="Meta+Enter"
+          ariaKeyshortcuts="Meta+Enter"
         >
           {results.map((r) => {
             const isSelected = selected.has(r.id);
@@ -1277,7 +1327,7 @@ function RecipeAPITab({ navigate }: { navigate: ReturnType<typeof useNavigate> }
               </label>
             );
           })}
-        </div>
+        </ImportGrid>
       )}
 
       {selected.size > 0 && !importProgress && (

@@ -273,6 +273,14 @@ export default function RecipeImportPage({ kitchen }: Props) {
   // Community tab state
   type CommunityTab = 'cooklang' | 'mealdb' | 'cocktaildb' | 'publicdomain' | 'wikibooks';
   const [communityTab, setCommunityTab] = useState<CommunityTab>('cooklang');
+  // Cocktail age gate — backed by state so clicking "I am 21 or older" triggers
+  // a re-render. Previously read localStorage directly at render time, which
+  // meant a click only updated storage + called setCommunityTab (a no-op if
+  // already on the cocktaildb tab), so the gate stayed until a tab-switch
+  // forced a parent re-render.
+  const [cdAgeVerified, setCdAgeVerified] = useState(() =>
+    typeof window !== 'undefined' && localStorage.getItem('age-verified') === 'true'
+  );
   const COMMUNITY_TAB_ORDER: CommunityTab[] = ['cooklang', 'mealdb', 'publicdomain', 'wikibooks', 'cocktaildb'];
   const handleCommunityTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     const idx = COMMUNITY_TAB_ORDER.indexOf(communityTab);
@@ -1050,11 +1058,11 @@ export default function RecipeImportPage({ kitchen }: Props) {
             </div>)}
 
             {communityTab === 'cocktaildb' && (<div role="tabpanel" id="tabpanel-cocktaildb" aria-labelledby="tab-cocktaildb">
-              {typeof window !== 'undefined' && localStorage.getItem('age-verified') !== 'true' ? (
+              {!cdAgeVerified ? (
                 <div className="text-center py-12">
                   <p className="text-[var(--color-text-secondary)] mb-2">TheCocktailDB contains alcoholic drink recipes.</p>
                   <p className="text-[var(--color-text-secondary)] text-sm mb-6">You must be 21 or older to browse this content.</p>
-                  <button onClick={() => { localStorage.setItem('age-verified', 'true'); setCommunityTab('cocktaildb'); }} className="btn-primary">I am 21 or older</button>
+                  <button onClick={() => { localStorage.setItem('age-verified', 'true'); setCdAgeVerified(true); }} className="btn-primary">I am 21 or older</button>
                 </div>
               ) : (<>
               <div className="flex flex-col sm:flex-row gap-2 mb-4 sm:items-end">

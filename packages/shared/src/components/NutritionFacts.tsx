@@ -17,7 +17,7 @@
  * Rendered as a default-collapsed <details> block so nutrition is
  * present-but-inert unless the user explicitly opens it.
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useId } from 'react';
 import { Info, CaretRight } from '@phosphor-icons/react';
 import {
   getRecipeAPIRecipe,
@@ -84,6 +84,7 @@ export function NutritionFacts({ sourceUrl, apiKey }: Props) {
   const recipeApiId = recipeApiIdFromSourceUrl(sourceUrl ?? null);
   const [state, setState] = useState<LoadState>({ status: 'idle' });
   const [hasOpened, setHasOpened] = useState(false);
+  const summaryId = useId();
 
   const loadNutrition = useCallback(async () => {
     if (!recipeApiId || !apiKey) return;
@@ -123,9 +124,9 @@ export function NutritionFacts({ sourceUrl, apiKey }: Props) {
         if ((e.currentTarget as HTMLDetailsElement).open) setHasOpened(true);
       }}
     >
-      <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] select-none hover:text-[var(--color-text-primary)] list-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-2">
+      <summary id={summaryId} className="cursor-pointer text-sm font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] select-none hover:text-[var(--color-text-primary)] list-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-2">
         <CaretRight size={14} weight="bold" aria-hidden className="transition-transform group-open:rotate-90" />
-        <span className="inline-flex items-center">
+        <span className="inline-flex items-center gap-1">
           <Info size={16} weight="regular" aria-hidden />
           Nutritional Info (per serving)
         </span>
@@ -154,7 +155,7 @@ export function NutritionFacts({ sourceUrl, apiKey }: Props) {
               ))}
             </dl>
 
-            <details className="mt-5">
+            <details className="mt-5" aria-describedby={summaryId}>
               <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] select-none hover:text-[var(--color-text-primary)]">
                 More
               </summary>

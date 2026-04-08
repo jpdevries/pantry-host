@@ -53,9 +53,23 @@ const CREATE_MUTATION = `mutation(
 
 type Tab = 'mealdb' | 'cocktaildb' | 'publicdomain' | 'cooklang' | 'wikibooks';
 
-// ── Cooklang image cache + throttled fetcher ────────────────────────────────
+// ── Cooklang detail cache + throttled fetcher ──────────────────────────────
+//
+// The federation /api/search response has no image_url, so to render a
+// thumbnail we have to call /api/recipes/:id for each card. The federation
+// has a ~60 req/min rate limit and rate-limits burst windows aggressively.
+// To avoid "search chicken → add recipe → 429", we:
+//   1. Cache the FULL FederationRecipe object (not just the image_url) so
+//      handleImport can reuse what the image-probe queue already fetched
+//      instead of hitting the API a second time.
+//   2. Throttle the probe queue at 1500ms between calls (40/min, headroom
+//      for one import fetch per recipe without blowing the ceiling).
+//   3. Fall through to the existing `getFederationRecipe` call in
+//      handleImport only for recipes not yet in the cache — and rely on
+//      the SW's 24h pantryhost-cooklang-v1 bucket to make those free on
+//      any repeat.
 
-const clImageCache = new Map<number, string | null>();
+const clRecipeCache = new Map<number, FederationRecipe | null>();
 let clImageQueue: number[] = [];
 let clImageProcessing = false;
 let clImageListeners = new Set<() => void>();
@@ -66,17 +80,17 @@ async function processClImageQueue() {
   clImageProcessing = true;
   while (clImageQueue.length > 0 && !clImageStopped) {
     const id = clImageQueue.shift()!;
-    if (clImageCache.has(id)) continue;
+    if (clRecipeCache.has(id)) continue;
     try {
       const detail = await getFederationRecipe(id);
-      clImageCache.set(id, detail.image_url ?? null);
+      clRecipeCache.set(id, detail);
     } catch {
-      clImageCache.set(id, null);
+      clRecipeCache.set(id, null);
       clImageStopped = true; // rate limited — stop fetching
     }
     clImageListeners.forEach((fn) => fn());
     if (clImageQueue.length > 0 && !clImageStopped) {
-      await new Promise((r) => setTimeout(r, 1000)); // 1s throttle
+      await new Promise((r) => setTimeout(r, 1500)); // ~40 req/min — under the 60/min ceiling
     }
   }
   clImageProcessing = false;
@@ -87,14 +101,16 @@ function useClImage(id: number): string | null | undefined {
   useEffect(() => {
     const listener = () => forceUpdate((n) => n + 1);
     clImageListeners.add(listener);
-    if (!clImageCache.has(id) && !clImageQueue.includes(id)) {
+    if (!clRecipeCache.has(id) && !clImageQueue.includes(id)) {
       clImageQueue.push(id);
       clImageStopped = false;
       processClImageQueue();
     }
     return () => { clImageListeners.delete(listener); };
   }, [id]);
-  return clImageCache.get(id); // undefined = loading, null = no image, string = url
+  if (!clRecipeCache.has(id)) return undefined; // loading
+  const cached = clRecipeCache.get(id);
+  return cached ? (cached.image_url ?? null) : null;
 }
 
 function CooklangCard({ result: r, selected, onToggle, selectedCount, onImport }: { result: FederationSearchResult; selected: boolean; onToggle: () => void; selectedCount: number; onImport: () => void }) {
@@ -179,7 +195,11 @@ function CooklangTab({ navigate }: { navigate: ReturnType<typeof useNavigate> })
     let done = 0, failed = 0;
     for (const id of ids) {
       try {
-        const full = await getFederationRecipe(id);
+        // Reuse the object the image-probe queue already fetched if present,
+        // so importing a recipe the user can see in the grid is a zero-request
+        // operation (other than the GraphQL create mutation below).
+        const full = clRecipeCache.get(id) ?? await getFederationRecipe(id);
+        if (!clRecipeCache.has(id)) clRecipeCache.set(id, full);
         const recipe = cooklangToRecipe(full);
         await gql(CREATE_MUTATION, {
           title: recipe.title, description: recipe.description || null, instructions: recipe.instructions,

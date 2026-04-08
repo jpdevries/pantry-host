@@ -12,6 +12,7 @@ import ResponsiveImage from '@/components/ResponsiveImage';
 import { recipeToDataURI, imageToDataURI } from '@pantry-host/shared/export-recipe';
 import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang';
 import Modal from '@pantry-host/shared/components/Modal';
+import { NutritionFacts } from '@pantry-host/shared/components/NutritionFacts';
 import { isOwner } from '@/lib/isTrustedNetwork';
 
 interface RecipeIngredient {
@@ -161,6 +162,15 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
     if (typeof window !== 'undefined') return localStorage.getItem('age-verified') === 'true';
     return false;
   });
+  // recipe-api.com key for the NutritionFacts display block. Only fetched
+  // for owner (loopback / HTTPS) — guests get null and the block hides itself.
+  const [recipeApiKey, setRecipeApiKey] = useState<string | null>(null);
+  useEffect(() => {
+    fetch('/api/recipe-api-key')
+      .then((r) => (r.ok ? r.json() : { key: null }))
+      .then((d: { key: string | null }) => setRecipeApiKey(d.key))
+      .catch(() => setRecipeApiKey(null));
+  }, []);
 
   const articleRef = useRef<HTMLElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -707,6 +717,11 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
           </div>
 
           <StepPhotos steps={steps} sourceUrl={recipe.sourceUrl} dbStepPhotos={recipe.stepPhotos} />
+
+          {/* Borrowed nutrition data for recipe-api.com imports. Fetched
+              lazily on first expand, never stored. Hidden silently for
+              non-recipe-api sources or when no key is available. */}
+          <NutritionFacts sourceUrl={recipe.sourceUrl} apiKey={recipeApiKey} />
 
           {subRecipes.length > 0 && (
             <section aria-labelledby="sub-recipes-heading" className="mt-12">

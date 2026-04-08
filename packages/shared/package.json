@@ -17,6 +17,7 @@
     "./components/IngredientEditor": "./src/components/IngredientEditor.tsx",
     "./components/IngredientForm": "./src/components/IngredientForm.tsx",
     "./components/FeaturedTags": "./src/components/FeaturedTags.tsx",
+    "./components/NutritionFacts": "./src/components/NutritionFacts.tsx",
     "./types": "./src/types/index.ts",
     "./adapters/*": "./src/adapters/*.ts",
     "./export-recipe": "./src/export-recipe.ts",

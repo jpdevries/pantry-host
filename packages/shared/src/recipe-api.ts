@@ -101,6 +101,53 @@ export interface RecipeAPIEquipmentItem {
 /** Keyed by storage location: "refrigerator", "freezer", "pantry", etc. */
 export type RecipeAPIStorage = Record<string, { notes: string | null; duration: string | null } | null | undefined>;
 
+/**
+ * 32 USDA-backed nutrients per serving. All values are nullable because the
+ * API leaves fields it can't compute as null rather than zero.
+ *
+ * Pantry Host does NOT persist this. It's a borrowed display-only view on
+ * the Recipe Detail page, fetched lazily from recipe-api.com on demand.
+ */
+export interface RecipeAPINutritionPerServing {
+  calories: number | null;
+  protein_g: number | null;
+  carbohydrates_g: number | null;
+  fat_g: number | null;
+  saturated_fat_g: number | null;
+  trans_fat_g: number | null;
+  monounsaturated_fat_g: number | null;
+  polyunsaturated_fat_g: number | null;
+  fiber_g: number | null;
+  sugar_g: number | null;
+  sodium_mg: number | null;
+  cholesterol_mg: number | null;
+  potassium_mg: number | null;
+  calcium_mg: number | null;
+  iron_mg: number | null;
+  magnesium_mg: number | null;
+  phosphorus_mg: number | null;
+  zinc_mg: number | null;
+  vitamin_a_mcg: number | null;
+  vitamin_c_mg: number | null;
+  vitamin_d_mcg: number | null;
+  vitamin_e_mg: number | null;
+  vitamin_k_mcg: number | null;
+  vitamin_b6_mg: number | null;
+  vitamin_b12_mcg: number | null;
+  thiamin_mg: number | null;
+  riboflavin_mg: number | null;
+  niacin_mg: number | null;
+  folate_mcg: number | null;
+  water_g: number | null;
+  alcohol_g: number | null;
+  caffeine_mg: number | null;
+}
+
+export interface RecipeAPINutrition {
+  per_serving: RecipeAPINutritionPerServing;
+  sources: string[];
+}
+
 export interface RecipeAPITroubleshootingItem {
   symptom: string;
   likely_cause: string | null;
@@ -119,7 +166,7 @@ export interface RecipeAPIRecipe {
   tags: string[];
   meta: RecipeAPIMeta;
   dietary: RecipeAPIDietary;
-  nutrition: unknown;      // full 32-nutrient table; we don't persist yet
+  nutrition: RecipeAPINutrition | null;
   ingredients: RecipeAPIIngredientGroup[];
   instructions: RecipeAPIInstructionStep[];
   equipment: RecipeAPIEquipmentItem[];
@@ -187,6 +234,17 @@ export async function getRecipeAPICategories(apiKey: string): Promise<RecipeAPIC
   const res = await fetch(`${BASE}/categories`, { headers: authHeaders(apiKey) });
   const wrapped = await jsonOrThrow<{ data: RecipeAPICategoryCount[] }>(res, 'categories');
   return wrapped.data;
+}
+
+/**
+ * Extract the recipe-api.com UUID from a Recipe's sourceUrl, or null if the
+ * source isn't recipe-api.com. Used by the Recipe Detail page to detect
+ * when it can lazily display borrowed nutrition data.
+ */
+export function recipeApiIdFromSourceUrl(sourceUrl: string | null | undefined): string | null {
+  if (!sourceUrl) return null;
+  const match = sourceUrl.match(/^https:\/\/recipe-api\.com\/recipes\/([0-9a-f-]{36})/i);
+  return match ? match[1] : null;
 }
 
 export async function getRecipeAPICuisines(apiKey: string): Promise<RecipeAPICategoryCount[]> {

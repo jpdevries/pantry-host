@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { gql } from '@/lib/gql';
 import { recipeToDataURI, downloadRecipeICS, imageToDataURI } from '@pantry-host/shared/export-recipe';
 import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang';
+import { NutritionFacts } from '@pantry-host/shared/components/NutritionFacts';
 import { getFileURL } from '@/lib/storage-opfs';
 import { PencilSimple, Trash, Printer, CalendarPlus, Export, Code, ShareNetwork, Rows, Columns, GridNine, ArrowsOut, ArrowsIn } from '@phosphor-icons/react';
 
@@ -432,6 +433,13 @@ export default function RecipeDetailPage() {
       </div>
 
       <StepPhotos instructions={recipe.instructions} sourceUrl={recipe.sourceUrl} dbStepPhotos={recipe.stepPhotos} />
+
+      {/* Borrowed nutrition data for recipe-api.com imports. Fetched lazily,
+          never stored — see packages/shared/src/components/NutritionFacts.tsx */}
+      <NutritionFacts
+        sourceUrl={recipe.sourceUrl}
+        apiKey={typeof window !== 'undefined' ? localStorage.getItem('recipe-api-key') : null}
+      />
 
       {subRecipes.length > 0 && (
         <section className="mt-12">

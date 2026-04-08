@@ -24,19 +24,26 @@
  *
  * ## Caching strategies
  *
- * | Request type          | Cache         | Strategy               |
- * |-----------------------|---------------|------------------------|
- * | Shell pages (install) | BUILD_CACHE   | Pre-cache individually |
- * | /_rex/ bundles        | BUILD_CACHE   | Cache-first (immutable)|
- * | /uploads/ images      | ASSETS_CACHE  | Cache-first (immortal) |
- * | HTML navigation       | BUILD_CACHE   | Network-first          |
- * | Other same-origin     | BUILD_CACHE   | Stale-while-revalidate |
- * | Cross-origin          | —             | Ignored (passthrough)  |
+ * | Request type            | Cache           | Strategy                          |
+ * |-------------------------|-----------------|-----------------------------------|
+ * | Shell pages (install)   | BUILD_CACHE     | Pre-cache individually            |
+ * | /_rex/ bundles          | BUILD_CACHE     | Cache-first (immutable)           |
+ * | /uploads/ images        | ASSETS_CACHE    | Cache-first (immortal)            |
+ * | /api/wikibooks          | ASSETS_CACHE    | Cache-first (static dataset)      |
+ * | HTML navigation         | BUILD_CACHE     | Network-first + timeout           |
+ * | Other same-origin       | BUILD_CACHE     | Stale-while-revalidate (.ok only) |
+ * | recipes.cooklang.org    | COOKLANG_CACHE  | Cache-first 24h TTL + revalidate  |
+ * | Other cross-origin      | —               | Ignored (passthrough)             |
  */
 
 const BUILD_HASH = new URL(self.location).searchParams.get('v') || 'dev';
 const BUILD_CACHE = `pantry-host-${BUILD_HASH}`;
 const ASSETS_CACHE = 'pantry-host-uploads';
+const COOKLANG_CACHE = 'pantry-host-cooklang-v1';
+const COOKLANG_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// Caches that must survive a deploy activation (non-build-versioned).
+const IMMORTAL_CACHES = new Set([ASSETS_CACHE, COOKLANG_CACHE]);
 
 const SHELL_PAGES = ['/', '/list', '/recipes', '/ingredients', '/cookware', '/kitchens', '/menus', '/recipes/export'];
 
@@ -72,18 +79,91 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((names) =>
       Promise.all(
         names
-          .filter((n) => n !== BUILD_CACHE && n !== ASSETS_CACHE)
+          .filter((n) => n !== BUILD_CACHE && !IMMORTAL_CACHES.has(n))
           .map((n) => caches.delete(n))
       )
     ).then(() => self.clients.claim())
   );
 });
 
+// --- Cooklang federation cache helpers ---
+
+function isCooklangFederation(url) {
+  return url.hostname === 'recipes.cooklang.org';
+}
+
+/**
+ * Clone a response and stamp it with an X-Cached-At header so we can
+ * compute age when reading it back out of the cache.
+ */
+async function stampResponse(response) {
+  const buf = await response.clone().arrayBuffer();
+  const headers = new Headers(response.headers);
+  headers.set('X-Cached-At', String(Date.now()));
+  return new Response(buf, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+function ageOf(cachedResponse) {
+  const stamped = Number(cachedResponse.headers.get('X-Cached-At') || 0);
+  if (!stamped) return Infinity;
+  return Date.now() - stamped;
+}
+
+async function revalidateCooklang(request, cache) {
+  try {
+    const fresh = await fetch(request);
+    if (fresh.ok) await cache.put(request, await stampResponse(fresh));
+  } catch {
+    /* background revalidate errors are swallowed */
+  }
+}
+
+/**
+ * Cache-first with TTL and graceful degradation:
+ *   - fresh hit (< TTL)  → return cached, kick off background revalidate
+ *   - stale hit (>= TTL) → try network; on OK store + return, on fail return stale
+ *   - miss               → network; on OK store + return, on fail throw
+ * Response.ok is required before storing so a 429 or 5xx can never get
+ * trapped in the cache.
+ */
+async function cooklangHandler(request) {
+  const cache = await caches.open(COOKLANG_CACHE);
+  const cached = await cache.match(request);
+
+  if (cached && ageOf(cached) < COOKLANG_TTL_MS) {
+    revalidateCooklang(request, cache);
+    return cached;
+  }
+
+  try {
+    const fresh = await fetch(request);
+    if (fresh.ok) {
+      await cache.put(request, await stampResponse(fresh));
+      return fresh;
+    }
+    if (cached) return cached; // prefer stale over 429/5xx
+    return fresh;
+  } catch (err) {
+    if (cached) return cached;
+    throw err;
+  }
+}
+
 // --- Fetch ---
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // Cooklang federation: dedicated TTL cache (cross-origin by design).
+  if (isCooklangFederation(url)) {
+    event.respondWith(cooklangHandler(request));
+    return;
+  }
 
   // Only handle same-origin — GraphQL (port 4001) is cross-origin
   if (url.origin !== self.location.origin) return;
@@ -154,12 +234,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // --- Other same-origin: stale-while-revalidate ---
+  // --- Other same-origin: stale-while-revalidate (don't cache errors) ---
   event.respondWith(
     caches.open(BUILD_CACHE).then((cache) =>
       cache.match(request).then((cached) => {
         const networkFetch = fetchWithTimeout(request).then((response) => {
-          cache.put(request, response.clone());
+          if (response.ok) cache.put(request, response.clone());
           return response;
         });
         return cached ?? networkFetch;

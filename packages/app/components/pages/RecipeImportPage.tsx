@@ -285,6 +285,15 @@ export default function RecipeImportPage({ kitchen }: Props) {
   // the owner-gated /api/recipe-api-key route. Guests on HTTP LAN IPs get
   // null and the tab stays hidden.
   const [recipeApiKey, setRecipeApiKey] = useState<string | null>(null);
+  // TheCocktailDB tab visibility comes from a server-injected meta tag
+  // (<meta name="show-cocktaildb" content="true|false"> set from the
+  // SHOW_COCKTAILDB env var in .env.local). Defaults to true.
+  const [showCocktailDB, setShowCocktailDB] = useState(true);
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="show-cocktaildb"]');
+    if (meta?.content === 'false') setShowCocktailDB(false);
+  }, []);
   // Cocktail age gate — backed by state so clicking "I am 21 or older" triggers
   // a re-render. Previously read localStorage directly at render time, which
   // meant a click only updated storage + called setCommunityTab (a no-op if
@@ -295,7 +304,11 @@ export default function RecipeImportPage({ kitchen }: Props) {
   );
   const COMMUNITY_TAB_ORDER: CommunityTab[] = (
     ['cooklang', 'mealdb', 'recipe-api', 'publicdomain', 'wikibooks', 'cocktaildb'] as CommunityTab[]
-  ).filter((k) => k !== 'recipe-api' || !!recipeApiKey);
+  ).filter((k) => {
+    if (k === 'recipe-api' && !recipeApiKey) return false;
+    if (k === 'cocktaildb' && !showCocktailDB) return false;
+    return true;
+  });
   const handleCommunityTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     const idx = COMMUNITY_TAB_ORDER.indexOf(communityTab);
     let next = idx;

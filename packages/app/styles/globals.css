@@ -1083,6 +1083,23 @@
     color: var(--color-text-primary);
   }
 
+  /* group-open variant — Rex's Tailwind v4 doesn't auto-generate these
+     from shared component class scans, so we provide them manually.
+     Tailwind's group-open:* triggers on any ancestor with `.group[open]`. */
+  .group[open] .group-open\:rotate-90 {
+    transform: rotate(90deg);
+  }
+  .group[open] .group-open\:text-\[var\(--color-text-primary\)\] {
+    color: var(--color-text-primary);
+  }
+  /* group-open/more — nested details variant used by NutritionFacts "More" */
+  .group\/more[open] .group-open\/more\:rotate-90 {
+    transform: rotate(90deg);
+  }
+  .group\/more[open] .group-open\/more\:text-\[var\(--color-text-primary\)\] {
+    color: var(--color-text-primary);
+  }
+
   /* Legible line lengths */
   .legible {
     --legible-max-width: 72ch;

@@ -1,7 +1,6 @@
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import RecipeDetailPage from '@/components/pages/RecipeDetailPage';
-import sql from '@/lib/db';
 
 interface Props {
   ogTitle?: string;
@@ -9,19 +8,39 @@ interface Props {
   ogImage?: string;
 }
 
+// Rex 0.20.0 has a recurring V8 SSR bug where postgres.js native sockets
+// inside getServerSideProps deadlock the microtask checkpoint and brick
+// the page. Bypass it by going through the standalone GraphQL server
+// (plain Node, no V8 isolate) over HTTP. AbortController + 2s budget
+// guarantees we never block the page render even if GraphQL is down.
 export async function getServerSideProps({ params }: { params: { slug: string } }) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2000);
   try {
-    const [row] = await sql`SELECT title, description, photo_url FROM recipes WHERE slug = ${params.slug} OR id::text = ${params.slug} LIMIT 1`;
-    if (row) {
-      return {
-        props: {
-          ogTitle: row.title ?? null,
-          ogDescription: row.description ?? null,
-          ogImage: row.photo_url ?? null,
-        },
-      };
+    const res = await fetch('http://localhost:4001/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: 'query($id:String!){recipe(id:$id){title description photoUrl}}',
+        variables: { id: params.slug },
+      }),
+      signal: controller.signal,
+    });
+    if (res.ok) {
+      const body = (await res.json()) as { data?: { recipe?: { title?: string; description?: string; photoUrl?: string } } };
+      const row = body.data?.recipe;
+      if (row) {
+        return {
+          props: {
+            ogTitle: row.title ?? null,
+            ogDescription: row.description ?? null,
+            ogImage: row.photoUrl ?? null,
+          },
+        };
+      }
     }
-  } catch { /* DB unavailable — render without og tags */ }
+  } catch { /* GraphQL unavailable / timed out — render without og tags */ }
+  finally { clearTimeout(timer); }
   return { props: {} };
 }
 

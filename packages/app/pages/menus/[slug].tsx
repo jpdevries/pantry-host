@@ -1,25 +1,42 @@
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import MenuDetailPage from '@/components/pages/MenuDetailPage';
-import sql from '@/lib/db';
 
 interface Props {
   ogTitle?: string;
   ogDescription?: string;
 }
 
+// Bypass Rex 0.20.0's V8 SSR bug by going through the standalone GraphQL
+// server (plain Node) instead of importing postgres.js into the SSR
+// isolate. See packages/app/pages/recipes/[slug].tsx for full context.
 export async function getServerSideProps({ params }: { params: { slug: string } }) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2000);
   try {
-    const [row] = await sql`SELECT title, description FROM menus WHERE slug = ${params.slug} OR id::text = ${params.slug} LIMIT 1`;
-    if (row) {
-      return {
-        props: {
-          ogTitle: row.title ?? null,
-          ogDescription: row.description ?? null,
-        },
-      };
+    const res = await fetch('http://localhost:4001/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: 'query($id:String!){menu(id:$id){title description}}',
+        variables: { id: params.slug },
+      }),
+      signal: controller.signal,
+    });
+    if (res.ok) {
+      const body = (await res.json()) as { data?: { menu?: { title?: string; description?: string } } };
+      const row = body.data?.menu;
+      if (row) {
+        return {
+          props: {
+            ogTitle: row.title ?? null,
+            ogDescription: row.description ?? null,
+          },
+        };
+      }
     }
-  } catch { /* DB unavailable — render without og tags */ }
+  } catch { /* GraphQL unavailable / timed out — render without og tags */ }
+  finally { clearTimeout(timer); }
   return { props: {} };
 }
 

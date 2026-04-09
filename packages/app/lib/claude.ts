@@ -76,6 +76,7 @@ Respond with ONLY a valid JSON array — no markdown, no explanation — matchin
   const message = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
+    temperature: 1.2,
     messages: [{ role: 'user', content: prompt }],
   });
 

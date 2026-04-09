@@ -113,7 +113,7 @@ export default function AtProtocol() {
       </div>
 
       <p className="text-center text-xs text-[var(--color-text-secondary)] mt-6 max-w-2xl mx-auto pretty">
-        Same principle as our Cooklang&nbsp;Federation support&nbsp;&mdash; your data, someone else&rsquo;s index. Adopting an existing lexicon over inventing a new one&nbsp;&mdash; ecosystem citizenship over <abbr title="Not Invented Here">NIH</abbr>.
+        AT&nbsp;Protocol enables you to share just the recipes you choose to, on your own Personal Data&nbsp;Server, in an open&nbsp;format.
       </p>
     </section>
   );

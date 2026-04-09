@@ -80,6 +80,7 @@
     --color-bg-body: #fff1f2;        /* rose-50 */
     --color-bg-card: #ffffff;
     --color-border-card: #fecdd3;    /* rose-200 */
+    --color-text-primary: #2a0a0f;   /* deep rose-black */
     --color-text-secondary: #9f1239; /* rose-800 — AA on rose-50 */
     --color-accent: #be123c;         /* darkened rose — AA on rose-50 */
     --color-accent-hover: #be123c;
@@ -122,6 +123,7 @@
     --color-bg-body: #f3eef8;        /* warm lavender */
     --color-bg-card: #ffffff;
     --color-border-card: #d8c8ed;
+    --color-text-primary: #1a0a2e;   /* deep violet-black */
     --color-text-secondary: #553080; /* AA on lavender */
     --color-accent: #663399;         /* rebeccapurple */
     --color-accent-hover: #7c4dba;
@@ -164,6 +166,7 @@
     --color-bg-body: #f5f0eb;        /* warm cream */
     --color-bg-card: #ffffff;
     --color-border-card: #e0d5c8;    /* warm tan */
+    --color-text-primary: #141413;   /* user-specified rgb(20,20,19) */
     --color-text-secondary: #7c4a2d; /* AA on cream */
     --color-accent: #a84f2a;         /* Claude terracotta — AA on cream */
     --color-accent-hover: #9c4726;   /* deeper terracotta */
@@ -206,6 +209,7 @@
     --color-bg-body: #f5f3eb;        /* warm green-cream */
     --color-bg-card: #ffffff;
     --color-border-card: #8c8668;    /* olive border */
+    --color-text-primary: #1a1f0a;   /* deep olive-black */
     --color-text-secondary: #4a5a20; /* dark olive — AA on cream */
     --color-accent: #3d5c0f;         /* darkened avocado — AA on cream */
     --color-accent-hover: #345010;   /* deeper avocado */
@@ -248,6 +252,7 @@
     --color-bg-body: #f5ede0;
     --color-bg-card: #ffffff;
     --color-border-card: #8a7050;
+    --color-text-primary: #1f1408;   /* deep saffron-black */
     --color-text-secondary: #8b4513;
     --color-accent: #9b2335;
     --color-accent-hover: #7a1c2a;
@@ -288,6 +293,7 @@
     --color-bg-body: #f5f0e8;
     --color-bg-card: #ffffff;
     --color-border-card: #8a8468;
+    --color-text-primary: #1a1028;   /* deep lavender-black */
     --color-text-secondary: #5c6838;
     --color-accent: #6b4c8a;
     --color-accent-hover: #573d78;
@@ -328,6 +334,7 @@
     --color-bg-body: #f4f1ec;
     --color-bg-card: #ffffff;
     --color-border-card: #8a8070;
+    --color-text-primary: #141418;   /* cool blue-black */
     --color-text-secondary: #5a6848;
     --color-accent: #2d6040;
     --color-accent-hover: #1e4830;
@@ -368,6 +375,7 @@
     --color-bg-body: #f5f0e0;
     --color-bg-card: #ffffff;
     --color-border-card: #8a7858;
+    --color-text-primary: #1f1510;   /* warm terracotta-black */
     --color-text-secondary: #5c6030;
     --color-accent: #8b4520;
     --color-accent-hover: #703818;
@@ -408,6 +416,7 @@
     --color-bg-body: #f4f0e8;
     --color-bg-card: #ffffff;
     --color-border-card: #787898;
+    --color-text-primary: #1a1008;   /* deep mole-black */
     --color-text-secondary: #4a4878;
     --color-accent: #b84820;
     --color-accent-hover: #a03c18;
@@ -448,6 +457,7 @@
     --color-bg-body: #f2ede4;
     --color-bg-card: #ffffff;
     --color-border-card: #887868;
+    --color-text-primary: #1a1210;   /* burnt umber-black */
     --color-text-secondary: #6a5040;
     --color-accent: #983028;
     --color-accent-hover: #7c2820;
@@ -488,6 +498,7 @@
     --color-bg-body: #f0f2f4;
     --color-bg-card: #ffffff;
     --color-border-card: #808890;
+    --color-text-primary: #101418;   /* slate blue-black */
     --color-text-secondary: #506070;
     --color-accent: #385880;
     --color-accent-hover: #2c4868;
@@ -528,6 +539,7 @@
     --color-bg-body: #f0ede8;
     --color-bg-card: #ffffff;
     --color-border-card: #707880;
+    --color-text-primary: #181210;   /* deep burgundy-black */
     --color-text-secondary: #3a5858;
     --color-accent: #186858;
     --color-accent-hover: #105048;

@@ -177,7 +177,7 @@ export function NutritionFacts({ sourceUrl, apiKey }: Props) {
             </details>
 
             <p className="text-xs text-[var(--color-text-secondary)] mt-5 pretty">
-              Data provided by{' '}
+              Nutritional Info data provided by{' '}
               <a
                 href={`https://recipe-api.com/recipes/${recipeApiId}`}
                 target="_blank"

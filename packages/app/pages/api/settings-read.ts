@@ -24,9 +24,18 @@ import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
 // Keep in sync with packages/shared/src/settings-schema.ts.
-type SettingKey = 'RECIPE_API_KEY' | 'SHOW_COCKTAILDB';
-const APP_KEYS: SettingKey[] = ['RECIPE_API_KEY', 'SHOW_COCKTAILDB'];
-const SECRET_KEYS = new Set<SettingKey>(['RECIPE_API_KEY']);
+type SettingKey =
+  | 'RECIPE_API_KEY'
+  | 'SHOW_COCKTAILDB'
+  | 'PIXABAY_API_KEY'
+  | 'PIXABAY_FALLBACK_ENABLED';
+const APP_KEYS: SettingKey[] = [
+  'RECIPE_API_KEY',
+  'SHOW_COCKTAILDB',
+  'PIXABAY_API_KEY',
+  'PIXABAY_FALLBACK_ENABLED',
+];
+const SECRET_KEYS = new Set<SettingKey>(['RECIPE_API_KEY', 'PIXABAY_API_KEY']);
 
 function isAllowedSettingKey(key: string): key is SettingKey {
   return (APP_KEYS as string[]).includes(key);
@@ -86,6 +95,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const envLiteral: Record<SettingKey, string | undefined> = {
     RECIPE_API_KEY: process.env.RECIPE_API_KEY,
     SHOW_COCKTAILDB: process.env.SHOW_COCKTAILDB,
+    PIXABAY_API_KEY: process.env.PIXABAY_API_KEY,
+    PIXABAY_FALLBACK_ENABLED: process.env.PIXABAY_FALLBACK_ENABLED,
   };
   // Overrides win over .env.local-derived process.env so user edits on
   // /settings take effect immediately without a restart.

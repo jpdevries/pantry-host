@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import SettingsPage, { type SettingsAdapter } from '@pantry-host/shared/components/SettingsPage';
 import type { SettingKey } from '@pantry-host/shared/settings-schema';
+import { refreshPixabaySettings } from '@/components/RecipeCard';
 
 /**
  * Self-hosted Settings page. Wraps the shared SettingsPage with an adapter
@@ -47,6 +48,10 @@ function useAppAdapter(): SettingsAdapter {
         if (!res.ok) {
           const body = await res.text().catch(() => '');
           throw new Error(body || `HTTP ${res.status}`);
+        }
+        // Push any Pixabay setting changes to open RecipeCards in this tab.
+        if ('PIXABAY_API_KEY' in changes || 'PIXABAY_FALLBACK_ENABLED' in changes) {
+          refreshPixabaySettings();
         }
         return {};
       },

@@ -17,7 +17,12 @@ import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 // Keep in sync with packages/shared/src/settings-schema.ts.
-const APP_KEYS = new Set(['RECIPE_API_KEY', 'SHOW_COCKTAILDB']);
+const APP_KEYS = new Set([
+  'RECIPE_API_KEY',
+  'SHOW_COCKTAILDB',
+  'PIXABAY_API_KEY',
+  'PIXABAY_FALLBACK_ENABLED',
+]);
 function isAllowedSettingKey(key: string): boolean {
   return APP_KEYS.has(key);
 }

@@ -1,8 +1,96 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { gql } from '@/lib/gql';
 import { Robot, ShoppingCart, Leaf } from '@phosphor-icons/react';
 import ResponsiveImage from './ResponsiveImage';
 import { HIDDEN_TAGS } from '@pantry-host/shared/constants';
+import { recipeApiIdFromSourceUrl } from '@pantry-host/shared/recipe-api';
+import PixabayImage from '@pantry-host/shared/components/PixabayImage';
+import { clearPixabayCache } from '@pantry-host/shared/pixabay';
+
+function recipeSourceHasImages(recipe: { sourceUrl?: string | null }): boolean {
+  if (!recipe.sourceUrl) return true;
+  if (recipeApiIdFromSourceUrl(recipe.sourceUrl)) return false;
+  return true;
+}
+
+// ── Module-level singleton for Pixabay settings ─────────────────────────
+// RecipeCard is rendered many times on /recipes and /menus. Fetching
+// /api/settings-read per card would be wasteful, so we cache the result
+// in a module-level promise that all cards share. First card triggers
+// the fetch, subsequent cards read from the resolved value. Listeners
+// are notified when the value changes (e.g. after Settings page save).
+
+type PixabayState = { key: string | null; enabled: boolean };
+let pixabaySettings: PixabayState | null = null;
+let pixabayPromise: Promise<PixabayState> | null = null;
+const pixabayListeners = new Set<(state: PixabayState) => void>();
+
+async function fetchPixabaySettings(): Promise<PixabayState> {
+  try {
+    const res = await fetch('/api/settings-read');
+    if (!res.ok) return { key: null, enabled: true };
+    const body = (await res.json()) as {
+      locked?: boolean;
+      values?: Record<string, string | null>;
+    };
+    if (body.locked || !body.values) return { key: null, enabled: true };
+    const maskedKey = body.values.PIXABAY_API_KEY;
+    // The read route masks secrets. We need the real key for the API call
+    // so we ask for reveal mode.
+    let realKey: string | null = null;
+    if (maskedKey) {
+      const revealRes = await fetch('/api/settings-read?reveal=PIXABAY_API_KEY');
+      if (revealRes.ok) {
+        const revealBody = (await revealRes.json()) as { value?: string | null };
+        realKey = revealBody.value ?? null;
+      }
+    }
+    return {
+      key: realKey,
+      enabled: body.values.PIXABAY_FALLBACK_ENABLED !== 'false',
+    };
+  } catch {
+    return { key: null, enabled: true };
+  }
+}
+
+function usePixabaySettings(): PixabayState {
+  const [state, setState] = useState<PixabayState>(() =>
+    pixabaySettings ?? { key: null, enabled: true },
+  );
+  useEffect(() => {
+    // Register as a listener so Settings page saves can push updates.
+    const listener = (next: PixabayState) => setState(next);
+    pixabayListeners.add(listener);
+    if (!pixabaySettings && !pixabayPromise) {
+      pixabayPromise = fetchPixabaySettings().then((next) => {
+        pixabaySettings = next;
+        pixabayListeners.forEach((l) => l(next));
+        return next;
+      });
+    } else if (pixabaySettings) {
+      setState(pixabaySettings);
+    }
+    return () => {
+      pixabayListeners.delete(listener);
+    };
+  }, []);
+  return state;
+}
+
+/** Called from the Settings page after saving so open RecipeCards can
+ *  live-update without a reload. Also wipes the borrowed photo cache so
+ *  a newly-disabled feature doesn't leave stale photos around. */
+export function refreshPixabaySettings(): void {
+  pixabayPromise = fetchPixabaySettings().then((next) => {
+    const wasEnabled = !!(pixabaySettings && pixabaySettings.enabled && pixabaySettings.key);
+    const nowEnabled = !!(next.enabled && next.key);
+    if (wasEnabled && !nowEnabled) clearPixabayCache();
+    pixabaySettings = next;
+    pixabayListeners.forEach((l) => l(next));
+    return next;
+  });
+}
 
 function CartPlus({ size = 14 }: { size?: number }) {
   return (
@@ -28,6 +116,7 @@ interface Recipe {
   prepTime: number | null;
   servings: number | null;
   source: string;
+  sourceUrl?: string | null;
   tags: string[];
   photoUrl: string | null;
   queued: boolean;
@@ -41,6 +130,9 @@ interface Props {
 const TOGGLE_QUEUED = `mutation ToggleQueued($id: String!) { toggleRecipeQueued(id: $id) { id queued } }`;
 
 export default function RecipeCard({ recipe, recipesBase = '/recipes' }: Props) {
+  const pixabay = usePixabaySettings();
+  const pixabayKey = pixabay.key;
+  const pixabayEnabled = pixabay.enabled;
   const [queued, setQueued] = useState(recipe.queued);
   const [toggling, setToggling] = useState(false);
   const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0);
@@ -69,14 +161,22 @@ export default function RecipeCard({ recipe, recipesBase = '/recipes' }: Props) 
 
   const visibleTags = recipe.tags.filter((t) => !HIDDEN_TAGS.has(t.toLowerCase()));
 
+  // Decide how to render the image zone for row 1 of the subgrid.
+  const pixabayActive = pixabayEnabled && !!pixabayKey;
+  let imageZone: 'own' | 'pixabay' | 'placeholder' | 'none';
+  if (recipe.photoUrl) imageZone = 'own';
+  else if (pixabayActive) imageZone = 'pixabay';
+  else if (recipeSourceHasImages(recipe)) imageZone = 'placeholder';
+  else imageZone = 'none';
+
   return (
     <div className="card group relative overflow-hidden grid grid-rows-[subgrid] row-span-4">
       {/* Row 1: Photo */}
-      {recipe.photoUrl ? (
+      {imageZone === 'own' && (
         <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
           <a href={`${recipesBase}/${recipe.slug ?? recipe.id}#stage`} className="block w-full h-full" tabIndex={-1} aria-hidden="true">
             <ResponsiveImage
-              src={recipe.photoUrl}
+              src={recipe.photoUrl!}
               alt={recipe.title}
               className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
               loading="lazy"
@@ -84,7 +184,17 @@ export default function RecipeCard({ recipe, recipesBase = '/recipes' }: Props) 
             />
           </a>
         </div>
-      ) : <div />}
+      )}
+      {imageZone === 'pixabay' && (
+        <a href={`${recipesBase}/${recipe.slug ?? recipe.id}#stage`} className="block" tabIndex={-1} aria-hidden="true">
+          <PixabayImage
+            recipe={{ id: recipe.id, title: recipe.title }}
+            apiKey={pixabayKey!}
+            alt={recipe.title}
+          />
+        </a>
+      )}
+      {(imageZone === 'placeholder' || imageZone === 'none') && <div />}
 
       {/* Row 2: Title + cart button */}
       <div className="px-4 pt-2 flex items-start justify-between gap-2">

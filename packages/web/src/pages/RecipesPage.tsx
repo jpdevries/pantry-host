@@ -4,6 +4,9 @@ import { gql } from '@/lib/gql';
 import { getFileURL } from '@/lib/storage-opfs';
 import { ShoppingCart } from '@phosphor-icons/react';
 import { HIDDEN_TAGS } from '@pantry-host/shared/constants';
+import { recipeApiIdFromSourceUrl } from '@pantry-host/shared/recipe-api';
+import PixabayImage from '@pantry-host/shared/components/PixabayImage';
+import { clearPixabayCache } from '@pantry-host/shared/pixabay';
 
 interface Recipe {
   id: string;
@@ -12,6 +15,7 @@ interface Recipe {
   description: string | null;
   tags: string[];
   photoUrl: string | null;
+  sourceUrl: string | null;
   prepTime: number | null;
   cookTime: number | null;
   servings: number | null;
@@ -20,12 +24,34 @@ interface Recipe {
 }
 
 const RECIPES_QUERY = `{
-  recipes { id slug title description tags photoUrl prepTime cookTime servings queued createdAt }
+  recipes { id slug title description tags photoUrl sourceUrl prepTime cookTime servings queued createdAt }
 }`;
+
+/**
+ * Returns false for sources we know never have images (recipe-api, today).
+ * Returns true for everything else — hand-entered recipes, Cooklang, etc. —
+ * so their cards still reserve an image zone (rendered as placeholder or
+ * Pixabay fallback depending on settings).
+ */
+function recipeSourceHasImages(recipe: { sourceUrl: string | null }): boolean {
+  if (!recipe.sourceUrl) return true;
+  if (recipeApiIdFromSourceUrl(recipe.sourceUrl)) return false;
+  return true;
+}
 
 const TOGGLE_QUEUED = `mutation($id: String!) { toggleRecipeQueued(id: $id) { id queued } }`;
 
-function RecipeCard({ recipe, onToggleQueue }: { recipe: Recipe; onToggleQueue: (id: string) => void }) {
+function RecipeCard({
+  recipe,
+  onToggleQueue,
+  pixabayKey,
+  pixabayEnabled,
+}: {
+  recipe: Recipe;
+  onToggleQueue: (id: string) => void;
+  pixabayKey: string | null;
+  pixabayEnabled: boolean;
+}) {
   const [photoSrc, setPhotoSrc] = useState<string | null>(null);
   const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0);
   const visibleTags = recipe.tags.filter((t) => !HIDDEN_TAGS.has(t.toLowerCase()));
@@ -39,19 +65,36 @@ function RecipeCard({ recipe, onToggleQueue }: { recipe: Recipe; onToggleQueue: 
     }
   }, [recipe.photoUrl]);
 
+  // Decide how to render the image zone.
+  //  1. recipe has own photo             → real photo
+  //  2. Pixabay fallback configured      → PixabayImage (borrowed, attribution overlay)
+  //  3. source "normally has images"     → empty 16:9 placeholder (existing behavior)
+  //  4. source has no images (recipe-api) → compact text card, no image zone at all
+  const pixabayActive = pixabayEnabled && !!pixabayKey;
+  let imageZone: 'own' | 'pixabay' | 'placeholder' | 'none';
+  if (photoSrc) imageZone = 'own';
+  else if (pixabayActive) imageZone = 'pixabay';
+  else if (recipeSourceHasImages(recipe)) imageZone = 'placeholder';
+  else imageZone = 'none';
+
   return (
     <div className="card rounded-xl overflow-hidden group">
-      {/* Photo */}
-      {photoSrc ? (
+      {imageZone === 'own' && (
         <Link to={`/recipes/${recipe.slug || recipe.id}#stage`} className="block aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]" tabIndex={-1} aria-hidden="true">
           <img
-            src={photoSrc}
+            src={photoSrc!}
             alt={recipe.title}
             className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
             loading="lazy"
           />
         </Link>
-      ) : (
+      )}
+      {imageZone === 'pixabay' && (
+        <Link to={`/recipes/${recipe.slug || recipe.id}#stage`} className="block overflow-hidden" tabIndex={-1} aria-hidden="true">
+          <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey!} alt={recipe.title} />
+        </Link>
+      )}
+      {imageZone === 'placeholder' && (
         <div className="aspect-[16/9] bg-[var(--color-bg-card)]" />
       )}
 
@@ -93,10 +136,39 @@ function RecipeCard({ recipe, onToggleQueue }: { recipe: Recipe; onToggleQueue: 
   );
 }
 
+function usePixabaySettings(): { key: string | null; enabled: boolean } {
+  const [state, setState] = useState<{ key: string | null; enabled: boolean }>(() => {
+    if (typeof window === 'undefined') return { key: null, enabled: true };
+    return {
+      key: window.localStorage.getItem('pixabay-api-key'),
+      // Default enabled: the feature is dormant without a key anyway, so
+      // this effectively means "enabled the moment a key is added".
+      enabled: window.localStorage.getItem('pixabay-fallback-enabled') !== 'false',
+    };
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (e: StorageEvent) => {
+      if (e.key === 'pixabay-api-key') {
+        setState((prev) => ({ ...prev, key: e.newValue }));
+        if (!e.newValue) clearPixabayCache();
+      } else if (e.key === 'pixabay-fallback-enabled') {
+        const nextEnabled = e.newValue !== 'false';
+        setState((prev) => ({ ...prev, enabled: nextEnabled }));
+        if (!nextEnabled) clearPixabayCache();
+      }
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
+  return state;
+}
+
 export default function RecipesPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const pixabay = usePixabaySettings();
 
   useEffect(() => {
     gql<{ recipes: Recipe[] }>(RECIPES_QUERY)
@@ -155,7 +227,13 @@ export default function RecipesPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((r) => (
-            <RecipeCard key={r.id} recipe={r} onToggleQueue={handleToggleQueue} />
+            <RecipeCard
+              key={r.id}
+              recipe={r}
+              onToggleQueue={handleToggleQueue}
+              pixabayKey={pixabay.key}
+              pixabayEnabled={pixabay.enabled}
+            />
           ))}
         </div>
       )}

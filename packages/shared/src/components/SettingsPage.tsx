@@ -12,7 +12,33 @@ import {
   SETTINGS_SCHEMA,
   type SettingKey,
   type SettingDef,
+  type SettingGroup,
 } from '../settings-schema';
+
+/**
+ * Collapse a flat schema list into render segments. Consecutive entries
+ * that share the same `group.id` merge into one segment, which the
+ * render loop wraps in a <fieldset><legend>. Ungrouped entries become
+ * one segment each (effectively passthrough). Order is preserved.
+ */
+interface SchemaSegment {
+  group: SettingGroup | null;
+  defs: SettingDef[];
+}
+function bucketByGroup(defs: SettingDef[]): SchemaSegment[] {
+  const out: SchemaSegment[] = [];
+  for (const def of defs) {
+    const last = out[out.length - 1];
+    if (def.group && last && last.group && last.group.id === def.group.id) {
+      last.defs.push(def);
+    } else if (def.group) {
+      out.push({ group: def.group, defs: [def] });
+    } else {
+      out.push({ group: null, defs: [def] });
+    }
+  }
+  return out;
+}
 
 export interface SettingsAdapter {
   /** Load current values for all keys in the schema applicable to this package. */
@@ -173,18 +199,34 @@ export default function SettingsPage({ adapter }: { adapter: SettingsAdapter }) 
 
       {loaded && (
         <form onSubmit={handleSubmit} className="space-y-8">
-          {schemaForPackage.map((def) => (
-            <SettingField
-              key={def.key}
-              def={def}
-              field={fields[def.key]}
-              revealed={revealed.has(def.key)}
-              canReveal={!!adapter.reveal && def.kind === 'secret'}
-              onChange={(v) => setField(def.key, v)}
-              onReveal={() => handleReveal(def.key)}
-              onHide={() => handleHide(def.key)}
-            />
-          ))}
+          {bucketByGroup(schemaForPackage).map((segment, i) => {
+            const children = segment.defs.map((def) => (
+              <SettingField
+                key={def.key}
+                def={def}
+                field={fields[def.key]}
+                revealed={revealed.has(def.key)}
+                canReveal={!!adapter.reveal && def.kind === 'secret'}
+                onChange={(v) => setField(def.key, v)}
+                onReveal={() => handleReveal(def.key)}
+                onHide={() => handleHide(def.key)}
+              />
+            ));
+            if (!segment.group) {
+              return <div key={`g-${i}`} className="space-y-8">{children}</div>;
+            }
+            return (
+              <fieldset
+                key={`g-${i}-${segment.group.id}`}
+                className="card p-5 space-y-5 border border-[var(--color-border-card)]"
+              >
+                <legend className="px-2 text-sm font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
+                  {segment.group.legend}
+                </legend>
+                {children}
+              </fieldset>
+            );
+          })}
 
           {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
           {flash && <p className="text-sm text-[var(--color-accent)]">{flash}</p>}

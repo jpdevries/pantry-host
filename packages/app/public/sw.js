@@ -34,6 +34,8 @@
  * | Other same-origin       | BUILD_CACHE     | Stale-while-revalidate (.ok only) |
  * | recipes.cooklang.org    | COOKLANG_CACHE  | Cache-first 24h TTL + revalidate  |
  * | recipe-api.com          | COOKLANG_CACHE  | Cache-first 24h TTL + revalidate  |
+ * | pixabay.com/api/        | COOKLANG_CACHE  | Cache-first 24h TTL + revalidate  |
+ * | cdn.pixabay.com + /get/ | PIXABAY_CACHE   | Cache-first 1y TTL (immutable)    |
  * | Other cross-origin      | —               | Ignored (passthrough)             |
  */
 
@@ -42,9 +44,14 @@ const BUILD_CACHE = `pantry-host-${BUILD_HASH}`;
 const ASSETS_CACHE = 'pantry-host-uploads';
 const COOKLANG_CACHE = 'pantry-host-cooklang-v1';
 const COOKLANG_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const PIXABAY_CACHE = 'pantry-host-pixabay-v1';
+// Pixabay photo URLs are immutable — the bytes never change. We use a
+// 1-year TTL as a finite stand-in for "never expire"; the browser's
+// CacheStorage quota manager handles LRU eviction under storage pressure.
+const PIXABAY_TTL_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
 
 // Caches that must survive a deploy activation (non-build-versioned).
-const IMMORTAL_CACHES = new Set([ASSETS_CACHE, COOKLANG_CACHE]);
+const IMMORTAL_CACHES = new Set([ASSETS_CACHE, COOKLANG_CACHE, PIXABAY_CACHE]);
 
 const SHELL_PAGES = ['/', '/list', '/recipes', '/ingredients', '/cookware', '/kitchens', '/menus', '/recipes/export'];
 
@@ -93,11 +100,26 @@ function isCooklangFederation(url) {
   return url.hostname === 'recipes.cooklang.org';
 }
 
-// Third-party federated recipe APIs cached alongside Cooklang. Same TTL
-// bucket, same semantics. recipe-api.com's free tier (10 req/min) is
-// stricter than Cooklang, so cache-first is especially valuable here.
+// Third-party JSON APIs we cache in the 24h TTL bucket. Same semantics
+// across all of them (ok-gated, stale-over-error). Pixabay's /api/
+// endpoint is included to satisfy their ToS clause requiring integrators
+// to "cache API responses to avoid identical requests within 24 hours".
 function isCachedRecipeSource(url) {
-  return isCooklangFederation(url) || url.hostname === 'recipe-api.com';
+  if (isCooklangFederation(url)) return true;
+  if (url.hostname === 'recipe-api.com') return true;
+  if (url.hostname === 'pixabay.com' && url.pathname.startsWith('/api')) return true;
+  return false;
+}
+
+/**
+ * Pixabay photo URLs. Separate bucket, longer TTL, no revalidate —
+ * photos are immutable. Matches both `cdn.pixabay.com` and
+ * `pixabay.com/get/…` since Pixabay serves image bytes from both.
+ */
+function isPixabayImage(url) {
+  if (url.hostname === 'cdn.pixabay.com') return true;
+  if (url.hostname === 'pixabay.com' && url.pathname.startsWith('/get/')) return true;
+  return false;
 }
 
 /**
@@ -161,6 +183,27 @@ async function cooklangHandler(request) {
   }
 }
 
+/**
+ * Pixabay image cache handler. Cache-first, 30-day TTL, no revalidate.
+ */
+async function pixabayHandler(request) {
+  const cache = await caches.open(PIXABAY_CACHE);
+  const cached = await cache.match(request);
+  if (cached && ageOf(cached) < PIXABAY_TTL_MS) return cached;
+  try {
+    const fresh = await fetch(request);
+    if (fresh.ok) {
+      await cache.put(request, await stampResponse(fresh));
+      return fresh;
+    }
+    if (cached) return cached;
+    return fresh;
+  } catch (err) {
+    if (cached) return cached;
+    throw err;
+  }
+}
+
 // --- Fetch ---
 
 self.addEventListener('fetch', (event) => {
@@ -170,6 +213,12 @@ self.addEventListener('fetch', (event) => {
   // Federated recipe sources (Cooklang + recipe-api.com): dedicated TTL cache.
   if (isCachedRecipeSource(url)) {
     event.respondWith(cooklangHandler(request));
+    return;
+  }
+
+  // Pixabay photo bytes: dedicated long-TTL cache.
+  if (isPixabayImage(url)) {
+    event.respondWith(pixabayHandler(request));
     return;
   }
 

@@ -13,6 +13,7 @@ interface Recipe {
   prepTime: number | null;
   servings: number | null;
   source: string;
+  sourceUrl: string | null;
   tags: string[];
   photoUrl: string | null;
   queued: boolean;
@@ -20,7 +21,7 @@ interface Recipe {
 
 const RECIPES_QUERY = `
   query Recipes($kitchenSlug: String) {
-    recipes(kitchenSlug: $kitchenSlug) { id slug title cookTime prepTime servings source tags photoUrl queued }
+    recipes(kitchenSlug: $kitchenSlug) { id slug title cookTime prepTime servings source sourceUrl tags photoUrl queued }
   }
 `;
 

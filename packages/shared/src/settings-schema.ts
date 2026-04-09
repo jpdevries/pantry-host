@@ -12,9 +12,20 @@
  * read/write path. The shared component handles rendering.
  */
 
-export type SettingKey = 'RECIPE_API_KEY' | 'SHOW_COCKTAILDB';
+export type SettingKey =
+  | 'RECIPE_API_KEY'
+  | 'SHOW_COCKTAILDB'
+  | 'PIXABAY_API_KEY'
+  | 'PIXABAY_FALLBACK_ENABLED';
 
 export type SettingKind = 'text' | 'secret' | 'boolean' | 'enum';
+
+/** Optional grouping marker — consecutive entries sharing the same
+ *  group.id render inside a single <fieldset><legend>. */
+export interface SettingGroup {
+  id: string;
+  legend: string;
+}
 
 export interface SettingDef {
   /** Env-var-style uppercase key. Used as the storage key on both sides. */
@@ -34,7 +45,14 @@ export interface SettingDef {
   externalLinkLabel?: string;
   /** Which packages actually honor the setting. */
   packages: Array<'app' | 'web'>;
+  /** Optional grouping for fieldset rendering. */
+  group?: SettingGroup;
 }
+
+const PIXABAY_GROUP: SettingGroup = {
+  id: 'pixabay',
+  legend: 'Pixabay fallback images',
+};
 
 export const SETTINGS_SCHEMA: SettingDef[] = [
   {
@@ -47,6 +65,30 @@ export const SETTINGS_SCHEMA: SettingDef[] = [
     externalLinkHref: 'https://recipe-api.com/pricing',
     externalLinkLabel: 'Get a key at recipe-api.com/pricing',
     packages: ['app', 'web'],
+  },
+  // Pixabay group — boolean first (primary control), key second
+  // (prerequisite). Both render inside one <fieldset> on the Settings
+  // page thanks to the shared `group` identifier.
+  {
+    key: 'PIXABAY_FALLBACK_ENABLED',
+    label: 'Use Pixabay for missing recipe photos',
+    description:
+      'When on, recipes without their own photo will display a search result from Pixabay with courtesy photographer attribution. When off, those recipes render as compact text cards. Requires an API key.',
+    kind: 'boolean',
+    packages: ['app', 'web'],
+    group: PIXABAY_GROUP,
+  },
+  {
+    key: 'PIXABAY_API_KEY',
+    label: 'Pixabay API key',
+    description:
+      'Pixabay images are free to use under the Pixabay Content License — attribution is optional but appreciated. The key is stored on your hardware and never proxied through any Pantry Host server. Rate limit: 100 requests/minute on the free tier.',
+    kind: 'secret',
+    placeholder: 'Your Pixabay API key',
+    externalLinkHref: 'https://pixabay.com/api/docs/',
+    externalLinkLabel: 'Get a key at pixabay.com/api/docs',
+    packages: ['app', 'web'],
+    group: PIXABAY_GROUP,
   },
   {
     key: 'SHOW_COCKTAILDB',

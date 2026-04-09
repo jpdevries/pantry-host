@@ -31,7 +31,9 @@
     "./cooklang-parser": "./src/cooklang-parser.ts",
     "./wikibooks": "./src/wikibooks.ts",
     "./cocktaildb": "./src/cocktaildb.ts",
-    "./recipe-api": "./src/recipe-api.ts"
+    "./recipe-api": "./src/recipe-api.ts",
+    "./pixabay": "./src/pixabay.ts",
+    "./components/PixabayImage": "./src/components/PixabayImage.tsx"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

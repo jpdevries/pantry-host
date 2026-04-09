@@ -1,3 +1,10 @@
-packages/marketing/public/videos/*.mp4 filter=lfs diff=lfs merge=lfs -text
-packages/marketing/public/videos/*.webm filter=lfs diff=lfs merge=lfs -text
-packages/marketing/public/videos/posters/*.jpg filter=lfs diff=lfs merge=lfs -text
+# Marketing demo videos are stored in Git LFS but the filter is NOT
+# mandatory — contributors who don't need the videos can clone without
+# git-lfs installed. Video files will check out as 130-byte pointer
+# files; run `git lfs pull` to fetch the real bytes when needed.
+#
+# To set up LFS (marketing contributors only):
+#   brew install git-lfs && git lfs install && git lfs pull
+packages/marketing/public/videos/*.mp4 diff=lfs merge=lfs -text
+packages/marketing/public/videos/*.webm diff=lfs merge=lfs -text
+packages/marketing/public/videos/posters/*.jpg diff=lfs merge=lfs -text

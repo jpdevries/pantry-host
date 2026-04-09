@@ -82,6 +82,7 @@
       --color-bg-body: #1a0a10;
       --color-bg-card: #2d1520;
       --color-border-card: #4a1d30;
+      --color-text-primary: #fafafa;
       --color-text-secondary: #fda4af;
       --color-accent: #fb7185;
       --color-accent-hover: #fda4af;
@@ -95,6 +96,7 @@
     --color-bg-body: #1a0a10;
     --color-bg-card: #2d1520;
     --color-border-card: #4a1d30;
+    --color-text-primary: #fafafa;
     --color-text-secondary: #fda4af;
     --color-accent: #fb7185;
     --color-accent-hover: #fda4af;
@@ -122,6 +124,7 @@
       --color-bg-body: #110a1f;
       --color-bg-card: #1c1230;
       --color-border-card: #33245a;
+      --color-text-primary: #fafafa;
       --color-text-secondary: #c4a8e0;
       --color-accent: #b794d6;
       --color-accent-hover: #d1b8ec;
@@ -135,6 +138,7 @@
     --color-bg-body: #110a1f;
     --color-bg-card: #1c1230;
     --color-border-card: #33245a;
+    --color-text-primary: #fafafa;
     --color-text-secondary: #c4a8e0;
     --color-accent: #b794d6;
     --color-accent-hover: #d1b8ec;
@@ -162,6 +166,7 @@
       --color-bg-body: #1a1915;
       --color-bg-card: #2d2b28;
       --color-border-card: #3d3a35;
+      --color-text-primary: #fafafa;
       --color-text-secondary: #d4a88a;
       --color-accent: #e8956d;
       --color-accent-hover: #f0b090;
@@ -175,6 +180,7 @@
     --color-bg-body: #1a1915;
     --color-bg-card: #2d2b28;
     --color-border-card: #3d3a35;
+    --color-text-primary: #fafafa;
     --color-text-secondary: #d4a88a;
     --color-accent: #e8956d;
     --color-accent-hover: #f0b090;
@@ -204,6 +210,7 @@
       --color-bg-body: #332A32;
       --color-bg-card: #443c48;
       --color-border-card: #5a5060;
+      --color-text-primary: #fafafa;
       --color-text-secondary: #b5c882;
       --color-accent: #95bc48;
       --color-accent-hover: #a8d055;
@@ -218,6 +225,7 @@
     --color-bg-body: #332A32;
     --color-bg-card: #443c48;
     --color-border-card: #5a5060;
+    --color-text-primary: #fafafa;
     --color-text-secondary: #b5c882;
     --color-accent: #95bc48;
     --color-accent-hover: #a8d055;
@@ -246,6 +254,7 @@
       --color-bg-body: #1c1410;
       --color-bg-card: #2d2218;
       --color-border-card: #907050;
+      --color-text-primary: #fafafa;
       --color-text-secondary: #dba86a;
       --color-accent: #e8a84c;
       --color-accent-hover: #f0c070;
@@ -259,6 +268,7 @@
     --color-bg-body: #1c1410;
     --color-bg-card: #2d2218;
     --color-border-card: #907050;
+    --color-text-primary: #fafafa;
     --color-text-secondary: #dba86a;
     --color-accent: #e8a84c;
     --color-accent-hover: #f0c070;
@@ -287,6 +297,7 @@
       --color-bg-body: #161418;
       --color-bg-card: #241e28;
       --color-border-card: #786888;
+      --color-text-primary: #fafafa;
       --color-text-secondary: #c8b898;
       --color-accent: #c8a0d8;
       --color-accent-hover: #d8b8e8;
@@ -300,6 +311,7 @@
     --color-bg-body: #161418;
     --color-bg-card: #241e28;
     --color-border-card: #786888;
+    --color-text-primary: #fafafa;
     --color-text-secondary: #c8b898;
     --color-accent: #c8a0d8;
     --color-accent-hover: #d8b8e8;
@@ -328,6 +340,7 @@
       --color-bg-body: #141210;
       --color-bg-card: #201e1a;
       --color-border-card: #786858;
+      --color-text-primary: #fafafa;
       --color-text-secondary: #b8c098;
       --color-accent: #88c498;
       --color-accent-hover: #a0d8b0;
@@ -341,6 +354,7 @@
     --color-bg-body: #141210;
     --color-bg-card: #201e1a;
     --color-border-card: #786858;
+    --color-text-primary: #fafafa;
     --color-text-secondary: #b8c098;
     --color-accent: #88c498;
     --color-accent-hover: #a0d8b0;
@@ -369,6 +383,7 @@
       --color-bg-body: #18150e;
       --color-bg-card: #282418;
       --color-border-card: #787050;
+      --color-text-primary: #fafafa;
       --color-text-secondary: #c8b888;
       --color-accent: #d8a070;
       --color-accent-hover: #e8b888;
@@ -382,6 +397,7 @@
     --color-bg-body: #18150e;
     --color-bg-card: #282418;
     --color-border-card: #787050;
+    --color-text-primary: #fafafa;
     --color-text-secondary: #c8b888;
     --color-accent: #d8a070;
     --color-accent-hover: #e8b888;
@@ -410,6 +426,7 @@
       --color-bg-body: #141018;
       --color-bg-card: #201828;
       --color-border-card: #786890;
+      --color-text-primary: #fafafa;
       --color-text-secondary: #d0a868;
       --color-accent: #e8a048;
       --color-accent-hover: #f0b868;
@@ -423,6 +440,7 @@
     --color-bg-body: #141018;
     --color-bg-card: #201828;
     --color-border-card: #786890;
+    --color-text-primary: #fafafa;
     --color-text-secondary: #d0a868;
     --color-accent: #e8a048;
     --color-accent-hover: #f0b868;
@@ -451,6 +469,7 @@
       --color-bg-body: #161210;
       --color-bg-card: #241e1a;
       --color-border-card: #786050;
+      --color-text-primary: #fafafa;
       --color-text-secondary: #c8a888;
       --color-accent: #e08870;
       --color-accent-hover: #e8a090;
@@ -464,6 +483,7 @@
     --color-bg-body: #161210;
     --color-bg-card: #241e1a;
     --color-border-card: #786050;
+    --color-text-primary: #fafafa;
     --color-text-secondary: #c8a888;
     --color-accent: #e08870;
     --color-accent-hover: #e8a090;
@@ -492,6 +512,7 @@
       --color-bg-body: #10141a;
       --color-bg-card: #1a2028;
       --color-border-card: #607080;
+      --color-text-primary: #fafafa;
       --color-text-secondary: #a0b0c0;
       --color-accent: #88b0d0;
       --color-accent-hover: #a0c0e0;
@@ -505,6 +526,7 @@
     --color-bg-body: #10141a;
     --color-bg-card: #1a2028;
     --color-border-card: #607080;
+    --color-text-primary: #fafafa;
     --color-text-secondary: #a0b0c0;
     --color-accent: #88b0d0;
     --color-accent-hover: #a0c0e0;
@@ -533,6 +555,7 @@
       --color-bg-body: #0e1418;
       --color-bg-card: #182028;
       --color-border-card: #507870;
+      --color-text-primary: #fafafa;
       --color-text-secondary: #c8b070;
       --color-accent: #d4a840;
       --color-accent-hover: #e0c060;
@@ -546,6 +569,7 @@
     --color-bg-body: #0e1418;
     --color-bg-card: #182028;
     --color-border-card: #507870;
+    --color-text-primary: #fafafa;
     --color-text-secondary: #c8b070;
     --color-accent: #d4a840;
     --color-accent-hover: #e0c060;

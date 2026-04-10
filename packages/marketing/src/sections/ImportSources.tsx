@@ -56,7 +56,7 @@ const sources = [
     icon: Wine,
     catalog: '~600 cocktails',
     blurb: 'Drinks-only companion to TheMealDB. Glass type metadata and age-gated inside Pantry\u00a0Host.',
-    highlight: 'Open API, hideable via Settings',
+    highlight: 'Open API, opt-in via Settings',
   },
 ];
 

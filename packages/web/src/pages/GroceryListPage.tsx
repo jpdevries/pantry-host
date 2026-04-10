@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { gql } from '@/lib/gql';
+import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 
 interface RecipeIngredient {
   ingredientName: string;
@@ -110,33 +111,45 @@ export default function GroceryListPage() {
                 <legend className="px-2 font-semibold text-sm">
                   <Link to={`/recipes/${recipe.slug}#stage`} className="hover:underline">{recipe.title}</Link>
                 </legend>
-                <ul className="space-y-1">
-                  {[...recipe.groceryIngredients]
-                    .sort((a, b) => a.ingredientName.localeCompare(b.ingredientName))
-                    .map((ing) => {
-                      const key = `${recipe.id}::${ing.ingredientName.toLowerCase()}`;
-                      const isChecked = checked.has(key);
-                      return (
-                        <li key={key}>
-                          <label
-                            className={`grocery-item flex items-center gap-3 py-1.5 cursor-pointer select-none transition-opacity ${isChecked ? 'opacity-50 line-through' : ''}`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => toggle(key)}
-                              className="w-4 h-4 accent-[var(--color-accent)]"
-                            />
-                            <span className="text-sm">
-                              {ing.quantity != null && <span className="font-semibold tabular-nums">{Math.round(ing.quantity * 100) / 100}</span>}
-                              {ing.unit && <span className="text-[var(--color-text-secondary)]"> {ing.unit}</span>}
-                              {' '}{ing.ingredientName}
-                            </span>
-                          </label>
-                        </li>
-                      );
-                    })}
-                </ul>
+                <div className="space-y-3">
+                  {groupIngredients(recipe.groceryIngredients).map((g, gi) => {
+                    const sorted = [...g.items].sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
+                    const list = (
+                      <ul className="space-y-1">
+                        {sorted.map((ing) => {
+                          const key = `${recipe.id}::${ing.ingredientName.toLowerCase()}`;
+                          const isChecked = checked.has(key);
+                          return (
+                            <li key={key}>
+                              <label
+                                className={`grocery-item flex items-center gap-3 py-1.5 cursor-pointer select-none transition-opacity ${isChecked ? 'opacity-50 line-through' : ''}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => toggle(key)}
+                                  className="w-4 h-4 accent-[var(--color-accent)]"
+                                />
+                                <span className="text-sm">
+                                  {ing.quantity != null && <span className="font-semibold tabular-nums">{Math.round(ing.quantity * 100) / 100}</span>}
+                                  {ing.unit && <span className="text-[var(--color-text-secondary)]"> {ing.unit}</span>}
+                                  {' '}{ing.ingredientName}
+                                </span>
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    );
+                    if (!g.group) return <div key={`g-${gi}`}>{list}</div>;
+                    return (
+                      <fieldset key={g.group} className="mt-3 first:mt-0">
+                        <legend className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">{g.group}</legend>
+                        {list}
+                      </fieldset>
+                    );
+                  })}
+                </div>
               </fieldset>
             ))}
           </div>

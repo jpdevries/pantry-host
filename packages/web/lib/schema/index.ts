@@ -490,13 +490,18 @@ async function insertRecipe(
 ) {
   const kitchenId = data.kitchenId ?? await resolveKitchenId('home');
   const slug = await uniqueSlug(data.title);
+
+  // Normalize literal \n sequences that LLMs sometimes emit instead of
+  // real newlines. Without this, instructions render as a single blob.
+  const instructions = data.instructions.replace(/\\n/g, '\n');
+
   const [recipe] = await sql`
     INSERT INTO recipes (title, slug, description, instructions, servings, prep_time, cook_time, tags, source, source_url, photo_url, step_photos, kitchen_id)
     VALUES (
       ${data.title},
       ${slug},
       ${data.description ?? null},
-      ${data.instructions},
+      ${instructions},
       ${data.servings ?? 2},
       ${data.prepTime ?? null},
       ${data.cookTime ?? null},
@@ -555,6 +560,20 @@ builder.mutationField('createRecipe', (t) =>
     },
     resolve: async (_, args) => {
       const kitchenId = await resolveKitchenId(args.kitchenSlug);
+
+      // Idempotency guard: if a recipe with the same title was created
+      // in this kitchen within the last 60 seconds, return the existing
+      // one instead of creating a duplicate. Mirrors the app schema.
+      const [recent] = await sql`
+        SELECT * FROM recipes
+        WHERE kitchen_id = ${kitchenId}
+          AND lower(title) = ${args.title.toLowerCase()}
+          AND created_at > NOW() - INTERVAL '60 seconds'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `;
+      if (recent) return recent;
+
       return insertRecipe(
         {
           title: args.title,

@@ -91,6 +91,14 @@ self.addEventListener('activate', (event) => {
           .map((n) => caches.delete(n))
       )
     ).then(() => self.clients.claim())
+     .then(() =>
+       // Notify all open tabs/PWA windows that a new build is active so
+       // they can reload and pick up fresh HTML + JS bundles. Without
+       // this, homescreen PWAs stay stuck on stale assets forever.
+       self.clients.matchAll({ type: 'window' }).then((clients) =>
+         clients.forEach((client) => client.postMessage({ type: 'SW_UPDATED', build: BUILD_HASH }))
+       )
+     )
   );
 });
 

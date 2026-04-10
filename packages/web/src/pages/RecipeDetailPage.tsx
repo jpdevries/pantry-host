@@ -4,6 +4,7 @@ import { gql } from '@/lib/gql';
 import { recipeToDataURI, downloadRecipeICS, imageToDataURI } from '@pantry-host/shared/export-recipe';
 import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang';
 import { NutritionFacts } from '@pantry-host/shared/components/NutritionFacts';
+import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { getFileURL } from '@/lib/storage-opfs';
 import { PencilSimple, Trash, Printer, CalendarPlus, Export, Code, ShareNetwork, Rows, Columns, GridNine, ArrowsOut, ArrowsIn } from '@phosphor-icons/react';
 
@@ -393,29 +394,42 @@ export default function RecipeDetailPage() {
           {recipe.ingredients.length === 0 ? (
             <p className="text-sm text-[var(--color-text-secondary)]">No ingredients listed.</p>
           ) : (
-            <ul role="list" className="space-y-2 legible">
-              {recipe.ingredients.map((ing, i) => {
-                const checked = checkedIngredients.has(i);
+            <div className="space-y-4 legible">
+              {groupIngredients(recipe.ingredients).map((g, gi) => {
+                const items = (
+                  <ul role="list" className="space-y-2">
+                    {g.items.map((ing) => {
+                      const checked = checkedIngredients.has(ing.index);
+                      return (
+                        <li key={ing.index}>
+                          <label className="flex items-start gap-3 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => setCheckedIngredients((prev) => { const next = new Set(prev); next.has(ing.index) ? next.delete(ing.index) : next.add(ing.index); return next; })}
+                              aria-label={ing.ingredientName}
+                              className="mt-1 w-5 h-5 border-2 border-[var(--color-border-card)] accent-[var(--color-accent)] shrink-0"
+                            />
+                            <span className={checked ? 'line-through text-[var(--color-text-secondary)]' : ''}>
+                              {scaleQty(ing.quantity) != null && <span className="font-semibold tabular-nums">{scaleQty(ing.quantity)}{' '}</span>}
+                              {ing.unit && <span>{ing.unit} </span>}
+                              {ing.ingredientName}
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                );
+                if (!g.group) return <div key={`g-${gi}`}>{items}</div>;
                 return (
-                  <li key={i}>
-                    <label className="flex items-start gap-3 cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => setCheckedIngredients((prev) => { const next = new Set(prev); next.has(i) ? next.delete(i) : next.add(i); return next; })}
-                        aria-label={ing.ingredientName}
-                        className="mt-1 w-5 h-5 border-2 border-[var(--color-border-card)] accent-[var(--color-accent)] shrink-0"
-                      />
-                      <span className={checked ? 'line-through text-[var(--color-text-secondary)]' : ''}>
-                        {scaleQty(ing.quantity) != null && <span className="font-semibold tabular-nums">{scaleQty(ing.quantity)}{' '}</span>}
-                        {ing.unit && <span>{ing.unit} </span>}
-                        {ing.ingredientName}
-                      </span>
-                    </label>
-                  </li>
+                  <fieldset key={g.group} className="mt-4 first:mt-0">
+                    <legend className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">{g.group}</legend>
+                    {items}
+                  </fieldset>
                 );
               })}
-            </ul>
+            </div>
           )}
         </section>
 

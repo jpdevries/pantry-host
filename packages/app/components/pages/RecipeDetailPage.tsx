@@ -13,6 +13,7 @@ import { recipeToDataURI, imageToDataURI } from '@pantry-host/shared/export-reci
 import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang';
 import Modal from '@pantry-host/shared/components/Modal';
 import { NutritionFacts } from '@pantry-host/shared/components/NutritionFacts';
+import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { isOwner } from '@/lib/isTrustedNetwork';
 
 interface RecipeIngredient {
@@ -398,7 +399,9 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
     setDeleting(true);
     try {
       await gql(DELETE_RECIPE, { id: recipe.id });
-      router.push(`${recipesBase}#stage`);
+      // Full page load (not router.push) so the _app hash-scroll
+      // workaround fires on mount and scrolls past the nav to #stage.
+      window.location.href = `${recipesBase}#stage`;
     } catch {
       setDeleting(false);
       setDeleteConfirm(false);
@@ -683,24 +686,37 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-10">
             <section aria-labelledby="ingredients-heading">
               <h2 id="ingredients-heading" className="text-xl font-bold mb-4">Ingredients</h2>
-              <ul role="list" className="space-y-2 legible">
-                {recipe.ingredients.map((ing, idx) => {
-                  const checked = checkedIngredients.has(idx);
-                  const scaledQty = scaleQty(ing.quantity);
+              <div className="space-y-4 legible">
+                {groupIngredients(recipe.ingredients).map((g, gi) => {
+                  const items = (
+                    <ul role="list" className="space-y-2">
+                      {g.items.map((ing) => {
+                        const checked = checkedIngredients.has(ing.index);
+                        const scaledQty = scaleQty(ing.quantity);
+                        return (
+                          <li key={ing.index}>
+                            <label className="flex items-start gap-3 cursor-pointer group">
+                              <input type="checkbox" checked={checked} onChange={() => toggleIngredient(ing.index)} aria-label={ing.ingredientName} className="mt-1 w-5 h-5 border-2 border-[var(--color-border-card)] accent-accent shrink-0" />
+                              <span className={checked ? 'line-through text-[var(--color-text-secondary)]' : ''}>
+                                {scaledQty != null && <span className="font-semibold tabular-nums">{scaledQty}{' '}</span>}
+                                {ing.unit && <span>{ing.unit} </span>}
+                                {ing.ingredientName}
+                              </span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  );
+                  if (!g.group) return <div key={`g-${gi}`}>{items}</div>;
                   return (
-                    <li key={idx}>
-                      <label className="flex items-start gap-3 cursor-pointer group">
-                        <input type="checkbox" checked={checked} onChange={() => toggleIngredient(idx)} aria-label={ing.ingredientName} className="mt-1 w-5 h-5 border-2 border-[var(--color-border-card)] accent-accent shrink-0" />
-                        <span className={checked ? 'line-through text-[var(--color-text-secondary)]' : ''}>
-                          {scaledQty != null && <span className="font-semibold tabular-nums">{scaledQty}{' '}</span>}
-                          {ing.unit && <span>{ing.unit} </span>}
-                          {ing.ingredientName}
-                        </span>
-                      </label>
-                    </li>
+                    <fieldset key={g.group} className="mt-4 first:mt-0">
+                      <legend className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">{g.group}</legend>
+                      {items}
+                    </fieldset>
                   );
                 })}
-              </ul>
+              </div>
             </section>
 
             <section aria-labelledby="instructions-heading">
@@ -1000,16 +1016,16 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                 >
                   Save Menu Changes
                 </button>
-                {menuStatus && (
-                  <p
-                    role={menuStatus.type === 'error' ? 'alert' : 'status'}
-                    aria-live="polite"
-                    className={`mt-3 text-sm font-semibold ${menuStatus.type === 'error' ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)]'}`}
-                  >
-                    {menuStatus.message}
-                  </p>
-                )}
               </div>
+              {menuStatus && (
+                <p
+                  role={menuStatus.type === 'error' ? 'alert' : 'status'}
+                  aria-live="polite"
+                  className={`mt-3 text-sm font-semibold md:text-center ${menuStatus.type === 'error' ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)]'}`}
+                >
+                  {menuStatus.message}
+                </p>
+              )}
             </form>
           );
         })()}

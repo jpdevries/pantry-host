@@ -242,13 +242,13 @@ const CREATE_RECIPE = `
   mutation CreateRecipe(
     $title: String!, $description: String, $instructions: String!,
     $servings: Int, $prepTime: Int, $cookTime: Int,
-    $tags: [String!], $photoUrl: String,
+    $tags: [String!], $photoUrl: String, $sourceUrl: String,
     $ingredients: [RecipeIngredientInput!]!, $kitchenSlug: String
   ) {
     createRecipe(
       title: $title, description: $description, instructions: $instructions,
       servings: $servings, prepTime: $prepTime, cookTime: $cookTime,
-      tags: $tags, photoUrl: $photoUrl,
+      tags: $tags, photoUrl: $photoUrl, sourceUrl: $sourceUrl,
       ingredients: $ingredients, kitchenSlug: $kitchenSlug
     ) { id }
   }

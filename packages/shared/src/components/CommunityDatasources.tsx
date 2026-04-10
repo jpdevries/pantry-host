@@ -71,7 +71,7 @@ const DATASOURCES: DatasourceInfo[] = [
     name: 'Cooklang Federation',
     href: 'https://cooklang.org/',
     maintainer: 'Cooklang community',
-    catalog: 'Federated GitHub repos (~hundreds)', // (verify)
+    catalog: '~60 federated feeds, 3,500+ recipes',
     license: 'Per-recipe (mostly CC-BY-SA)',
     authBlurb: 'None — open API, ~60 req/min',
     standout: [

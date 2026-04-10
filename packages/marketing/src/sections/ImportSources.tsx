@@ -22,7 +22,7 @@ const sources = [
     name: 'Cooklang Federation',
     href: 'https://cooklang.org/',
     icon: BookOpen,
-    catalog: 'Hundreds of federated repos',
+    catalog: '~60 federated feeds, 3,500+ recipes',
     blurb: 'Community recipes in the standardized .cook format, with per-step photos auto-discovered from GitHub.',
     highlight: 'Difficulty ratings + step photos',
   },

@@ -102,7 +102,7 @@ export default function ImportSources() {
       {/* Bluesky tie-back — centered in the middle column on desktop */}
       <a
         href="#atproto"
-        className="mt-6 rounded-xl border border-[var(--color-border-card)] bg-[var(--color-bg-card)] p-5 flex items-center gap-4 hover:border-[var(--color-accent)] transition-colors block lg:max-w-[calc((100%-3rem)/3)] lg:mx-auto"
+        className="mt-6 rounded-xl border border-[var(--color-border-card)] bg-[var(--color-bg-card)] p-5 flex items-center gap-4 hover:border-[var(--color-accent)] transition-colors block lg:w-1/2 lg:mx-auto"
       >
         <svg
           fill="currentColor"

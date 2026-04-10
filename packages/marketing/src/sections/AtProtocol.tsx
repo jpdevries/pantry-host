@@ -30,11 +30,11 @@ const principles = [
   {
     title: 'One open lexicon',
     description:
-      'We adopt the existing exchange.recipe.recipe lexicon from recipe.exchange instead of inventing a new one. Your shared recipes show up on every compatible client.',
+      <>We adopt the existing <code>exchange.recipe.recipe</code> lexicon from <code>recipe.exchange</code> instead of inventing a new one. Your shared recipes show up on every compatible client.</>,
     icon: Share,
   },
   {
-    title: 'Federated, not centralized',
+    title: 'Federated',
     description:
       <>No <code>pantryhost.app/recipe/123</code> URL — by design. Recipes are addressable by AT URI and travel with your identity, not ours.</>,
     icon: Globe,

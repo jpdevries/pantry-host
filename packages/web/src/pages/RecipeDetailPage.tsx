@@ -331,7 +331,7 @@ export default function RecipeDetailPage() {
 
       {/* Description */}
       {recipe.description && (
-        <p className="text-lg text-[var(--color-text-secondary)] leading-relaxed max-w-prose mb-5">{recipe.description}</p>
+        <p className="text-lg text-[var(--color-text-secondary)] leading-relaxed max-w-prose mb-5 whitespace-pre-line">{recipe.description.split(/(https?:\/\/\S+)/g).map((part, i) => /^https?:\/\//.test(part) ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--color-accent)]">{part.replace(/^https?:\/\//, '').replace(/\/$/, '')}</a> : part)}</p>
       )}
 
       {/* Metadata */}

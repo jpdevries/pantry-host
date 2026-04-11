@@ -272,8 +272,10 @@ export function blueskyToRecipe(
     'bluesky',
   ].filter((t): t is string => Boolean(t))));
 
-  const handleStr = handle ? `@${handle.replace(/^@/, '')}` : undefined;
-  const attribution = handleStr ? `Shared by ${handleStr} on Bluesky` : undefined;
+  const handleClean = handle?.replace(/^@/, '');
+  const attribution = handleClean
+    ? `Shared by @${handleClean} on Bluesky (https://bsky.app/profile/${handleClean})`
+    : undefined;
   const description = [record.text, attribution].filter(Boolean).join('\n\n');
 
   return {

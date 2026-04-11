@@ -629,7 +629,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
             </div>
             <h1 className="text-4xl font-bold mb-4">{recipe.title}</h1>
             {recipe.description && (
-              <p className="text-lg text-[var(--color-text-secondary)] leading-relaxed max-w-prose">{recipe.description}</p>
+              <p className="text-lg text-[var(--color-text-secondary)] leading-relaxed max-w-prose whitespace-pre-line">{recipe.description.split(/(https?:\/\/\S+)/g).map((part, i) => /^https?:\/\//.test(part) ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="underline hover:text-accent">{part.replace(/^https?:\/\//, '').replace(/\/$/, '')}</a> : part)}</p>
             )}
 
             <dl className="mt-5 flex flex-wrap gap-6 text-sm">

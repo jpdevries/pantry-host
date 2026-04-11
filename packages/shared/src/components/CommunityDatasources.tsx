@@ -13,7 +13,7 @@
  */
 
 interface DatasourceInfo {
-  key: 'mealdb' | 'cocktaildb' | 'cooklang' | 'publicdomain' | 'wikibooks' | 'recipe-api';
+  key: 'mealdb' | 'cocktaildb' | 'cooklang' | 'publicdomain' | 'wikibooks' | 'recipe-api' | 'bluesky';
   name: string;
   href: string;
   maintainer: string;
@@ -95,6 +95,20 @@ const DATASOURCES: DatasourceInfo[] = [
     ],
   },
   {
+    key: 'bluesky',
+    name: 'Bluesky (AT Protocol)',
+    href: 'https://recipe.exchange/',
+    maintainer: 'AT Protocol community / recipe.exchange',
+    catalog: '~150 recipes (growing)',
+    license: 'Per-recipe (user-controlled)',
+    authBlurb: 'None — public record reads',
+    standout: [
+      'Decentralized recipe sharing via AT Protocol',
+      'Import by handle or AT URI',
+      'Collection support for importing recipe sets as menus',
+    ],
+  },
+  {
     key: 'cocktaildb',
     name: 'TheCocktailDB',
     href: 'https://www.thecocktaildb.com/',
@@ -123,7 +137,7 @@ export default function CommunityDatasources() {
         About the Community Datasources
       </h2>
       <p className="text-sm text-[var(--color-text-secondary)] mb-6 legible pretty max-w-prose">
-        Pantry Host integrates with six federated recipe sources, each with its own
+        Pantry Host integrates with seven federated recipe sources, each with its own
         strengths and tradeoffs. None of them are operated by Pantry Host — when
         you import, your local pantry gets a copy and the original source can go
         away without affecting your data.

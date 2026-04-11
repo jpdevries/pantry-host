@@ -33,6 +33,7 @@
     "./wikibooks": "./src/wikibooks.ts",
     "./cocktaildb": "./src/cocktaildb.ts",
     "./recipe-api": "./src/recipe-api.ts",
+    "./bluesky": "./src/bluesky.ts",
     "./pixabay": "./src/pixabay.ts",
     "./components/PixabayImage": "./src/components/PixabayImage.tsx"
   },

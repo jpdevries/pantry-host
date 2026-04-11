@@ -17,7 +17,8 @@ Words on a screen do not return land. Material action does.
 The Confederated Tribes of Grand Ronde maintain a Land Acquisition Fund to purchase back ancestral lands. If this project's existence on Atfalati territory means anything beyond text in a repository, it should mean supporting that effort.
 
 - [Confederated Tribes of Grand Ronde](https://www.grandronde.org/)
-- [Grand Ronde Land Acquisition & Restoration](https://www.grandronde.org/history-culture/culture/land-and-environment/)
+- [Support Tumwata Village](https://www.tumwatavillage.org/support/)
+- [Tumwata Village — Our Vision](https://www.tumwatavillage.org/redevelopment/our-vision/)
 
 ## Exit Clause
 

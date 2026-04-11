@@ -764,12 +764,12 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
           {recipe.sourceUrl && (
             <footer className="mt-12 pt-6 border-t" style={{ borderColor: 'var(--color-accent-subtle)' }}>
               <a
-                href={recipe.sourceUrl}
+                href={recipe.sourceUrl.startsWith('at://') ? `https://recipe.exchange/recipe/${encodeURIComponent(recipe.sourceUrl)}` : recipe.sourceUrl}
                 target={`_${recipe.slug ?? recipe.id}`}
                 rel="noopener noreferrer"
                 className="text-sm text-accent hover:underline"
               >
-                View Original Recipe →
+                {recipe.sourceUrl.startsWith('at://') ? 'View on Bluesky →' : 'View Original Recipe →'}
               </a>
             </footer>
           )}

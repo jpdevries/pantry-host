@@ -28,9 +28,9 @@ const principles = [
     icon: IdentificationCard,
   },
   {
-    title: 'One open lexicon',
+    title: 'Two open lexicons',
     description:
-      <>We adopt the existing <code>exchange.recipe.recipe</code> lexicon from <code>recipe.exchange</code> instead of inventing a new one. Your shared recipes show up on every compatible client.</>,
+      <>We adopt the existing <code>exchange.recipe.recipe</code> and <code>exchange.recipe.collection</code> lexicons from <code>recipe.exchange</code>. Share individual recipes or entire menus&nbsp;&mdash; visible on every compatible&nbsp;client.</>,
     icon: Share,
   },
   {
@@ -89,10 +89,10 @@ export default function AtProtocol() {
         </h3>
         <ol className="grid sm:grid-cols-2 gap-x-8 gap-y-3 text-sm text-[var(--color-text-secondary)] leading-relaxed max-w-3xl mx-auto list-decimal pl-5 marker:text-[var(--color-accent)] marker:font-semibold">
           <li>
-            Hit <em>Share to Bluesky</em> on any recipe and sign in with Bluesky.
+            Hit <em>Share to Bluesky</em> on any recipe or menu and sign in with Bluesky.
           </li>
           <li>
-            Pantry&nbsp;Host maps your structured recipe to the <code className="text-xs">exchange.recipe.recipe</code> lexicon.
+            Pantry&nbsp;Host maps your data to the <code className="text-xs">exchange.recipe.recipe</code> or <code className="text-xs">collection</code> lexicon.
           </li>
           <li>
             The record gets published to your own <abbr title="Personal Data Server">PDS</abbr> &mdash; Pantry&nbsp;Host never touches&nbsp;it.

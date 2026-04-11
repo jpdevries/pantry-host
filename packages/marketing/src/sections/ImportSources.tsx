@@ -118,7 +118,7 @@ export default function ImportSources() {
         <div>
           <p className="font-bold">Plus Bluesky</p>
           <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed pretty">
-            Import any recipe shared via the <code className="text-xs">exchange.recipe.recipe</code> AT&nbsp;Protocol lexicon&nbsp;&mdash; from Bluesky, <a href="https://recipe.exchange/" target="_blank" rel="noopener noreferrer" className="underline">recipe.exchange</a>, or any compatible&nbsp;client.
+            Import recipes and menus shared via the <code className="text-xs">exchange.recipe.recipe</code> and <code className="text-xs">collection</code> AT&nbsp;Protocol lexicons&nbsp;&mdash; from Bluesky, <a href="https://recipe.exchange/" target="_blank" rel="noopener noreferrer" className="underline">recipe.exchange</a>, or any compatible&nbsp;client.
           </p>
         </div>
       </a>

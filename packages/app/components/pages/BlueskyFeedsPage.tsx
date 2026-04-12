@@ -71,7 +71,17 @@ export default function BlueskyFeedsPage({ kitchen }: Props) {
         }
       }
 
-      setRecipes(all);
+      // Dedupe: one recipe per title per publisher (filters test data
+      // like 7 "Simple Syrup" records from the same handle)
+      const seen = new Set<string>();
+      const deduped = all.filter((item) => {
+        const key = `${item.handle}::${item.recipe.title.toLowerCase()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      setRecipes(deduped);
       setLoading(false);
     })();
   }, []);

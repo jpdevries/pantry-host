@@ -282,7 +282,13 @@ export default function RecipeImportPage({ kitchen }: Props) {
 
   // Community tab state
   type CommunityTab = 'cooklang' | 'mealdb' | 'cocktaildb' | 'publicdomain' | 'wikibooks' | 'recipe-api';
-  const [communityTab, setCommunityTab] = useState<CommunityTab>('cooklang');
+  const ALL_COMMUNITY_TABS: CommunityTab[] = ['cooklang', 'mealdb', 'cocktaildb', 'publicdomain', 'wikibooks', 'recipe-api'];
+  const [communityTab, setCommunityTab] = useState<CommunityTab>(() => {
+    if (typeof window === 'undefined') return 'cooklang';
+    const urlTab = new URLSearchParams(window.location.search).get('tab');
+    if (urlTab && ALL_COMMUNITY_TABS.includes(urlTab as CommunityTab)) return urlTab as CommunityTab;
+    return 'cooklang';
+  });
   // Recipe API tab is shown only if the server exposes a RECIPE_API_KEY via
   // the owner-gated /api/recipe-api-key route. Guests on HTTP LAN IPs get
   // null and the tab stays hidden.

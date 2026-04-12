@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { gql } from '@/lib/gql';
 import {
   searchFederationRecipes,
@@ -936,6 +936,7 @@ const TAB_LABELS: Record<Tab, string> = {
 
 export default function RecipeImportPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   // Honor the Settings-page toggle for TheCocktailDB.
   const [showCocktailDB, setShowCocktailDB] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
@@ -952,7 +953,11 @@ export default function RecipeImportPage() {
     return () => window.removeEventListener('storage', handler);
   }, []);
   const TAB_ORDER: Tab[] = ALL_TAB_ORDER.filter((k) => k !== 'cocktaildb' || showCocktailDB);
-  const [tab, setTab] = useState<Tab>('mealdb');
+  const urlTab = searchParams.get('tab');
+  const [tab, setTab] = useState<Tab>(() => {
+    if (urlTab && ALL_TAB_ORDER.includes(urlTab as Tab)) return urlTab as Tab;
+    return 'mealdb';
+  });
 
   const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     const idx = TAB_ORDER.indexOf(tab);

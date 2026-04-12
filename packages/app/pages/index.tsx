@@ -230,7 +230,7 @@ export default function HomePage() {
 
         {/* What's Cooking? */}
         <section className="mt-12">
-          <h2 className="text-2xl font-bold mb-4">What&rsquo;s Cooking?</h2>
+          <h2 id="whats-cooking" className="text-2xl font-bold mb-4">What&rsquo;s Cooking?</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <a href="/recipes/feeds/bluesky#stage" className="card rounded-xl p-5 flex items-center gap-4 hover:border-accent transition-colors">
               <svg fill="currentColor" viewBox="0 0 600 530" width={28} height={24} aria-hidden="true" className="shrink-0 opacity-60">
@@ -260,14 +260,14 @@ export default function HomePage() {
           </p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { name: 'TheMealDB', href: 'https://www.themealdb.com/', icon: ForkKnife, catalog: '~300 recipes', blurb: 'Browse by category, cuisine, or ingredient.' },
-              { name: 'Cooklang Federation', href: 'https://cooklang.org/', icon: BookOpen, catalog: '3,500+ recipes', blurb: 'Community recipes in the standardized .cook format.' },
-              { name: 'Wikibooks Cookbook', href: 'https://en.wikibooks.org/wiki/Cookbook', icon: Leaf, catalog: '~3,900 recipes', blurb: 'The largest catalog. Cached locally for offline browsing.' },
-              { name: 'Public Domain Recipes', href: 'https://publicdomainrecipes.com/', icon: CookingPot, catalog: '408 recipes', blurb: 'Truly public domain \u2014 no attribution required.' },
-              { name: 'Recipe API', href: 'https://recipe-api.com/', icon: Flask, catalog: 'Proprietary', blurb: 'USDA-backed nutrition data per serving.' },
-              { name: 'TheCocktailDB', href: 'https://www.thecocktaildb.com/', icon: Wine, catalog: '~600 cocktails', blurb: 'Drinks-only companion to TheMealDB.' },
+              { name: 'TheMealDB', tab: 'mealdb', icon: ForkKnife, catalog: '~300 recipes', blurb: 'Browse by category, cuisine, or ingredient.' },
+              { name: 'Cooklang Federation', tab: 'cooklang', icon: BookOpen, catalog: '3,500+ recipes', blurb: 'Community recipes in the standardized .cook format.' },
+              { name: 'Wikibooks Cookbook', tab: 'wikibooks', icon: Leaf, catalog: '~3,900 recipes', blurb: 'The largest catalog. Cached locally for offline browsing.' },
+              { name: 'Public Domain Recipes', tab: 'publicdomain', icon: CookingPot, catalog: '408 recipes', blurb: 'Truly public domain \u2014 no attribution required.' },
+              { name: 'Recipe API', tab: 'recipe-api', icon: Flask, catalog: 'Proprietary', blurb: 'USDA-backed nutrition data per serving.' },
+              { name: 'TheCocktailDB', tab: 'cocktaildb', icon: Wine, catalog: '~600 cocktails', blurb: 'Drinks-only companion to TheMealDB.' },
             ].map((s) => (
-              <a key={s.name} href={s.href} target="_blank" rel="noopener noreferrer" className="card rounded-xl p-4 flex flex-col hover:border-accent transition-colors">
+              <a key={s.name} href={`/recipes/import?tab=${s.tab}#stage`} className="card rounded-xl p-4 flex flex-col hover:border-accent transition-colors">
                 <div className="flex items-center gap-2 mb-2">
                   <s.icon size={18} weight="light" className="opacity-60 shrink-0" />
                   <p className="font-semibold text-sm">{s.name}</p>

@@ -216,7 +216,7 @@ export default function BlueskyFeedsPage() {
             {filtered.map((item) => {
               const isSelected = selected.has(item.atUri);
               return (
-                <label key={item.atUri} className={`card rounded-xl overflow-hidden flex flex-col cursor-pointer transition-colors ${isSelected ? 'border-[var(--color-accent)]' : ''}`}>
+                <label key={item.atUri} className={`card rounded-xl overflow-hidden flex flex-col cursor-pointer transition-colors group ${isSelected ? 'border-[var(--color-accent)]' : ''}`}>
                   {item.recipe.photoUrl && (
                     <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
                       <img src={item.recipe.photoUrl} alt={item.recipe.title} className="w-full h-full object-cover" loading="lazy" />
@@ -243,6 +243,11 @@ export default function BlueskyFeedsPage() {
                       </div>
                     )}
                   </div>
+                  {isSelected && selected.size > 0 && (
+                    <button type="button" onClick={(e) => { e.preventDefault(); handleBulkImport(); }} className="hidden group-focus-within:block btn-primary text-xs mx-3 mb-3 w-[calc(100%-1.5rem)]">
+                      Import {selected.size} selected
+                    </button>
+                  )}
                 </label>
               );
             })}

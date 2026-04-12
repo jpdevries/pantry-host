@@ -14,11 +14,7 @@ export default function Philosophy() {
       <p className="text-base sm:text-lg text-[var(--color-text-secondary)] leading-relaxed">
         Pantry&nbsp;Host is open source software you run yourself. There is no cloud service to sunset,
         no pricing tier to upsell, and no terms of service that claim rights to your recipes.
-        Your data sits on your hardware, backed up however you choose, for as long as
-        you&nbsp;want&nbsp;it.
-      </p>
-      <p className="mt-6 text-base sm:text-lg text-[var(--color-text-secondary)] leading-relaxed italic">
-        If you find Pantry Host useful and are inclined to pay, please consider <a href="https://www.pantryhost.app/donate" target="_blank" rel="noopener noreferrer">donating to your local food&nbsp;bank</a>.
+        Your data sits on your hardware, backed up however you choose.
       </p>
     </section>
   );

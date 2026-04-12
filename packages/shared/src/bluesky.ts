@@ -368,6 +368,43 @@ export async function fetchBlueskyCollection(atUri: string): Promise<{
   };
 }
 
+/** List all collections (menus) published by a handle or DID. */
+export async function listBlueskyCollections(handleOrDid: string): Promise<{
+  handle: string;
+  collections: Array<{
+    atUri: string;
+    name: string;
+    description: string | null;
+    recipeCount: number;
+  }>;
+}> {
+  let did = handleOrDid;
+  let handle = handleOrDid;
+  if (!handleOrDid.startsWith('did:')) {
+    did = await resolveHandle(handleOrDid);
+    handle = handleOrDid.replace(/^@/, '');
+  } else {
+    try {
+      const url = `${XRPC_BASE}/com.atproto.repo.describeRepo?repo=${encodeURIComponent(did)}`;
+      const res = await fetch(url);
+      if (res.ok) handle = (await res.json()).handle;
+    } catch { /* best-effort */ }
+  }
+  const records = await listRecords<BlueskyCollectionRecord>(did, LEXICON_COLLECTION);
+  return {
+    handle,
+    collections: records.map((r) => {
+      const val = r.value as BlueskyCollectionRecord;
+      return {
+        atUri: r.uri,
+        name: val.name,
+        description: val.text ?? null,
+        recipeCount: val.recipes?.length ?? 0,
+      };
+    }),
+  };
+}
+
 /** List all recipes published by a handle or DID. */
 export async function listBlueskyRecipes(handleOrDid: string): Promise<{
   handle: string;

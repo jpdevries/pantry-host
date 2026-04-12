@@ -14,6 +14,7 @@ import MenuDetailPage from './pages/MenuDetailPage';
 import MenuNewPage from './pages/MenuNewPage';
 import MenuEditPage from './pages/MenuEditPage';
 import BlueskyFeedsPage from './pages/BlueskyFeedsPage';
+import BlueskyMenuFeedsPage from './pages/BlueskyMenuFeedsPage';
 import RecipeImportPage from './pages/RecipeImportPage';
 import AccessibilityPage from './pages/AccessibilityPage';
 import SettingsPage from './pages/SettingsPage';
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/cookware/:id" element={<CookwareDetailPage />} />
           <Route path="/menus" element={<MenusPage />} />
           <Route path="/menus/new" element={<MenuNewPage />} />
+          <Route path="/menus/feeds/bluesky" element={<BlueskyMenuFeedsPage />} />
           <Route path="/menus/:slug" element={<MenuDetailPage />} />
           <Route path="/menus/:slug/edit" element={<MenuEditPage />} />
           <Route path="/accessibility" element={<AccessibilityPage />} />

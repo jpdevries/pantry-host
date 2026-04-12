@@ -24,7 +24,7 @@ function PantryHostLogo({ size = 24 }: { size?: number }) {
 
 const NAV_ITEMS = [
   { to: '/ingredients#stage', label: 'Pantry' },
-  { to: '/list#stage', label: 'Grocery List' },
+  { to: '/list#stage', label: 'List' },
   { to: '/menus#stage', label: 'Menus' },
   { to: '/recipes#stage', label: 'Recipes' },
   { to: '/cookware#stage', label: 'Cookware' },
@@ -42,7 +42,7 @@ export default function Layout() {
     const titles: Record<string, string> = {
       '/': 'Your Kitchen',
       '/ingredients': 'Pantry',
-      '/list': 'Grocery List',
+      '/list': 'List',
       '/menus': 'Menus',
       '/recipes': 'Recipes',
       '/cookware': 'Cookware',

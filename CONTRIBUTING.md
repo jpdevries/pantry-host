@@ -13,6 +13,22 @@ This project was built on land ceded under the 1855 Willamette Valley Treaty. Th
 - Privacy is a core value — no telemetry, no external data collection, no tracking.
 - When in doubt, ask. Open an issue or start a discussion.
 
+## Principles
+
+### Integrate, don't rebuild
+
+Pantry Host is a kitchen app, not a platform. We export `.ics` instead of building a calendar. We export `.cook` instead of inventing a recipe format. We ship an MCP server instead of building chat UIs. We adopt `exchange.recipe.recipe` instead of defining a competing lexicon.
+
+When a standard, format, or community already exists, use it. When the user's data can travel to another tool, let it. Features that duplicate what the ecosystem already provides well are out of scope — interoperability is in scope.
+
+### Borrowed, not owned
+
+External data (Pixabay images, NutritionFacts from recipe-api.com, community recipes from federated sources) is displayed with attribution but never persisted as if it were ours. Borrowed data can be cleared at any time, is never written to Postgres or PGlite, and the UI makes clear what is local and what is sourced.
+
+### Your data, your hardware
+
+No cloud accounts, no subscriptions. Data lives in PostgreSQL on your server or PGlite in your browser. The only outbound request is the optional AI feature (to Anthropic, with your own key). Remote access is opt-in via Tailscale or SSH — the app is LAN-only by default.
+
 ## Development
 
 See [CLAUDE.md](CLAUDE.md) for the full development guide, monorepo structure, and conventions.

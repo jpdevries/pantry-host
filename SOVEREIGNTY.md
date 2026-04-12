@@ -14,13 +14,14 @@ The Confederated Tribes of Grand Ronde are the rightful stewards of this land.
 
 Words on a screen do not return land. Material action does.
 
-The Confederated Tribes of Grand Ronde maintain a Land Acquisition Fund to purchase back ancestral lands. If this project's existence on Atfalati territory means anything beyond text in a repository, it should mean supporting that effort.
+The Confederated Tribes of Grand Ronde actively work to reacquire ancestral lands through purchase, donation, and partnership. If this statement means anything beyond text in a repository, it should mean supporting that effort.
 
-- [Confederated Tribes of Grand Ronde](https://www.grandronde.org/)
-- [Grand Ronde Land Acquisition & Restoration](https://www.grandronde.org/history-culture/culture/land-and-environment/)
+- [Confederated Tribes of Grand Ronde — Lands](https://www.grandronde.org/government/lands/)
+- [Tumwata Village — Our Vision](https://www.tumwatavillage.org/redevelopment/our-vision/)
+- [Support Tumwata Village](https://www.tumwatavillage.org/support/)
 
 ## Exit Clause
 
 This statement exists because it is factual, not because it is fashionable.
 
-If the Confederated Tribes of Grand Ronde or their descendant community find this project's framing of their history to be inaccurate, harmful, or unwelcome, we will adjust or withdraw this statement at their direction. This is their land and their call — not ours to narrate on their behalf.
+If the Confederated Tribes of Grand Ronde or their descendant community find this project's framing of their history to be inaccurate, harmful, or unwelcome, we will adjust or withdraw this statement at their direction.

@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { gql } from '@/lib/gql';
 import { recipeToDataURI, downloadRecipeICS, imageToDataURI } from '@pantry-host/shared/export-recipe';
 import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang';
+import { hasCooklangSyntax, extractCooklang } from '@pantry-host/shared/cooklang-parser';
+import PixabayImage from '@pantry-host/shared/components/PixabayImage';
 import { NutritionFacts } from '@pantry-host/shared/components/NutritionFacts';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { getFileURL } from '@/lib/storage-opfs';
@@ -242,7 +244,15 @@ export default function RecipeDetailPage() {
   }
 
   const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0);
-  const steps = recipe.instructions.split('\n').map((s) => s.replace(/^\d+\.\s*/, '').trim()).filter(Boolean);
+
+  // Runtime Cooklang: if instructions contain .cook syntax, parse it
+  // live for display. The raw syntax stays in the DB for round-trip
+  // editing; we just strip it here for readability.
+  const rawInstructions = recipe.instructions ?? '';
+  const isCooklang = hasCooklangSyntax(rawInstructions);
+  const cooklangData = isCooklang ? extractCooklang(rawInstructions) : null;
+  const displayInstructions = cooklangData?.cleanedText ?? rawInstructions;
+  const steps = displayInstructions.split('\n').map((s) => s.replace(/^\d+\.\s*/, '').trim()).filter(Boolean);
 
   return (
     <div>
@@ -307,7 +317,7 @@ export default function RecipeDetailPage() {
       </button>
 
       {/* Photo */}
-      {displayPhotoUrl && (
+      {displayPhotoUrl ? (
         <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
           <img
             src={displayPhotoUrl}
@@ -315,7 +325,15 @@ export default function RecipeDetailPage() {
             className="w-full h-full object-cover"
           />
         </div>
-      )}
+      ) : (() => {
+        const pixabayKey = typeof window !== 'undefined' ? window.localStorage.getItem('pixabay-api-key') : null;
+        const pixabayEnabled = typeof window !== 'undefined' && window.localStorage.getItem('pixabay-fallback-enabled') === 'true';
+        return pixabayEnabled && pixabayKey ? (
+          <div className="mb-8">
+            <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey} alt={recipe.title} hidePlaceholder />
+          </div>
+        ) : null;
+      })()}
 
       {/* Tags above title */}
       {recipe.tags.length > 0 && (

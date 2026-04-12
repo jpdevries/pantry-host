@@ -102,6 +102,7 @@ export default function RecipeEditPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [instructions, setInstructions] = useState('');
+  const [cooklangMode, setCooklangMode] = useState<'save' | 'runtime'>('runtime');
   const [instructionsFocused, setInstructionsFocused] = useState(false);
   const [ingredientsFocused, setIngredientsFocused] = useState(false);
   const [servings, setServings] = useState('');
@@ -346,7 +347,7 @@ export default function RecipeEditPage() {
         id: recipe.id,
         title: title.trim(),
         description: description.trim() || null,
-        instructions: hasCooklangSyntax(instructions) ? extractCooklang(instructions).cleanedText : instructions.trim(),
+        instructions: cooklangMode === 'save' && hasCooklangSyntax(instructions) ? extractCooklang(instructions).cleanedText : instructions.trim(),
         servings: servings ? parseInt(servings) : null,
         prepTime: prepTime ? parseInt(prepTime) : null,
         cookTime: cookTime ? parseInt(cookTime) : null,
@@ -571,6 +572,17 @@ export default function RecipeEditPage() {
               </div>
             </div>
           </details>
+          <fieldset className="flex items-center gap-4 mt-2">
+            <legend className="text-xs font-semibold text-[var(--color-text-secondary)]">Process Cooklang</legend>
+            <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] cursor-pointer">
+              <input type="radio" name="cooklang-mode" value="runtime" checked={cooklangMode === 'runtime'} onChange={() => setCooklangMode('runtime')} className="accent-[var(--color-accent)]" />
+              At runtime
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] cursor-pointer">
+              <input type="radio" name="cooklang-mode" value="save" checked={cooklangMode === 'save'} onChange={() => setCooklangMode('save')} className="accent-[var(--color-accent)]" />
+              On save
+            </label>
+          </fieldset>
         </div>
 
         {/* Step by Step Photos */}

@@ -42,7 +42,7 @@ export default function Nav() {
 
   const links = [
     { href: kitchenHref('/ingredients'), label: 'Pantry' },
-    { href: kitchenHref('/list'),        label: 'Grocery List' },
+    { href: kitchenHref('/list'),        label: 'List' },
     { href: kitchenHref('/menus'),       label: 'Menus' },
     { href: kitchenHref('/recipes'),     label: 'Recipes' },
     ...(isSecure ? [{ href: kitchenHref('/cookware'), label: 'Cookware' }] : []),

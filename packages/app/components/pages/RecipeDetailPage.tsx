@@ -11,6 +11,8 @@ import { HIDDEN_TAGS, classifyRecipeCourse } from '@pantry-host/shared/constants
 import ResponsiveImage from '@/components/ResponsiveImage';
 import { recipeToDataURI, imageToDataURI } from '@pantry-host/shared/export-recipe';
 import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang';
+import { hasCooklangSyntax, extractCooklang } from '@pantry-host/shared/cooklang-parser';
+import PixabayImage from '@pantry-host/shared/components/PixabayImage';
 import Modal from '@pantry-host/shared/components/Modal';
 import { NutritionFacts } from '@pantry-host/shared/components/NutritionFacts';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
@@ -173,6 +175,24 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
       .catch(() => setRecipeApiKey(null));
   }, []);
 
+  // Pixabay fallback for hero image on recipes without their own photo.
+  const [pixabayKey, setPixabayKey] = useState<string | null>(null);
+  const [pixabayEnabled, setPixabayEnabled] = useState(false);
+  useEffect(() => {
+    fetch('/api/settings-read')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { values?: Record<string, string | null> } | null) => {
+        if (d?.values?.PIXABAY_FALLBACK_ENABLED === 'true' && d.values.PIXABAY_API_KEY) {
+          setPixabayEnabled(true);
+          fetch('/api/settings-read?reveal=PIXABAY_API_KEY')
+            .then((r) => (r.ok ? r.json() : null))
+            .then((r: { value?: string | null } | null) => setPixabayKey(r?.value ?? null))
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const articleRef = useRef<HTMLElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [supportsFullscreen, setSupportsFullscreen] = useState(false);
@@ -309,7 +329,14 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
   const baseServings = recipe?.servings ?? 2;
   const scaleFactor = servings / baseServings;
 
-  const steps = (recipe?.instructions ?? '')
+  // Runtime Cooklang: if instructions contain .cook syntax, parse it
+  // live for display. The raw syntax stays in the DB for round-trip
+  // editing; we just strip it here for readability.
+  const rawInstructions = recipe?.instructions ?? '';
+  const isCooklang = hasCooklangSyntax(rawInstructions);
+  const cooklangData = isCooklang ? extractCooklang(rawInstructions) : null;
+  const displayInstructions = cooklangData?.cleanedText ?? rawInstructions;
+  const steps = displayInstructions
     .split('\n')
     .map((s) => s.replace(/^\d+\.\s*/, '').trim())
     .filter(Boolean);
@@ -561,7 +588,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
           >
             <ArrowsIn size={18} aria-hidden />
           </button>
-          {recipe.photoUrl && (
+          {recipe.photoUrl ? (
             <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
               <ResponsiveImage
                 src={recipe.photoUrl}
@@ -571,7 +598,11 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                 sizes="(min-width: 896px) 896px, 100vw"
               />
             </div>
-          )}
+          ) : pixabayEnabled && pixabayKey ? (
+            <div className="mb-8">
+              <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey} alt={recipe.title} hidePlaceholder />
+            </div>
+          ) : null}
 
           <header className="mb-8">
             <div className="flex flex-wrap gap-2 mb-3">

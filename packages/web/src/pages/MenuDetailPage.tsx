@@ -117,11 +117,8 @@ export default function MenuDetailPage() {
       </Link>
 
       {/* Action bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 mb-6 border-b" style={{ borderColor: 'var(--color-border-card)' }}>
-        <Link to="/menus#stage" className="text-sm text-[var(--color-text-secondary)] hover:underline">
-          &larr; Menus
-        </Link>
-        <div className="flex items-center gap-3 flex-wrap justify-end">
+      <div className="flex items-center justify-end gap-3 flex-wrap pb-4 mb-6 border-b" style={{ borderColor: 'var(--color-border-card)' }}>
+        <div className="flex items-center gap-3 flex-wrap">
           <Link to={`/menus/${slug}/edit#stage`} className="btn-secondary text-sm">Edit</Link>
           {deleteConfirm ? (
             <div className="flex gap-2 items-center">

@@ -112,7 +112,7 @@ export default function RecipesIndexPage({ kitchen }: Props) {
 
       <main id="stage" className="max-sm:min-h-screen px-4 py-10 md:px-8 max-w-5xl mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-          <h1 className="text-4xl font-bold">Recipes</h1>
+          <h1 className="text-4xl font-bold">Your Recipes</h1>
           {owner && (
             <div className="flex gap-2">
               <a href={`${base}/import#stage`} className="btn-secondary">↓ Import</a>

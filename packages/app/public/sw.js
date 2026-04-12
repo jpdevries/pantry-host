@@ -108,15 +108,16 @@ function isCooklangFederation(url) {
   return url.hostname === 'recipes.cooklang.org';
 }
 
-// Third-party JSON APIs we cache in the 24h TTL bucket. Same semantics
-// across all of them (ok-gated, stale-over-error). Pixabay's /api/
-// endpoint is included to satisfy their ToS clause requiring integrators
-// to "cache API responses to avoid identical requests within 24 hours".
+// Third-party JSON APIs we cache in the 24h TTL bucket (ok-gated).
 function isCachedRecipeSource(url) {
   if (isCooklangFederation(url)) return true;
   if (url.hostname === 'recipe-api.com') return true;
-  if (url.hostname === 'pixabay.com' && url.pathname.startsWith('/api')) return true;
   return false;
+}
+
+// Pixabay API JSON responses get the same 1-year TTL as Pixabay images.
+function isPixabayApi(url) {
+  return url.hostname === 'pixabay.com' && url.pathname.startsWith('/api');
 }
 
 /**
@@ -224,8 +225,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Pixabay photo bytes: dedicated long-TTL cache.
-  if (isPixabayImage(url)) {
+  // Pixabay API JSON + photo bytes: both use 1-year TTL cache.
+  if (isPixabayApi(url) || isPixabayImage(url)) {
     event.respondWith(pixabayHandler(request));
     return;
   }

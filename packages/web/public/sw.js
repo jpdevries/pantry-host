@@ -48,17 +48,21 @@ function isCooklangFederation(url) {
 }
 
 // Third-party JSON APIs we cache in the 24h TTL bucket. Same semantics
-// across all of them (ok-gated, stale-over-error). Pixabay's
-// /api/ endpoint is included here to satisfy their ToS clause requiring
-// integrators to "cache API responses to avoid identical requests within
-// 24 hours." The shared client also keeps a per-recipe localStorage
-// cache keyed on recipe id, but that doesn't dedupe identical title
-// searches across different recipes — only this URL-keyed SW cache does.
+// across all of them (ok-gated, stale-over-error).
 function isCachedRecipeSource(url) {
   if (isCooklangFederation(url)) return true;
   if (url.hostname === 'recipe-api.com') return true;
-  if (url.hostname === 'pixabay.com' && url.pathname.startsWith('/api')) return true;
   return false;
+}
+
+// Pixabay API JSON responses get the same 1-year TTL as Pixabay images.
+// Recipe title searches are stable — the same query returns the same
+// photos. Caching longer than the ToS minimum (24h) is more compliant,
+// not less. The per-recipe localStorage cache already prevents duplicate
+// requests per recipe; this URL-keyed SW cache dedupes across recipes
+// that share similar titles.
+function isPixabayApi(url) {
+  return url.hostname === 'pixabay.com' && url.pathname.startsWith('/api');
 }
 
 /**
@@ -176,10 +180,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Pixabay photo bytes (not the JSON search API — that's cached
-  // per-recipe in localStorage by the shared client, and the URL
-  // includes the API key anyway).
-  if (isPixabayImage(url)) {
+  // Pixabay API JSON + photo bytes: both use 1-year TTL cache.
+  if (isPixabayApi(url) || isPixabayImage(url)) {
     event.respondWith(pixabayHandler(request));
     return;
   }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { PencilSimple, Trash } from '@phosphor-icons/react';
 import { gql } from '@/lib/gql';
 
 interface CookwareItem {
@@ -101,39 +102,18 @@ export default function CookwarePage() {
                     )}
                   </div>
                   <div className="flex gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setEditingId(item.id)}
-                      className="text-xs text-[var(--color-text-secondary)] hover:underline"
-                    >
-                      Edit
+                    <button type="button" onClick={() => setEditingId(item.id)} aria-label="Edit" aria-describedby={`cw-${item.id}`} className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] p-2">
+                      <PencilSimple size={16} aria-hidden />
                     </button>
                     {deleteConfirm === item.id ? (
                       <div className="flex gap-1 items-center">
                         <span className="text-xs text-[var(--color-text-secondary)] mr-1">Delete?</span>
-                        <button
-                          type="button"
-                          autoFocus
-                          onClick={() => handleDelete(item.id)}
-                          className="text-xs px-2 py-0.5 rounded text-red-500 border border-red-500 hover:underline"
-                        >
-                          Yes
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteConfirm(null)}
-                          className="text-xs px-2 py-0.5 rounded border border-[var(--color-border-card)] hover:underline"
-                        >
-                          No
-                        </button>
+                        <button type="button" autoFocus onClick={() => handleDelete(item.id)} aria-label="Confirm delete" aria-describedby={`cw-${item.id}`} className="btn-danger text-xs px-2 py-1">Yes</button>
+                        <button type="button" onClick={() => setDeleteConfirm(null)} aria-label="Cancel delete" aria-describedby={`cw-${item.id}`} className="btn-secondary text-xs px-2 py-1">No</button>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => setDeleteConfirm(item.id)}
-                        className="text-xs btn-delete hover:underline"
-                      >
-                        Delete
+                      <button type="button" onClick={() => setDeleteConfirm(item.id)} aria-label="Delete" aria-describedby={`cw-${item.id}`} className="text-[var(--color-text-secondary)] hover:text-red-500 p-2">
+                        <Trash size={16} aria-hidden />
                       </button>
                     )}
                   </div>

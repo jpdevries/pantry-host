@@ -867,6 +867,7 @@
   .field-input {
     display: block;
     width: 100%;
+    min-width: 0; /* allow flex shrinking below intrinsic content width */
     padding: 0.625rem 0.75rem;
     font-size: 1rem;
     line-height: 1.5rem;
@@ -884,6 +885,7 @@
   .field-select {
     display: block;
     width: 100%;
+    min-width: 0; /* allow flex shrinking below intrinsic content width */
     padding: 0.625rem 0.75rem;
     font-size: 1rem;
     line-height: 1.5rem;

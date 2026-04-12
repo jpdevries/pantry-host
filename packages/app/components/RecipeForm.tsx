@@ -92,6 +92,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
   const [title, setTitle] = useState(initial?.title ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
   const [instructions, setInstructions] = useState(initial?.instructions ?? '');
+  const [cooklangMode, setCooklangMode] = useState<'save' | 'runtime'>('runtime');
   const [servings, setServings] = useState<string>((initial?.servings ?? 2).toString());
   const [prepTime, setPrepTime] = useState<string>(initial?.prepTime?.toString() ?? '');
   const [cookTime, setCookTime] = useState<string>(initial?.cookTime?.toString() ?? '');
@@ -390,7 +391,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
         id: initial.id,
         title: title.trim(),
         description: description || null,
-        instructions: hasCooklangSyntax(instructions) ? extractCooklang(instructions).cleanedText : instructions.trim(),
+        instructions: cooklangMode === 'save' && hasCooklangSyntax(instructions) ? extractCooklang(instructions).cleanedText : instructions.trim(),
         servings: servings ? parseInt(servings) : 2,
         prepTime: prepTime ? parseInt(prepTime) : null,
         cookTime: cookTime ? parseInt(cookTime) : null,
@@ -410,7 +411,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
       const variables = {
         title: title.trim(),
         description: description || null,
-        instructions: hasCooklangSyntax(instructions) ? extractCooklang(instructions).cleanedText : instructions.trim(),
+        instructions: cooklangMode === 'save' && hasCooklangSyntax(instructions) ? extractCooklang(instructions).cleanedText : instructions.trim(),
         servings: servings ? parseInt(servings) : 2,
         prepTime: prepTime ? parseInt(prepTime) : null,
         cookTime: cookTime ? parseInt(cookTime) : null,
@@ -635,6 +636,17 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
             </div>
           </div>
         </details>
+        <fieldset className="flex items-center gap-4 mt-2">
+          <legend className="text-xs font-semibold text-[var(--color-text-secondary)]">Process Cooklang</legend>
+          <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] cursor-pointer">
+            <input type="radio" name="cooklang-mode" value="runtime" checked={cooklangMode === 'runtime'} onChange={() => setCooklangMode('runtime')} className="accent-accent" />
+            At runtime
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] cursor-pointer">
+            <input type="radio" name="cooklang-mode" value="save" checked={cooklangMode === 'save'} onChange={() => setCooklangMode('save')} className="accent-accent" />
+            On save
+          </label>
+        </fieldset>
       </div>
 
       {/* Step by Step Photos */}

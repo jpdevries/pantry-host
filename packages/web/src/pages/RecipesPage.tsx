@@ -197,7 +197,7 @@ export default function RecipesPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">Recipes</h1>
+        <h1 className="text-3xl font-bold">Your Recipes</h1>
         <div className="flex gap-2">
           <Link to="/recipes/import#stage" className="btn-secondary">Import</Link>
           <Link to="/recipes/new#stage" className="btn-primary">New recipe</Link>

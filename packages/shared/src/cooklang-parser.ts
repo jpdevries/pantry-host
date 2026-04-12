@@ -77,10 +77,14 @@ export function extractCooklang(text: string): CooklangExtraction {
     }
   }
 
-  // Extract cookware: #name{} or #name{size}
-  const cookwareRegex = /#([^{]+)\{[^}]*\}/g;
+  // Extract cookware: #name{} or #name{descriptor}
+  // Descriptor (e.g. "large" in #pan{large}) is prepended to the name
+  // so the cookware entry reads "large pan" instead of just "pan".
+  const cookwareRegex = /#([^{]+)\{([^}]*)\}/g;
   while ((match = cookwareRegex.exec(text)) !== null) {
-    cookwareSet.add(match[1].trim());
+    const name = match[1].trim();
+    const descriptor = match[2].trim();
+    cookwareSet.add(descriptor ? `${descriptor} ${name}` : name);
   }
 
   // Clean text: strip Cooklang syntax to plain names
@@ -89,8 +93,8 @@ export function extractCooklang(text: string): CooklangExtraction {
     .replace(/-@([^{]+)\{[^}]*\}/g, '$1')
     // Strip @name{content} → name
     .replace(/@([^{]+)\{[^}]*\}/g, '$1')
-    // Strip #name{content} → name
-    .replace(/#([^{]+)\{[^}]*\}/g, '$1')
+    // Strip #name{descriptor} → "descriptor name" or just "name"
+    .replace(/#([^{]+)\{([^}]*)\}/g, (_, name, desc) => desc.trim() ? `${desc.trim()} ${name.trim()}` : name.trim())
     // Strip ~{time%unit} → time unit
     .replace(/~\{([^%}]+)%([^}]+)\}/g, '$1 $2')
     // Strip ~{time} → time

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
 import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
 import { enqueue } from '@/lib/offlineQueue';
+import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { ShoppingCart, Basket } from '@phosphor-icons/react';
 
 interface RecipeIngredient {
@@ -298,39 +299,49 @@ export default function GroceryListPage({ kitchen }: Props) {
                       </a>
                     </legend>
 
-                    <ul role="list" className="space-y-2">
-                      {items.map((item) => {
-                        const isChecked = checked.has(item.key);
-                        const isHave = item.status === 'have';
-
-                        return (
-                          <li key={item.key}>
-                            <label className={`flex items-start gap-3 cursor-pointer ${isChecked || isHave ? 'opacity-50' : ''}`}>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => toggleChecked(item.key)}
-                                className="mt-0.5 w-5 h-5 border-2 border-[var(--color-border-card)] accent-accent shrink-0"
-                              />
-                              <span className={`flex-1 leading-snug ${isChecked ? 'line-through text-[var(--color-text-secondary)]' : ''}`}>
-                                <span className="font-medium">
-                                  {fmtQty(item.quantity, item.unit)} {item.ingredientName}
+                    <div className="space-y-3">
+                      {groupIngredients(items).map((g, gi) => {
+                        const sorted = [...g.items].sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
+                        const renderItem = (item: typeof items[0] & { index: number }) => {
+                          const isChecked = checked.has(item.key);
+                          const isHave = item.status === 'have';
+                          return (
+                            <li key={item.key}>
+                              <label className={`flex items-start gap-3 cursor-pointer ${isChecked || isHave ? 'opacity-50' : ''}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => toggleChecked(item.key)}
+                                  className="mt-0.5 w-5 h-5 border-2 border-[var(--color-border-card)] accent-accent shrink-0"
+                                />
+                                <span className={`flex-1 leading-snug ${isChecked ? 'line-through text-[var(--color-text-secondary)]' : ''}`}>
+                                  <span className="font-medium">
+                                    {fmtQty(item.quantity, item.unit)} {item.ingredientName}
+                                  </span>
+                                  {item.status === 'need_more' && item.pantryQuantity != null && (
+                                    <span className="ml-2 text-xs text-[var(--color-text-secondary)]">(have {fmtQty(item.pantryQuantity, item.unit)})</span>
+                                  )}
+                                  {item.status === 'check_pantry' && (
+                                    <span className="ml-2 text-xs text-accent">check pantry</span>
+                                  )}
+                                  {isHave && !isChecked && (
+                                    <span className="ml-2 text-xs text-[var(--color-text-secondary)]">✓ in pantry</span>
+                                  )}
                                 </span>
-                                {item.status === 'need_more' && item.pantryQuantity != null && (
-                                  <span className="ml-2 text-xs text-[var(--color-text-secondary)]">(have {fmtQty(item.pantryQuantity, item.unit)})</span>
-                                )}
-                                {item.status === 'check_pantry' && (
-                                  <span className="ml-2 text-xs text-accent">check pantry</span>
-                                )}
-                                {isHave && !isChecked && (
-                                  <span className="ml-2 text-xs text-[var(--color-text-secondary)]">✓ in pantry</span>
-                                )}
-                              </span>
-                            </label>
-                          </li>
+                              </label>
+                            </li>
+                          );
+                        };
+                        const list = <ul role="list" className="space-y-2">{sorted.map((item) => renderItem(item as any))}</ul>;
+                        if (!g.group) return <div key={`g-${gi}`}>{list}</div>;
+                        return (
+                          <fieldset key={g.group} className="mt-3 first:mt-0">
+                            <legend className="text-sm font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">{g.group}</legend>
+                            {list}
+                          </fieldset>
                         );
                       })}
-                    </ul>
+                    </div>
                   </fieldset>
                 );
               })}

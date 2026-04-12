@@ -170,13 +170,26 @@ export default function BlueskyFeedsPage() {
       </div>
 
       {/* Search */}
-      <input
-        type="search"
-        placeholder="Search recipes..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="field-input w-full mb-4"
-      />
+      <div className="mb-4">
+        <label htmlFor="bsky-search" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Search</label>
+        <input
+          id="bsky-search"
+          type="search"
+          list="bsky-suggestions"
+          placeholder="vegan dessert, italian dinner, soup"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="field-input w-full"
+        />
+        <datalist id="bsky-suggestions">
+          {[...categories, ...cuisines].map((tag) => <option key={tag} value={tag} />)}
+        </datalist>
+      </div>
+
+      {/* Skip link — visible only on keyboard focus */}
+      <a href="#bsky-recipes" className="sr-only focus:not-sr-only focus:inline-block focus:mb-2 focus:text-sm focus:underline focus:text-[var(--color-accent)]">
+        Skip to recipes
+      </a>
 
       {/* Filter chips */}
       {(categories.size > 0 || cuisines.size > 0) && (
@@ -213,6 +226,7 @@ export default function BlueskyFeedsPage() {
             onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && selected.size > 0) { e.preventDefault(); handleBulkImport(); } }}
             ariaKeyshortcuts="Meta+Enter"
           >
+            <div id="bsky-recipes" className="sr-only" />
             {filtered.map((item) => {
               const isSelected = selected.has(item.atUri);
               return (

@@ -70,7 +70,7 @@ const CREATE_MUTATION = `mutation(
   ) { id slug }
 }`;
 
-type Tab = 'mealdb' | 'cocktaildb' | 'publicdomain' | 'cooklang' | 'wikibooks' | 'recipe-api' | 'bluesky';
+type Tab = 'mealdb' | 'cocktaildb' | 'publicdomain' | 'cooklang' | 'wikibooks' | 'recipe-api';
 
 const RECIPE_API_KEY_STORAGE = 'recipe-api-key';
 
@@ -745,9 +745,9 @@ function PublicDomainTab({ navigate }: { navigate: ReturnType<typeof useNavigate
   );
 }
 
-// ── Bluesky Tab ─────────────────────────────────────────────────────────────
+// Bluesky import moved to /recipes/feeds/bluesky
 
-function BlueskyTab({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
+function __REMOVED() {
   const [bsInput, setBsInput] = useState('');
   const [bsResults, setBsResults] = useState<{ atUri: string; recipe: BlueskyParsedRecipe }[]>([]);
   const [bsCollection, setBsCollection] = useState<{ name: string; description: string | null } | null>(null);
@@ -924,7 +924,7 @@ function BlueskyTab({ navigate }: { navigate: ReturnType<typeof useNavigate> }) 
 
 // ── Main Import Page ────────────────────────────────────────────────────────
 
-const ALL_TAB_ORDER: Tab[] = ['mealdb', 'publicdomain', 'recipe-api', 'cooklang', 'wikibooks', 'cocktaildb', 'bluesky'];
+const ALL_TAB_ORDER: Tab[] = ['mealdb', 'publicdomain', 'recipe-api', 'cooklang', 'wikibooks', 'cocktaildb'];
 const TAB_LABELS: Record<Tab, string> = {
   mealdb: 'TheMealDB',
   publicdomain: 'Public Domain',
@@ -932,7 +932,6 @@ const TAB_LABELS: Record<Tab, string> = {
   wikibooks: 'Wikibooks',
   cocktaildb: 'TheCocktailDB',
   'recipe-api': 'Recipe API',
-  bluesky: 'Bluesky',
 };
 
 export default function RecipeImportPage() {
@@ -1022,7 +1021,6 @@ export default function RecipeImportPage() {
       {tab === 'wikibooks' && <div role="tabpanel" id="tabpanel-wikibooks" aria-labelledby="tab-wikibooks"><WikibooksTab navigate={navigate} /></div>}
       {tab === 'cocktaildb' && <div role="tabpanel" id="tabpanel-cocktaildb" aria-labelledby="tab-cocktaildb"><CocktailDBTab navigate={navigate} /></div>}
       {tab === 'recipe-api' && <div role="tabpanel" id="tabpanel-recipe-api" aria-labelledby="tab-recipe-api"><RecipeAPITab navigate={navigate} /></div>}
-      {tab === 'bluesky' && <div role="tabpanel" id="tabpanel-bluesky" aria-labelledby="tab-bluesky"><BlueskyTab navigate={navigate} /></div>}
 
       <CommunityDatasources />
     </div>

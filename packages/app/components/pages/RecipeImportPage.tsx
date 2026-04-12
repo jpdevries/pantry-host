@@ -47,15 +47,6 @@ import {
   type RecipeAPIListItem,
   type RecipeAPICategoryCount,
 } from '@pantry-host/shared/recipe-api';
-import {
-  parseAtUri,
-  isRecipeUri,
-  isCollectionUri,
-  fetchBlueskyRecipe,
-  fetchBlueskyCollection,
-  listBlueskyRecipes,
-  type ParsedRecipe as BlueskyParsedRecipe,
-} from '@pantry-host/shared/bluesky';
 import CommunityDatasources from '@pantry-host/shared/components/CommunityDatasources';
 import ImportGrid, { captureActiveElement, restoreFocus } from '@pantry-host/shared/components/ImportGrid';
 
@@ -290,7 +281,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
   const clDebounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Community tab state
-  type CommunityTab = 'cooklang' | 'mealdb' | 'cocktaildb' | 'publicdomain' | 'wikibooks' | 'recipe-api' | 'bluesky';
+  type CommunityTab = 'cooklang' | 'mealdb' | 'cocktaildb' | 'publicdomain' | 'wikibooks' | 'recipe-api';
   const [communityTab, setCommunityTab] = useState<CommunityTab>('cooklang');
   // Recipe API tab is shown only if the server exposes a RECIPE_API_KEY via
   // the owner-gated /api/recipe-api-key route. Guests on HTTP LAN IPs get
@@ -321,7 +312,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
   // empty-state with both an inline form and a Settings link when no key
   // is configured. This matches the web package's UX.
   const COMMUNITY_TAB_ORDER: CommunityTab[] = (
-    ['cooklang', 'mealdb', 'recipe-api', 'publicdomain', 'wikibooks', 'cocktaildb', 'bluesky'] as CommunityTab[]
+    ['cooklang', 'mealdb', 'recipe-api', 'publicdomain', 'wikibooks', 'cocktaildb'] as CommunityTab[]
   ).filter((k) => {
     if (k === 'cocktaildb' && !showCocktailDB) return false;
     return true;
@@ -570,104 +561,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
 
   useEffect(() => { setPdrResults(searchPublicDomainRecipes(pdrQuery).slice(0, 24)); }, [pdrQuery]);
 
-  // Bluesky / AT Protocol state
-  const [bsInput, setBsInput] = useState('');
-  const [bsResults, setBsResults] = useState<{ atUri: string; recipe: BlueskyParsedRecipe }[]>([]);
-  const [bsCollection, setBsCollection] = useState<{ name: string; description: string | null } | null>(null);
-  const [bsSelected, setBsSelected] = useState<Set<number>>(new Set());
-  const [bsSearching, setBsSearching] = useState(false);
-  const [bsImporting, setBsImporting] = useState(false);
-  const [bsImportProgress, setBsImportProgress] = useState<{ done: number; total: number } | null>(null);
-  const [bsError, setBsError] = useState<string | null>(null);
-
-  async function handleBsFetch() {
-    const input = bsInput.trim();
-    if (!input) return;
-    setBsError(null);
-    setBsResults([]);
-    setBsCollection(null);
-    setBsSelected(new Set());
-    setBsSearching(true);
-    try {
-      const parsed = parseAtUri(input);
-      if (parsed && isRecipeUri(parsed)) {
-        // Single recipe AT URI
-        const recipe = await fetchBlueskyRecipe(input);
-        setBsResults([{ atUri: input, recipe }]);
-      } else if (parsed && isCollectionUri(parsed)) {
-        // Collection (menu) AT URI — fetch metadata + each recipe
-        const col = await fetchBlueskyCollection(input);
-        setBsCollection({ name: col.name, description: col.description });
-        const recipes: { atUri: string; recipe: BlueskyParsedRecipe }[] = [];
-        for (const uri of col.recipeUris) {
-          try {
-            const recipe = await fetchBlueskyRecipe(uri);
-            recipes.push({ atUri: uri, recipe });
-          } catch { /* skip failed recipe fetches */ }
-        }
-        setBsResults(recipes);
-      } else {
-        // Treat as handle — list all their recipes
-        const handle = input.replace(/^@/, '');
-        const { recipes } = await listBlueskyRecipes(handle);
-        setBsResults(recipes);
-      }
-    } catch (err) {
-      setBsError((err as Error).message);
-    }
-    setBsSearching(false);
-  }
-
-  async function handleBsImport() {
-    if (bsSelected.size === 0) return;
-    const prevFocus = captureActiveElement();
-    setBsImporting(true);
-    setBsImportProgress({ done: 0, total: bsSelected.size });
-    let done = 0;
-    let failed = 0;
-    const importedIds: string[] = [];
-    for (const idx of bsSelected) {
-      const item = bsResults[idx];
-      if (!item) { done++; continue; }
-      try {
-        const result = await gql<{ createRecipe: { id: string } }>(CREATE_RECIPE, {
-          title: item.recipe.title,
-          description: item.recipe.description ?? null,
-          instructions: item.recipe.instructions,
-          servings: item.recipe.servings ?? null,
-          prepTime: item.recipe.prepTime ?? null,
-          cookTime: item.recipe.cookTime ?? null,
-          tags: item.recipe.tags ?? [],
-          photoUrl: item.recipe.photoUrl ?? null,
-          sourceUrl: item.recipe.sourceUrl,
-          ingredients: item.recipe.ingredients,
-          kitchenSlug: kitchen,
-        });
-        importedIds.push(result.createRecipe.id);
-      } catch {
-        failed++;
-      }
-      done++;
-      setBsImportProgress({ done, total: bsSelected.size });
-      if (done < bsSelected.size) await new Promise((r) => setTimeout(r, 300));
-    }
-    // If this was a collection import, create a menu
-    if (bsCollection && importedIds.length > 0) {
-      try {
-        await gql(`mutation($title:String!,$description:String,$recipes:[MenuRecipeInput!]!,$kitchenSlug:String){createMenu(title:$title,description:$description,recipes:$recipes,kitchenSlug:$kitchenSlug){id}}`, {
-          title: bsCollection.name,
-          description: bsCollection.description,
-          recipes: importedIds.map((id) => ({ recipeId: id })),
-          kitchenSlug: kitchen,
-        });
-      } catch { /* menu creation is best-effort */ }
-    }
-    setBsImporting(false);
-    setBsImportProgress(null);
-    if (failed > 0 && failed === bsSelected.size) { setBsError('All imports failed.'); restoreFocus(prevFocus); }
-    else if (failed > 0) { setBsError(`${done - failed} of ${bsSelected.size} imported. ${failed} failed.`); restoreFocus(prevFocus); }
-    else router.push(`${recipesBase}#stage`);
-  }
+  // Bluesky import moved to /recipes/feeds/bluesky
 
   function pdrToggleSelect(slug: string) {
     setPdrSelected((p) => { const n = new Set(p); n.has(slug) ? n.delete(slug) : n.add(slug); return n; });
@@ -1045,7 +939,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
             {/* Tab toggle */}
             <div className="flex gap-1 mb-6 border-b border-[var(--color-border-card)] overflow-x-auto" role="tablist" aria-label="Recipe sources">
               {COMMUNITY_TAB_ORDER.map((key) => {
-                const label = key === 'cooklang' ? 'Cooklang' : key === 'mealdb' ? 'TheMealDB' : key === 'publicdomain' ? 'Public Domain' : key === 'wikibooks' ? 'Wikibooks' : key === 'cocktaildb' ? 'TheCocktailDB' : key === 'bluesky' ? 'Bluesky' : 'Recipe API';
+                const label = key === 'cooklang' ? 'Cooklang' : key === 'mealdb' ? 'TheMealDB' : key === 'publicdomain' ? 'Public Domain' : key === 'wikibooks' ? 'Wikibooks' : key === 'cocktaildb' ? 'TheCocktailDB' : 'Recipe API';
                 const active = communityTab === key;
                 return (
                   <button
@@ -1662,81 +1556,6 @@ export default function RecipeImportPage({ kitchen }: Props) {
                 <a href="/settings#stage" className="underline">Manage key in Settings</a>.
               </p>
               </>)}
-            </div>)}
-
-            {communityTab === 'bluesky' && (<div role="tabpanel" id="tabpanel-bluesky" aria-labelledby="tab-bluesky">
-              <div className="mb-4">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1.5">AT URI or Bluesky handle</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={bsInput}
-                    onChange={(e) => setBsInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleBsFetch(); }}
-                    placeholder="at://did:plc:.../exchange.recipe.recipe/... or @handle"
-                    className="flex-1 px-3 py-2 text-sm border border-[var(--color-border-card)] bg-[var(--color-bg-card)] rounded"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleBsFetch}
-                    disabled={bsSearching || !bsInput.trim()}
-                    className="btn-primary text-sm disabled:opacity-50"
-                  >
-                    {bsSearching ? 'Fetching\u2026' : 'Fetch'}
-                  </button>
-                </div>
-              </div>
-
-              {bsError && <p role="alert" className="text-sm text-[var(--color-danger)] mb-4">{bsError}</p>}
-
-              {bsCollection && (
-                <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-                  Collection: <strong>{bsCollection.name}</strong>
-                  {bsCollection.description && <> &mdash; {bsCollection.description}</>}
-                </p>
-              )}
-
-              {bsResults.length > 0 && (
-                <>
-                  <ImportGrid
-                    importing={bsImporting}
-                    importingLabel={bsImportProgress ? `Importing ${bsImportProgress.done}/${bsImportProgress.total}\u2026` : undefined}
-                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4"
-                  >
-                    {bsResults.map((r, i) => {
-                      const selected = bsSelected.has(i);
-                      return (
-                        <label key={i} className={`card p-4 cursor-pointer flex flex-col gap-2 transition-colors ${selected ? 'border-accent' : ''}`}>
-                          <div className="flex items-start gap-3">
-                            <input type="checkbox" checked={selected} onChange={() => setBsSelected((prev) => { const next = new Set(prev); next.has(i) ? next.delete(i) : next.add(i); return next; })} className="mt-1 w-4 h-4 accent-accent shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-sm leading-snug">{r.recipe.title}</p>
-                              {r.recipe.description && <p className="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">{r.recipe.description}</p>}
-                            </div>
-                          </div>
-                          {r.recipe.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {r.recipe.tags.slice(0, 5).map((t) => <span key={t} className="tag text-[10px]">{t}</span>)}
-                            </div>
-                          )}
-                        </label>
-                      );
-                    })}
-                  </ImportGrid>
-                  {bsSelected.size > 0 && (
-                    <div className="text-center">
-                      <button type="button" onClick={handleBsImport} disabled={bsImporting} className="btn-primary">
-                        {bsCollection ? `Import ${bsSelected.size} as Menu` : `Import ${bsSelected.size} selected`}
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-
-              <p className="text-xs text-[var(--color-text-secondary)] mt-8 text-center pretty">
-                Powered by the <a href="https://atproto.com" target="_blank" rel="noopener noreferrer" className="underline">AT Protocol</a>.
-                Recipes use the <a href="https://recipe.exchange/lexicons/" target="_blank" rel="noopener noreferrer" className="underline">exchange.recipe</a> lexicon.
-              </p>
             </div>)}
 
           </div>

@@ -1,13 +1,21 @@
 {
   "name": "@pantry-host/feed",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "tail": "wrangler tail"
+    "start": "npx tsx src/server.ts",
+    "dev:cf": "wrangler dev",
+    "deploy:cf": "wrangler deploy"
+  },
+  "dependencies": {
+    "@atproto/sync": "^0.1.0",
+    "better-sqlite3": "^11.0.0",
+    "express": "^4.21.0",
+    "tsx": "^4.19.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/express": "^5.0.0",
     "wrangler": "^4.0.0"
   }
 }

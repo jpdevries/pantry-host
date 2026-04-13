@@ -716,6 +716,40 @@
 /* ── Component classes (shared with self-hosted app) ───────────────────────── */
 
 @layer components {
+  /* Zen mode: fullscreen recipe article */
+  article:fullscreen,
+  article:-webkit-full-screen {
+    background-color: var(--color-bg-card);
+    color: var(--color-text-primary);
+    padding: 2rem;
+    overflow-y: auto;
+    max-width: 65ch;
+    margin-inline: auto;
+    font-size: 1.125rem;
+    line-height: 1.8;
+  }
+
+  article:fullscreen h1,
+  article:-webkit-full-screen h1 {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+  }
+
+  article:fullscreen ol,
+  article:fullscreen ul,
+  article:-webkit-full-screen ol,
+  article:-webkit-full-screen ul {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+  }
+
+  article:fullscreen .zen-exit-btn,
+  article:-webkit-full-screen .zen-exit-btn {
+    display: block;
+  }
+
   /* Btn base */
   .btn {
     display: inline-flex;

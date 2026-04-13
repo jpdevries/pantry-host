@@ -283,11 +283,27 @@ export function blueskyToRecipe(
     .filter((s) => !/^step\s*\d+$/i.test(s.trim()))
     .map((s, i) => `${i + 1}. ${s}`);
 
+  // Map AT Protocol diet defs to human-readable tag labels
+  const DIET_LABELS: Record<string, string> = {
+    'exchange.recipe.defs#dietVeganDiet': 'vegan',
+    'exchange.recipe.defs#dietVegetarianDiet': 'vegetarian',
+    'exchange.recipe.defs#dietGlutenFreeDiet': 'gluten-free',
+    'exchange.recipe.defs#dietLowFatDiet': 'low-fat',
+    'exchange.recipe.defs#dietLowSodiumDiet': 'low-sodium',
+    'exchange.recipe.defs#dietLowCalorieDiet': 'low-calorie',
+    'exchange.recipe.defs#dietDiabeticDiet': 'diabetic-friendly',
+    'exchange.recipe.defs#dietHalalDiet': 'halal',
+    'exchange.recipe.defs#dietKosherDiet': 'kosher',
+    'exchange.recipe.defs#dietDairyFreeDiet': 'dairy-free',
+    'exchange.recipe.defs#dietNutFreeDiet': 'nut-free',
+  };
+  const dietTags = (record.suitableForDiet ?? []).map((d) => DIET_LABELS[d] ?? d.replace(/^.*#diet/, '').replace(/Diet$/, '').replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase());
+
   const tags = Array.from(new Set([
     ...(record.keywords ?? []),
     record.recipeCategory,
     record.recipeCuisine,
-    ...(record.suitableForDiet ?? []),
+    ...dietTags,
     'bluesky',
   ].filter((t): t is string => Boolean(t))));
 

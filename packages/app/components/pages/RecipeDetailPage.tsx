@@ -713,6 +713,21 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                 </div>
               </div>
             )}
+
+            {/* Source */}
+            {recipe.sourceUrl && (
+              <p className="mt-4 text-xs text-[var(--color-text-secondary)] overflow-hidden">
+                {recipe.sourceUrl.startsWith('at://') ? (
+                  <span className="flex items-baseline gap-2 max-w-full overflow-hidden">
+                    <span className="shrink-0">Source:</span>
+                    <button type="button" onClick={() => { navigator.clipboard.writeText(recipe.sourceUrl!); setCopiedUri(true); setTimeout(() => setCopiedUri(false), 2000); }} title="Copy AT URI" className="font-mono text-[10px] min-w-0 truncate hover:underline cursor-copy">{recipe.sourceUrl}</button>
+                    <span aria-live="polite" className="shrink-0 text-[10px]">{copiedUri ? '✓ Copied' : ''}</span>
+                  </span>
+                ) : (
+                  <>Source: <a href={recipe.sourceUrl} target={`_${recipe.slug ?? recipe.id}`} rel="noopener noreferrer" className="underline">{(() => { try { return new URL(recipe.sourceUrl).hostname; } catch { return recipe.sourceUrl; } })()}</a></>
+                )}
+              </p>
+            )}
           </header>
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-10">
@@ -793,29 +808,6 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
             </section>
           )}
 
-          {recipe.sourceUrl && (
-            <footer className="mt-12 pt-6 border-t" style={{ borderColor: 'var(--color-accent-subtle)' }}>
-              {recipe.sourceUrl.startsWith('at://') ? (
-                <span className="text-sm text-[var(--color-text-secondary)] block overflow-hidden">
-                  Imported from Bluesky
-                  <span className="flex items-baseline gap-2 max-w-full overflow-hidden mt-1">
-                    <span className="shrink-0 text-xs">Source:</span>
-                    <button type="button" onClick={() => { navigator.clipboard.writeText(recipe.sourceUrl!); setCopiedUri(true); setTimeout(() => setCopiedUri(false), 2000); }} title="Copy AT URI" className="font-mono text-[10px] min-w-0 truncate hover:underline cursor-copy">{recipe.sourceUrl}</button>
-                    <span aria-live="polite" className="shrink-0 text-[10px]">{copiedUri ? '✓ Copied' : ''}</span>
-                  </span>
-                </span>
-              ) : (
-                <a
-                  href={recipe.sourceUrl}
-                  target={`_${recipe.slug ?? recipe.id}`}
-                  rel="noopener noreferrer"
-                  className="text-sm text-accent hover:underline"
-                >
-                  View Original Recipe →
-                </a>
-              )}
-            </footer>
-          )}
         </article>
       </main>
 

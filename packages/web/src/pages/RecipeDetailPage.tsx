@@ -159,6 +159,7 @@ export default function RecipeDetailPage() {
   const [supportsFullscreen, setSupportsFullscreen] = useState(false);
   const [servings, setServings] = useState(2);
   const articleRef = useRef<HTMLDivElement>(null);
+  const [copiedUri, setCopiedUri] = useState(false);
 
   useEffect(() => {
     setSupportsFullscreen(Boolean(document.documentElement.requestFullscreen || (document.documentElement as any).webkitRequestFullscreen));
@@ -400,9 +401,13 @@ export default function RecipeDetailPage() {
 
       {/* Source */}
       {recipe.sourceUrl && (
-        <p className="mt-4 text-xs text-[var(--color-text-secondary)]">
+        <p className="mt-4 text-xs text-[var(--color-text-secondary)] overflow-hidden">
           {recipe.sourceUrl.startsWith('at://') ? (
-            <>Source: <button type="button" onClick={() => { navigator.clipboard.writeText(recipe.sourceUrl!); }} title="Copy AT URI" className="font-mono text-[10px] truncate block overflow-hidden hover:underline cursor-copy">{recipe.sourceUrl}</button></>
+            <span className="flex items-baseline gap-2 max-w-full overflow-hidden">
+              <span className="shrink-0">Source:</span>
+              <button type="button" onClick={() => { navigator.clipboard.writeText(recipe.sourceUrl!); setCopiedUri(true); setTimeout(() => setCopiedUri(false), 2000); }} title="Copy AT URI" className="font-mono text-[10px] min-w-0 truncate hover:underline cursor-copy">{recipe.sourceUrl}</button>
+              <span aria-live="polite" className="shrink-0 text-[10px]">{copiedUri ? '✓ Copied' : ''}</span>
+            </span>
           ) : (
             <>Source: <a href={recipe.sourceUrl} className="underline" rel="noopener noreferrer" target="_blank">{recipe.sourceUrl.includes('github.com') ? recipe.sourceUrl.replace('https://github.com/', '').split('/').slice(0, 2).join('/') : (() => { try { return new URL(recipe.sourceUrl).hostname; } catch { return recipe.sourceUrl; } })()}</a></>
           )}

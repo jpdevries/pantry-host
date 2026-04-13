@@ -168,6 +168,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
   // recipe-api.com key for the NutritionFacts display block. Only fetched
   // for owner (loopback / HTTPS) — guests get null and the block hides itself.
   const [recipeApiKey, setRecipeApiKey] = useState<string | null>(null);
+  const [copiedUri, setCopiedUri] = useState(false);
   useEffect(() => {
     fetch('/api/recipe-api-key')
       .then((r) => (r.ok ? r.json() : { key: null }))
@@ -795,8 +796,13 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
           {recipe.sourceUrl && (
             <footer className="mt-12 pt-6 border-t" style={{ borderColor: 'var(--color-accent-subtle)' }}>
               {recipe.sourceUrl.startsWith('at://') ? (
-                <span className="text-sm text-[var(--color-text-secondary)]">
-                  Imported from Bluesky &middot; <button type="button" onClick={() => { navigator.clipboard.writeText(recipe.sourceUrl!); }} title="Copy AT URI" className="font-mono text-[10px] truncate block overflow-hidden hover:underline cursor-copy">{recipe.sourceUrl}</button>
+                <span className="text-sm text-[var(--color-text-secondary)] block overflow-hidden">
+                  Imported from Bluesky
+                  <span className="flex items-baseline gap-2 max-w-full overflow-hidden mt-1">
+                    <span className="shrink-0 text-xs">Source:</span>
+                    <button type="button" onClick={() => { navigator.clipboard.writeText(recipe.sourceUrl!); setCopiedUri(true); setTimeout(() => setCopiedUri(false), 2000); }} title="Copy AT URI" className="font-mono text-[10px] min-w-0 truncate hover:underline cursor-copy">{recipe.sourceUrl}</button>
+                    <span aria-live="polite" className="shrink-0 text-[10px]">{copiedUri ? '✓ Copied' : ''}</span>
+                  </span>
                 </span>
               ) : (
                 <a

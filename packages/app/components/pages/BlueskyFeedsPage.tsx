@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
 import { listBlueskyRecipes, type ParsedRecipe } from '@pantry-host/shared/bluesky';
 import ImportGrid, { captureActiveElement } from '@pantry-host/shared/components/ImportGrid';
+import PixabayImage from '@pantry-host/shared/components/PixabayImage';
 
 const FEED_API = 'https://feed.pantryhost.app/api/handles';
 
@@ -37,6 +38,18 @@ export default function BlueskyFeedsPage({ kitchen }: Props) {
   const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
   const [recipes, setRecipes] = useState<FeedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pixabayKey, setPixabayKey] = useState<string | null>(null);
+  const [pixabayEnabled, setPixabayEnabled] = useState(false);
+  const pixabayActive = pixabayEnabled && !!pixabayKey;
+  useEffect(() => {
+    fetch('/api/settings-read?reveal=PIXABAY_API_KEY')
+      .then((r) => r.ok ? r.json() : null)
+      .then((j: { values?: Record<string, string | null> } | null) => {
+        if (j?.values?.PIXABAY_API_KEY) setPixabayKey(j.values.PIXABAY_API_KEY);
+        if (j?.values?.PIXABAY_FALLBACK_ENABLED === 'true') setPixabayEnabled(true);
+      })
+      .catch(() => {});
+  }, []);
   const [search, setSearch] = useState('');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -228,11 +241,15 @@ export default function BlueskyFeedsPage({ kitchen }: Props) {
               const isSelected = selected.has(item.atUri);
               return (
                 <label key={item.atUri} className={`card rounded-xl overflow-hidden flex flex-col cursor-pointer transition-colors group ${isSelected ? 'border-accent' : ''}`}>
-                  {item.recipe.photoUrl && (
+                  {item.recipe.photoUrl ? (
                     <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
                       <img src={item.recipe.photoUrl} alt={item.recipe.title} className="w-full h-full object-cover" loading="lazy" />
                     </div>
-                  )}
+                  ) : pixabayActive ? (
+                    <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
+                      <PixabayImage recipe={{ id: item.atUri, title: item.recipe.title }} apiKey={pixabayKey!} alt={item.recipe.title} />
+                    </div>
+                  ) : null}
                   <div className="p-4 flex-1 flex flex-col">
                     <div className="flex items-start gap-3">
                       <input

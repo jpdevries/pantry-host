@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { gql } from '@/lib/gql';
 import { listBlueskyRecipes, type ParsedRecipe } from '@pantry-host/shared/bluesky';
 import ImportGrid, { captureActiveElement } from '@pantry-host/shared/components/ImportGrid';
+import PixabayImage from '@pantry-host/shared/components/PixabayImage';
 
 const FEED_API = 'https://feed.pantryhost.app/api/handles';
 
@@ -36,6 +37,13 @@ export default function BlueskyFeedsPage() {
   const navigate = useNavigate();
   const [recipes, setRecipes] = useState<FeedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pixabayKey] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('pixabay-api-key') : null
+  );
+  const [pixabayEnabled] = useState<boolean>(() =>
+    typeof window !== 'undefined' && localStorage.getItem('pixabay-fallback-enabled') === 'true'
+  );
+  const pixabayActive = pixabayEnabled && !!pixabayKey;
   const [search, setSearch] = useState('');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -231,11 +239,15 @@ export default function BlueskyFeedsPage() {
               const isSelected = selected.has(item.atUri);
               return (
                 <label key={item.atUri} className={`card rounded-xl overflow-hidden flex flex-col cursor-pointer transition-colors group ${isSelected ? 'border-[var(--color-accent)]' : ''}`}>
-                  {item.recipe.photoUrl && (
+                  {item.recipe.photoUrl ? (
                     <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
                       <img src={item.recipe.photoUrl} alt={item.recipe.title} className="w-full h-full object-cover" loading="lazy" />
                     </div>
-                  )}
+                  ) : pixabayActive ? (
+                    <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
+                      <PixabayImage recipe={{ id: item.atUri, title: item.recipe.title }} apiKey={pixabayKey!} alt={item.recipe.title} />
+                    </div>
+                  ) : null}
                   <div className="p-4 flex-1 flex flex-col">
                     <div className="flex items-start gap-3">
                       <input

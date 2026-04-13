@@ -277,9 +277,10 @@ export function blueskyToRecipe(
     ingredients.push(parsed);
   }
 
-  // Instructions: filter out section headers, number the steps
+  // Instructions: filter out section headers and bare "step N" placeholders, number the steps
   const steps = (record.instructions ?? [])
     .filter((s) => !s.trim().startsWith('##'))
+    .filter((s) => !/^step\s*\d+$/i.test(s.trim()))
     .map((s, i) => `${i + 1}. ${s}`);
 
   const tags = Array.from(new Set([

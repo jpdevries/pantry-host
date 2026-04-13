@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { gql } from '@/lib/gql';
-import { Trash } from '@phosphor-icons/react';
+import { PencilSimple, Trash } from '@phosphor-icons/react';
 import { MENU_CATEGORIES } from '@pantry-host/shared/constants';
 
 interface MenuRecipe {
@@ -87,9 +87,10 @@ export default function MenusPage() {
               <div className="absolute top-3 right-3 flex gap-1">
                 <Link
                   to={`/menus/${menu.slug || menu.id}/edit#stage`}
-                  className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] p-1 text-xs"
+                  className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] p-1"
+                  aria-label={`Edit ${menu.title}`}
                 >
-                  Edit
+                  <PencilSimple size={14} aria-hidden />
                 </Link>
                 {deleteConfirm === menu.id ? (
                   <div className="flex gap-1 items-center">

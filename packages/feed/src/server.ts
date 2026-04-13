@@ -175,7 +175,7 @@ app.get('/api/handles', (_req, res) => {
   res.json(rows);
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`[api] Listening on port ${PORT}`);
   startFirehose();
 });

@@ -15,7 +15,7 @@ function useAppAdapter(): SettingsAdapter {
       pkg: 'app',
       scopeLabel: 'This machine',
       postSaveNotice:
-        "Saved to packages/app/.settings-overrides.json. Changes take effect on the next page load — no server restart needed. (Hand-edit .env.local for variables not exposed here.)",
+        "Changes take effect on the next page load — no server restart needed.",
       async load() {
         const res = await fetch('/api/settings-read');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);

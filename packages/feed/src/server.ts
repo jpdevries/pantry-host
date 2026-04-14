@@ -177,7 +177,10 @@ app.get('/api/handles', (_req, res) => {
 
 // ── Nearby markets (Overpass proxy) ─────────────────────────
 
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const OVERPASS_URLS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+];
 
 function toSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -196,18 +199,33 @@ app.get('/api/nearby', async (req, res) => {
   const query = `[out:json][timeout:10];(node["shop"="supermarket"](around:${radius},${lat},${lng});node["shop"="greengrocer"](around:${radius},${lat},${lng});node["shop"="farm"](around:${radius},${lat},${lng});node["amenity"="marketplace"](around:${radius},${lat},${lng});node["leisure"="garden"]["garden:type"="community"](around:${radius},${lat},${lng}););out body;`;
 
   try {
-    const response = await fetch(OVERPASS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `data=${encodeURIComponent(query)}`,
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!response.ok) {
-      res.status(502).json({ error: `Overpass returned ${response.status}` });
-      return;
+    let elements: Array<{ tags?: Record<string, string>; lat?: number; lon?: number }> = [];
+
+    for (const url of OVERPASS_URLS) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `data=${encodeURIComponent(query)}`,
+          signal: AbortSignal.timeout(15000),
+        });
+        const contentType = response.headers.get('content-type') ?? '';
+        if (!response.ok || !contentType.includes('json')) {
+          console.warn(`[nearby] ${url} returned ${response.status} (${contentType}), trying next`);
+          continue;
+        }
+        const data = (await response.json()) as { elements?: typeof elements };
+        elements = data.elements ?? [];
+        break;
+      } catch (err) {
+        console.warn(`[nearby] ${url} failed:`, err);
+        continue;
+      }
     }
-    const data = (await response.json()) as { elements?: Array<{ tags?: Record<string, string>; lat?: number; lon?: number }> };
-    const elements = data.elements ?? [];
+
+    if (elements.length === 0) {
+      // All servers failed or returned no results
+    }
 
     // Dedupe by slug, prefer named entries
     const seen = new Map<string, { name: string; slug: string; type: string }>();

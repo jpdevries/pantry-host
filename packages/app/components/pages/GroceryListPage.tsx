@@ -326,21 +326,14 @@ export default function GroceryListPage({ kitchen }: Props) {
           if (hasStoreGrouping) {
             // Build store → recipe → items map
             const storeMap = new Map<string, Map<string, PerRecipeItem[]>>();
-            const untaggedMap = new Map<string, PerRecipeItem[]>();
 
             for (const { recipe, items } of allRecipeItems) {
               for (const item of items) {
-                if (item.stores.length === 0) {
-                  // Untagged
-                  if (!untaggedMap.has(recipe.id)) untaggedMap.set(recipe.id, []);
-                  untaggedMap.get(recipe.id)!.push(item);
-                } else {
-                  for (const store of item.stores) {
-                    if (!storeMap.has(store)) storeMap.set(store, new Map());
-                    const recipeMap = storeMap.get(store)!;
-                    if (!recipeMap.has(recipe.id)) recipeMap.set(recipe.id, []);
-                    recipeMap.get(recipe.id)!.push(item);
-                  }
+                for (const store of item.stores) {
+                  if (!storeMap.has(store)) storeMap.set(store, new Map());
+                  const recipeMap = storeMap.get(store)!;
+                  if (!recipeMap.has(recipe.id)) recipeMap.set(recipe.id, []);
+                  recipeMap.get(recipe.id)!.push(item);
                 }
               }
             }
@@ -353,13 +346,8 @@ export default function GroceryListPage({ kitchen }: Props) {
                 .map((r) => ({ recipe: r, items: recipeMap.get(r.id)! }));
               storeGroups.push({ store, entries });
             }
-            // Untagged at the end (no store wrapper)
-            const untaggedEntries = sortedRecipes
-              .filter((r) => untaggedMap.has(r.id))
-              .map((r) => ({ recipe: r, items: untaggedMap.get(r.id)! }));
-            if (untaggedEntries.length > 0) {
-              storeGroups.push({ store: null, entries: untaggedEntries });
-            }
+            // Full recipe list below (all items, same shared keys)
+            storeGroups.push({ store: null, entries: allRecipeItems.filter(({ items }) => items.length > 0) });
           } else {
             // No store grouping — flat recipe list
             storeGroups.push({ store: null, entries: allRecipeItems.filter(({ items }) => items.length > 0) });

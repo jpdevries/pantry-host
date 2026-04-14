@@ -117,21 +117,15 @@ export default function GroceryListPage() {
 
   if (hasStoreGrouping) {
     const storeMap = new Map<string, Map<string, RecipeIngredient[]>>();
-    const untaggedMap = new Map<string, RecipeIngredient[]>();
 
     for (const recipe of sortedRecipes) {
       for (const ing of recipe.groceryIngredients) {
         const stores = getStores(ing.ingredientName);
-        if (stores.length === 0) {
-          if (!untaggedMap.has(recipe.id)) untaggedMap.set(recipe.id, []);
-          untaggedMap.get(recipe.id)!.push(ing);
-        } else {
-          for (const store of stores) {
-            if (!storeMap.has(store)) storeMap.set(store, new Map());
-            const rm = storeMap.get(store)!;
-            if (!rm.has(recipe.id)) rm.set(recipe.id, []);
-            rm.get(recipe.id)!.push(ing);
-          }
+        for (const store of stores) {
+          if (!storeMap.has(store)) storeMap.set(store, new Map());
+          const rm = storeMap.get(store)!;
+          if (!rm.has(recipe.id)) rm.set(recipe.id, []);
+          rm.get(recipe.id)!.push(ing);
         }
       }
     }
@@ -143,12 +137,11 @@ export default function GroceryListPage() {
         entries: sortedRecipes.filter((r) => rm.has(r.id)).map((r) => ({ recipe: r, ingredients: rm.get(r.id)! })),
       });
     }
-    const untaggedEntries = sortedRecipes
-      .filter((r) => untaggedMap.has(r.id))
-      .map((r) => ({ recipe: r, ingredients: untaggedMap.get(r.id)! }));
-    if (untaggedEntries.length > 0) {
-      storeGroups.push({ store: null, entries: untaggedEntries });
-    }
+    // Full recipe list below (all items, same shared keys)
+    storeGroups.push({
+      store: null,
+      entries: sortedRecipes.map((r) => ({ recipe: r, ingredients: r.groceryIngredients })),
+    });
   } else {
     storeGroups.push({
       store: null,

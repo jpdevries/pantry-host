@@ -303,15 +303,16 @@ export default function GroceryListPage({ kitchen }: Props) {
                       {groupIngredients(items).map((g, gi) => {
                         const sorted = [...g.items].sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
                         const renderItem = (item: typeof items[0] & { index: number }) => {
-                          const isChecked = checked.has(item.key);
+                          const itemKey = items[item.index]?.key ?? `${item.ingredientName.toLowerCase()}`;
+                          const isChecked = checked.has(itemKey);
                           const isHave = item.status === 'have';
                           return (
-                            <li key={item.key}>
+                            <li key={itemKey}>
                               <label className={`flex items-start gap-3 cursor-pointer ${isChecked || isHave ? 'opacity-50' : ''}`}>
                                 <input
                                   type="checkbox"
                                   checked={isChecked}
-                                  onChange={() => toggleChecked(item.key)}
+                                  onChange={() => toggleChecked(itemKey)}
                                   className="mt-0.5 w-5 h-5 border-2 border-[var(--color-border-card)] accent-accent shrink-0"
                                 />
                                 <span className={`flex-1 leading-snug ${isChecked ? 'line-through text-[var(--color-text-secondary)]' : ''}`}>

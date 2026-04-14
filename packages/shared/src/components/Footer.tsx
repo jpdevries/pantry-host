@@ -460,7 +460,7 @@ export default function Footer() {
           </div>
 
           {/* Accessibility preferences + Settings links */}
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+          <div className="mt-3 flex flex-wrap text-xs" style={{ columnGap: '1rem', rowGap: '0.25rem' }}>
             <a
               href="/accessibility#stage"
               className="underline text-zinc-500 dark:text-zinc-400 hover:text-[var(--color-text-secondary)]"

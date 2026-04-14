@@ -6,6 +6,7 @@ import Integrations from './sections/Integrations';
 import AtProtocol from './sections/AtProtocol';
 import ImportFromBluesky from './sections/ImportFromBluesky';
 import ImportSources from './sections/ImportSources';
+import Kitchens from './sections/Kitchens';
 import DemoVideos from './sections/DemoVideos';
 import { Docker, RaspberryPi } from './sections/SelfHost';
 import Philosophy from './sections/Philosophy';
@@ -67,6 +68,7 @@ function Landing() {
         <AtProtocol />
         <ImportFromBluesky />
         <ImportSources />
+        <Kitchens />
         <DemoVideos />
         <Docker />
         <RaspberryPi />

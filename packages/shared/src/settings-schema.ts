@@ -16,7 +16,8 @@ export type SettingKey =
   | 'RECIPE_API_KEY'
   | 'SHOW_COCKTAILDB'
   | 'PIXABAY_API_KEY'
-  | 'PIXABAY_FALLBACK_ENABLED';
+  | 'PIXABAY_FALLBACK_ENABLED'
+  | 'HARVEST_LOCATIONS';
 
 export type SettingKind = 'text' | 'secret' | 'boolean' | 'enum';
 
@@ -101,6 +102,15 @@ export const SETTINGS_SCHEMA: SettingDef[] = [
     description:
       "Defaults to on. Turn off to hide the alcoholic drink source on /recipes/import.",
     kind: 'boolean',
+    packages: ['app', 'web'],
+  },
+  {
+    key: 'HARVEST_LOCATIONS',
+    label: 'Harvest Locations',
+    description:
+      'Comma-separated list of grocery stores where you shop.',
+    kind: 'text',
+    placeholder: 'Safeway, Costco, Whole Foods',
     packages: ['app', 'web'],
   },
 ];

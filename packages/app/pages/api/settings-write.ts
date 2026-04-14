@@ -22,6 +22,7 @@ const APP_KEYS = new Set([
   'SHOW_COCKTAILDB',
   'PIXABAY_API_KEY',
   'PIXABAY_FALLBACK_ENABLED',
+  'HARVEST_LOCATIONS',
 ]);
 function isAllowedSettingKey(key: string): boolean {
   return APP_KEYS.has(key);

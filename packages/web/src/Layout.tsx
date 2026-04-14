@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useLocation, useParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import Footer from '@pantry-host/shared/components/Footer';
 import { getDailyQuote } from '@pantry-host/shared/dailyQuote';
@@ -22,15 +22,19 @@ function PantryHostLogo({ size = 24 }: { size?: number }) {
   );
 }
 
-const NAV_ITEMS = [
-  { to: '/ingredients#stage', label: 'Pantry' },
-  { to: '/list#stage', label: 'List' },
-  { to: '/menus#stage', label: 'Menus' },
-  { to: '/recipes#stage', label: 'Recipes' },
-  { to: '/cookware#stage', label: 'Cookware' },
+const BASE_NAV = [
+  { path: '/ingredients', label: 'Pantry' },
+  { path: '/list', label: 'List' },
+  { path: '/menus', label: 'Menus' },
+  { path: '/recipes', label: 'Recipes' },
+  { path: '/cookware', label: 'Cookware' },
 ];
 
 export default function Layout() {
+  const { kitchen } = useParams<{ kitchen?: string }>();
+  const kitchenSlug = kitchen ?? 'home';
+  const kitchenHref = (p: string) => kitchenSlug === 'home' ? p : `/kitchens/${kitchenSlug}${p}`;
+  const NAV_ITEMS = BASE_NAV.map((n) => ({ to: kitchenHref(n.path) + '#stage', label: n.label }));
   const location = useLocation();
   const chevronRef = useRef<HTMLAnchorElement>(null);
   const [quote, setQuote] = useState<{ text: string; author: string } | null>(null);
@@ -82,7 +86,7 @@ export default function Layout() {
     }
   }
 
-  const isHome = location.pathname === '/';
+  const isHome = location.pathname === '/' || location.pathname === `/kitchens/${kitchenSlug}`;
 
   return (
     <div className="min-h-screen bg-[var(--color-bg-body)] text-[var(--color-text-primary)] transition-colors">

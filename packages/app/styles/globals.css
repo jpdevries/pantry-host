@@ -608,10 +608,11 @@
     --color-text-secondary: #000000;
     --color-accent: #000000;
     --color-accent-hover: #000000;
+    --color-accent-subtle: #ffffff;
     --color-bg-nav: #ffffff;
     --color-ring-focus: #000000;
     --color-ring-offset: #ffffff;
-    --color-danger: #b91c1c;
+    --color-danger: #000000;
   }
   /* High Contrast: white-on-black (system) */
   @media (prefers-color-scheme: dark) {
@@ -623,10 +624,11 @@
       --color-text-secondary: #ffffff;
       --color-accent: #ffffff;
       --color-accent-hover: #ffffff;
+      --color-accent-subtle: #000000;
       --color-bg-nav: #000000;
       --color-ring-focus: #ffffff;
       --color-ring-offset: #000000;
-      --color-danger: #fca5a5;
+      --color-danger: #ffffff;
     }
   }
   /* High Contrast: white-on-black (forced) */
@@ -638,10 +640,11 @@
     --color-text-secondary: #ffffff;
     --color-accent: #ffffff;
     --color-accent-hover: #ffffff;
+    --color-accent-subtle: #000000;
     --color-bg-nav: #000000;
     --color-ring-focus: #ffffff;
     --color-ring-offset: #000000;
-    --color-danger: #fca5a5;
+    --color-danger: #ffffff;
   }
 
   *,
@@ -1142,6 +1145,51 @@
   body[data-high-contrast] .tag,
   body[data-high-contrast] .field-input {
     border-width: 2px;
+  }
+
+  /* High contrast: monotone danger buttons */
+  body[data-high-contrast] .btn-danger {
+    background-color: #000000;
+    color: #ffffff;
+    border: 2px solid #000000;
+  }
+  body[data-high-contrast] .btn-danger:hover {
+    background-color: #000000;
+    text-decoration: underline;
+  }
+  @media (prefers-color-scheme: dark) {
+    body[data-high-contrast]:not([data-color-scheme="light"]) .btn-danger {
+      background-color: #ffffff;
+      color: #000000;
+      border: 2px solid #ffffff;
+    }
+    body[data-high-contrast]:not([data-color-scheme="light"]) .btn-danger:hover {
+      background-color: #ffffff;
+    }
+  }
+  body[data-high-contrast][data-color-scheme="dark"] .btn-danger {
+    background-color: #ffffff;
+    color: #000000;
+    border: 2px solid #ffffff;
+  }
+  body[data-high-contrast][data-color-scheme="dark"] .btn-danger:hover {
+    background-color: #ffffff;
+  }
+
+  /* High contrast: no opacity-based grays */
+  body[data-high-contrast] .add-to-list-cta {
+    opacity: 1;
+  }
+
+  /* High contrast: no rgba hover backgrounds */
+  body[data-high-contrast] .btn-secondary:hover {
+    background-color: transparent;
+  }
+
+  /* High contrast: invalid inputs use dashed border (structural signal) */
+  body[data-high-contrast] .field-input:user-invalid {
+    border-style: dashed;
+    border-width: 3px;
   }
 }
 

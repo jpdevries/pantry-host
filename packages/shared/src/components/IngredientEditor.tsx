@@ -238,75 +238,77 @@ export default function IngredientEditor({ rows, onChange, error, onClearError, 
           </datalist>
           <ul className="space-y-2">
             {rows.map((row, idx) => (
-              <li key={idx} className="flex flex-wrap items-start gap-2">
-                {row.sourceRecipeId ? (
-                  <select
-                    value={row.sourceRecipeId === '__pick__' ? '' : (row.sourceRecipeId || '')}
-                    onChange={(e) => {
-                      const recipe = recipes.find((r) => r.id === e.target.value);
-                      if (recipe) updateRow(idx, { sourceRecipeId: recipe.id, ingredientName: recipe.title });
-                    }}
-                    aria-label={`Ingredient ${idx + 1}: select recipe`}
-                    className="field-select flex-1"
-                  >
-                    <option value="" disabled>Choose a recipe…</option>
-                    {recipes.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    list="form-ingredients"
-                    value={row.ingredientName}
-                    onChange={(e) => updateRow(idx, { ingredientName: e.target.value })}
-                    placeholder="Ingredient"
-                    aria-label={`Ingredient ${idx + 1} name`}
-                    className="field-input flex-1"
-                  />
-                )}
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={row.quantity}
-                  onChange={(e) => updateRow(idx, { quantity: e.target.value })}
-                  placeholder="Qty"
-                  aria-label={`Ingredient ${idx + 1} quantity`}
-                  className="field-input w-20"
-                />
-                {!freeformUnits.has(idx) ? (
-                  <select
-                    value={row.unit || 'whole'}
-                    onChange={(e) => updateRow(idx, { unit: e.target.value })}
-                    aria-label={`Ingredient ${idx + 1} unit`}
-                    className="field-select w-28"
-                  >
-                    {UNIT_GROUPS.map((g) => (
-                      <optgroup key={g.label} label={g.label}>
-                        {g.units.map((u) => <option key={u} value={u}>{u}</option>)}
-                      </optgroup>
-                    ))}
-                  </select>
-                ) : (
-                  <>
+              <li key={idx} className="flex items-start gap-2">
+                <div className="flex flex-wrap items-start gap-2 flex-1 min-w-0">
+                  {row.sourceRecipeId ? (
+                    <select
+                      value={row.sourceRecipeId === '__pick__' ? '' : (row.sourceRecipeId || '')}
+                      onChange={(e) => {
+                        const recipe = recipes.find((r) => r.id === e.target.value);
+                        if (recipe) updateRow(idx, { sourceRecipeId: recipe.id, ingredientName: recipe.title });
+                      }}
+                      aria-label={`Ingredient ${idx + 1}: select recipe`}
+                      className="field-select flex-1"
+                    >
+                      <option value="" disabled>Choose a recipe…</option>
+                      {recipes.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
+                    </select>
+                  ) : (
                     <input
                       type="text"
-                      list={`unit-suggestions-${idx}`}
-                      value={row.unit}
+                      list="form-ingredients"
+                      value={row.ingredientName}
+                      onChange={(e) => updateRow(idx, { ingredientName: e.target.value })}
+                      placeholder="Ingredient"
+                      aria-label={`Ingredient ${idx + 1} name`}
+                      className="field-input flex-1"
+                    />
+                  )}
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={row.quantity}
+                    onChange={(e) => updateRow(idx, { quantity: e.target.value })}
+                    placeholder="Qty"
+                    aria-label={`Ingredient ${idx + 1} quantity`}
+                    className="field-input w-20"
+                  />
+                  {!freeformUnits.has(idx) ? (
+                    <select
+                      value={row.unit || 'whole'}
                       onChange={(e) => updateRow(idx, { unit: e.target.value })}
                       aria-label={`Ingredient ${idx + 1} unit`}
-                      className="field-input w-28"
-                    />
-                    <datalist id={`unit-suggestions-${idx}`}>
-                      {ALL_UNITS.map((u) => <option key={u} value={u} />)}
-                    </datalist>
-                  </>
-                )}
+                      className="field-select w-28"
+                    >
+                      {UNIT_GROUPS.map((g) => (
+                        <optgroup key={g.label} label={g.label}>
+                          {g.units.map((u) => <option key={u} value={u}>{u}</option>)}
+                        </optgroup>
+                      ))}
+                    </select>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        list={`unit-suggestions-${idx}`}
+                        value={row.unit}
+                        onChange={(e) => updateRow(idx, { unit: e.target.value })}
+                        aria-label={`Ingredient ${idx + 1} unit`}
+                        className="field-input w-28"
+                      />
+                      <datalist id={`unit-suggestions-${idx}`}>
+                        {ALL_UNITS.map((u) => <option key={u} value={u} />)}
+                      </datalist>
+                    </>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => removeRow(idx)}
                   aria-label={`Remove ingredient ${idx + 1}`}
                   disabled={rows.length <= 1}
-                  className="text-[var(--color-text-secondary)] hover:text-red-500 p-1 shrink-0 self-start mt-2.5 disabled:opacity-30"
+                  className="text-[var(--color-text-secondary)] hover:text-red-500 p-1 shrink-0 mt-2.5 disabled:opacity-30"
                 >
                   <X size={14} aria-hidden />
                 </button>

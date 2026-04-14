@@ -122,15 +122,22 @@ export default function GroceryListPage({ kitchen }: Props) {
     } catch { return new Set(); }
   });
 
-  const [harvestLocations] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return [];
-    const raw = localStorage.getItem('harvest-locations');
-    return raw ? raw.split(',').map((s) => s.trim()).filter(Boolean) : [];
-  });
+  const [harvestLocations, setHarvestLocations] = useState<string[]>([]);
 
   const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
 
   const cacheKey = `cache:groceryList:${kitchen}`;
+
+  // Read harvest locations from server settings (shared across household)
+  useEffect(() => {
+    fetch('/api/settings-read')
+      .then((r) => r.ok ? r.json() : null)
+      .then((j: { values?: Record<string, string | null> } | null) => {
+        const raw = j?.values?.HARVEST_LOCATIONS;
+        if (raw) setHarvestLocations(raw.split(',').map((s) => s.trim()).filter(Boolean));
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setLoading(true);

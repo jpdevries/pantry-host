@@ -53,12 +53,6 @@ function useAppAdapter(): SettingsAdapter {
         if ('PIXABAY_API_KEY' in changes || 'PIXABAY_FALLBACK_ENABLED' in changes) {
           refreshPixabaySettings();
         }
-        // Sync harvest locations to localStorage for grocery list page
-        if ('HARVEST_LOCATIONS' in changes) {
-          const val = changes.HARVEST_LOCATIONS;
-          if (val) localStorage.setItem('harvest-locations', val);
-          else localStorage.removeItem('harvest-locations');
-        }
         return {};
       },
     }),

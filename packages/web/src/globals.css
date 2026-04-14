@@ -838,8 +838,8 @@
     min-height: 44px;
     min-width: 44px;
     border-radius: 0.5rem; /* rounded-lg */
-    background-color: #dc2626;
-    color: #ffffff;
+    background-color: var(--color-danger, #dc2626);
+    color: var(--color-bg-body, #ffffff);
     cursor: pointer;
   }
   .btn-danger:focus-visible {
@@ -979,33 +979,15 @@
     border-width: 2px;
   }
 
-  /* High contrast: monotone danger buttons */
+  /* High contrast: monotone danger buttons — inverted from background */
   body[data-high-contrast] .btn-danger {
-    background-color: #000000;
-    color: #ffffff;
-    border: 2px solid #000000;
+    background-color: var(--color-text-primary);
+    color: var(--color-bg-body);
+    border: 2px solid var(--color-text-primary);
   }
   body[data-high-contrast] .btn-danger:hover {
-    background-color: #000000;
+    background-color: var(--color-text-primary);
     text-decoration: underline;
-  }
-  @media (prefers-color-scheme: dark) {
-    body[data-high-contrast]:not([data-color-scheme="light"]) .btn-danger {
-      background-color: #ffffff;
-      color: #000000;
-      border: 2px solid #ffffff;
-    }
-    body[data-high-contrast]:not([data-color-scheme="light"]) .btn-danger:hover {
-      background-color: #ffffff;
-    }
-  }
-  body[data-high-contrast][data-color-scheme="dark"] .btn-danger {
-    background-color: #ffffff;
-    color: #000000;
-    border: 2px solid #ffffff;
-  }
-  body[data-high-contrast][data-color-scheme="dark"] .btn-danger:hover {
-    background-color: #ffffff;
   }
 
   /* High contrast: no opacity-based grays */

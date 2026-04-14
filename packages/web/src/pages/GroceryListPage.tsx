@@ -252,7 +252,7 @@ export default function GroceryListPage() {
                 return (
                   <fieldset key={`store-${sg.store}`} className="border-2 border-[var(--color-accent-subtle)] rounded-xl p-4">
                     <legend className="px-2 font-semibold text-sm flex items-center gap-1.5">
-                      <MapPin size={14} weight="bold" aria-hidden /> {tagToTitle(sg.store)}
+                      <MapPin size={14} weight="bold" aria-hidden /> <code>{sg.store}</code>
                     </legend>
                     <div className="space-y-4">{fieldsets}</div>
                   </fieldset>

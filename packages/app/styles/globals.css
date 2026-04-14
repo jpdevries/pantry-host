@@ -611,6 +611,7 @@
     --color-bg-nav: #ffffff;
     --color-ring-focus: #000000;
     --color-ring-offset: #ffffff;
+    --color-danger: #b91c1c;
   }
   /* High Contrast: white-on-black (system) */
   @media (prefers-color-scheme: dark) {
@@ -625,6 +626,7 @@
       --color-bg-nav: #000000;
       --color-ring-focus: #ffffff;
       --color-ring-offset: #000000;
+      --color-danger: #fca5a5;
     }
   }
   /* High Contrast: white-on-black (forced) */
@@ -639,6 +641,7 @@
     --color-bg-nav: #000000;
     --color-ring-focus: #ffffff;
     --color-ring-offset: #000000;
+    --color-danger: #fca5a5;
   }
 
   *,
@@ -1006,6 +1009,12 @@
     outline: 2px solid var(--color-ring-focus);
     outline-offset: 0;
   }
+  .field-input:user-invalid {
+    border-color: var(--color-danger);
+  }
+  .field-input:user-invalid:focus-visible {
+    outline-color: var(--color-danger);
+  }
 
   .field-select {
     display: block;
@@ -1167,6 +1176,7 @@
     --color-border-card: CanvasText;
     --color-ring-focus: Highlight;
     --color-ring-offset: Canvas;
+    --color-danger: CanvasText;
   }
 
   :focus-visible {
@@ -1177,6 +1187,16 @@
 
   .card, .tag, .field-input, .btn {
     border: 2px solid CanvasText;
+  }
+
+  /* Invalid inputs: structural signal (dashed border) since color is
+     stripped in forced-colors mode. Same pattern as GOV.UK. */
+  .field-input:user-invalid {
+    border: 3px dashed CanvasText;
+  }
+  .field-input:user-invalid:focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
   }
 
   .btn-primary {

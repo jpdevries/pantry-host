@@ -73,7 +73,7 @@ function buildPerRecipeItems(recipe: QueuedRecipe, pantryByName: Map<string, Pan
     .map((ing) => {
       const { status, pantryQuantity } = resolveStatus(ing, pantryByName);
       return {
-        key: `${ing.ingredientName.toLowerCase()}::${ing.unit ?? ''}`,
+        key: `${recipe.id}::${ing.ingredientName.toLowerCase()}`,
         ingredientName: ing.ingredientName,
         unit: ing.unit,
         quantity: ing.quantity,

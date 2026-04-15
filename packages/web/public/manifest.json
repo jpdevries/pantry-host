@@ -3,7 +3,7 @@
   "short_name": "Pantry Host",
   "description": "Browser-native kitchen companion. Your data stays in your browser.",
   "start_url": "/",
-  "display": "standalone",
+  "display": "minimal-ui",
   "orientation": "portrait",
   "background_color": "#09090b",
   "theme_color": "#18181b",

@@ -74,15 +74,15 @@ export function registerIngredientTools(server: McpServer) {
 
   server.tool(
     'update_ingredient',
-    'Update an existing pantry ingredient.',
+    'Update an existing pantry ingredient. To mark as out of stock, set quantity to 0 — this preserves tags (like harvest locations) and other metadata. Prefer this over remove_ingredient when the user runs out of something.',
     {
       id: z.string().describe('Ingredient ID'),
       name: z.string().optional().describe('New name'),
       category: z.string().optional().describe('New category'),
-      quantity: z.number().optional().describe('New quantity'),
+      quantity: z.number().optional().describe('New quantity. Set to 0 to mark as out of stock while keeping tags and metadata.'),
       unit: z.string().optional().describe('New unit'),
       alwaysOnHand: z.boolean().optional().describe('Mark as always on hand'),
-      tags: z.array(z.string()).optional().describe('New tags'),
+      tags: z.array(z.string()).optional().describe('New tags (e.g. harvest location tags like costco, farmers-market)'),
     },
     async (args) => {
       const data = await gql<{ updateIngredient: unknown }>(
@@ -97,7 +97,7 @@ export function registerIngredientTools(server: McpServer) {
 
   server.tool(
     'remove_ingredient',
-    'Delete an ingredient from the pantry.',
+    'Permanently delete an ingredient and all its metadata (tags, category, etc.) from the pantry. To mark as out of stock instead, use update_ingredient with quantity 0.',
     {
       id: z.string().describe('Ingredient ID to delete'),
     },

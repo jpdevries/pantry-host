@@ -26,10 +26,11 @@ interface Recipe {
 interface PantryItem {
   name: string;
   tags: string[];
+  alwaysOnHand: boolean;
 }
 
 const QUERY = `query($kitchenSlug:String){ recipes(queued: true, kitchenSlug:$kitchenSlug) { id slug title groceryIngredients { ingredientName quantity unit } } }`;
-const PANTRY_QUERY = `query($kitchenSlug:String){ ingredients(kitchenSlug:$kitchenSlug) { name tags } }`;
+const PANTRY_QUERY = `query($kitchenSlug:String){ ingredients(kitchenSlug:$kitchenSlug) { name tags alwaysOnHand } }`;
 const TOGGLE_QUEUED = `mutation($id: String!) { toggleRecipeQueued(id: $id) { id queued } }`;
 
 const STORAGE_KEY = 'groceryChecked';
@@ -163,22 +164,28 @@ export default function GroceryListPage() {
                 {sorted.map((ing) => {
                   const key = `${recipe.id}::${ing.ingredientName.toLowerCase()}`;
                   const isChecked = checked.has(key);
+                  const pantryItem = pantryByName.get(ing.ingredientName.toLowerCase());
+                  const isHave = !!pantryItem?.alwaysOnHand;
                   return (
                     <li key={key}>
                       <label
-                        className={`grocery-item flex items-center gap-3 py-1.5 cursor-pointer select-none transition-opacity ${isChecked ? 'opacity-50 line-through' : ''}`}
+                        className={`grocery-item flex items-center gap-3 py-1.5 select-none transition-opacity ${isHave ? 'italic opacity-50' : 'cursor-pointer'} ${isChecked && !isHave ? 'opacity-50' : ''}`}
                       >
                         <input
                           type="checkbox"
-                          checked={isChecked}
+                          checked={isChecked || isHave}
+                          disabled={isHave}
                           onChange={() => toggle(key)}
                           className="w-4 h-4 accent-[var(--color-accent)]"
                         />
-                        <span className="text-sm">
-                          {ing.quantity != null && <span className="font-semibold tabular-nums">{Math.round(ing.quantity * 100) / 100}</span>}
-                          {ing.unit && <span className="text-[var(--color-text-secondary)]"> {ing.unit}</span>}
-                          {' '}{ing.ingredientName}
+                        <span className={`font-medium ${isChecked || isHave ? 'line-through text-[var(--color-text-secondary)]' : ''}`}>
+                          {ing.quantity != null && `${Math.round(ing.quantity * 100) / 100} `}
+                          {ing.unit && `${ing.unit} `}
+                          {ing.ingredientName}
                         </span>
+                        {isHave && !isChecked && (
+                          <span className="ml-2 text-xs text-[var(--color-text-secondary)]">always on hand</span>
+                        )}
                       </label>
                     </li>
                   );

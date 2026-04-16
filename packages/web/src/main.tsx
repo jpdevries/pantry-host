@@ -5,12 +5,21 @@ import { initDB } from '@/lib/db';
 import App from './App';
 import './globals.css';
 
-// Normalize /at:// → /at/ before React Router parses the URL.
-// Supports pasting the "pretty" form `my.pantryhost.app/at://did:plc:.../...`
-// which resembles a real AT URI. Both forms route to the same handler.
-if (typeof window !== 'undefined' && window.location.pathname.startsWith('/at://')) {
-  const newPath = window.location.pathname.replace(/^\/at:\/\//, '/at/');
-  window.history.replaceState({}, '', newPath + window.location.search + window.location.hash);
+// Normalize all "at:" URL variants to /at/ before React Router parses.
+// Users (or shared links) may arrive via:
+//   /at://did:plc:.../...        (literal :// in path)
+//   /at://did%3Aplc%3A.../...    (percent-encoded DID)
+//   /at%3A/did%3Aplc%3A.../...   (Cloudflare 307-rewrites /at:// to /at%3A/)
+//   /at%3A//did%3Aplc%3A.../...  (variant of the same)
+// All route to the same /at/{did}/{collection}/{rkey} handler.
+if (typeof window !== 'undefined') {
+  const p = window.location.pathname;
+  const rewritten = p
+    .replace(/^\/at%3A\/\/?/i, '/at/')
+    .replace(/^\/at:\/\//, '/at/');
+  if (rewritten !== p) {
+    window.history.replaceState({}, '', rewritten + window.location.search + window.location.hash);
+  }
 }
 
 // Initialize theme immediately

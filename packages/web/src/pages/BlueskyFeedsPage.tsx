@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { gql } from '@/lib/gql';
-import { listBlueskyRecipes, type ParsedRecipe } from '@pantry-host/shared/bluesky';
+import { listBlueskyRecipes, blueskyToRecipe, type ParsedRecipe, type BlueskyRecipeRecord } from '@pantry-host/shared/bluesky';
 import ImportGrid, { captureActiveElement } from '@pantry-host/shared/components/ImportGrid';
 import PixabayImage from '@pantry-host/shared/components/PixabayImage';
 
 const FEED_API = 'https://feed.pantryhost.app/api/handles';
+const FEED_RECIPES_API = 'https://feed.pantryhost.app/api/recipes';
+const PAGE_SIZE = 50;
 
 const SEED_HANDLES = [
   'joshhuckabee.com', 'recipe.exchange', 'pixeline.be',
@@ -57,8 +59,37 @@ export default function BlueskyFeedsPage() {
     if (typeof window !== 'undefined') localStorage.setItem('bsky-feeds-mode', mode);
   }, [mode]);
 
+  // Server-side feed (preferred) → falls back to per-handle XRPC fan-out.
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [serverFeedAvailable, setServerFeedAvailable] = useState(true);
+
   useEffect(() => {
     (async () => {
+      // Try the aggregated feed first.
+      try {
+        const res = await fetch(`${FEED_RECIPES_API}?limit=${PAGE_SIZE}`);
+        if (res.ok) {
+          const data = (await res.json()) as {
+            recipes: Array<{ atUri: string; did: string; handle: string; value: BlueskyRecipeRecord; createdAt: string }>;
+            cursor: string | null;
+          };
+          const converted: FeedRecipe[] = data.recipes.map((r) => ({
+            atUri: r.atUri,
+            handle: r.handle,
+            recipe: blueskyToRecipe(r.value, r.atUri, r.handle),
+          }));
+          setRecipes(converted);
+          setCursor(data.cursor);
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // fall through
+      }
+
+      // Fallback: legacy per-handle fan-out.
+      setServerFeedAvailable(false);
       let handles: string[];
       try {
         const res = await fetch(FEED_API);
@@ -89,6 +120,30 @@ export default function BlueskyFeedsPage() {
       setLoading(false);
     })();
   }, []);
+
+  async function loadMore() {
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`${FEED_RECIPES_API}?limit=${PAGE_SIZE}&cursor=${encodeURIComponent(cursor)}`);
+      if (res.ok) {
+        const data = (await res.json()) as {
+          recipes: Array<{ atUri: string; did: string; handle: string; value: BlueskyRecipeRecord; createdAt: string }>;
+          cursor: string | null;
+        };
+        const converted: FeedRecipe[] = data.recipes.map((r) => ({
+          atUri: r.atUri,
+          handle: r.handle,
+          recipe: blueskyToRecipe(r.value, r.atUri, r.handle),
+        }));
+        setRecipes((prev) => [...prev, ...converted]);
+        setCursor(data.cursor);
+      }
+    } catch {
+      // ignore — button stays enabled for retry
+    }
+    setLoadingMore(false);
+  }
 
   const categories = new Set<string>();
   const cuisines = new Set<string>();
@@ -349,6 +404,19 @@ export default function BlueskyFeedsPage() {
                 className="btn-primary disabled:opacity-50 shadow-lg"
               >
                 Import {selected.size} selected
+              </button>
+            </div>
+          )}
+
+          {serverFeedAvailable && cursor && (
+            <div className="mt-6 flex justify-center">
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="btn-secondary disabled:opacity-50"
+              >
+                {loadingMore ? 'Loading…' : 'Load more'}
               </button>
             </div>
           )}

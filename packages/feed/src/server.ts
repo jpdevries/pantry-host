@@ -42,6 +42,32 @@ db.exec(`
   )
 `);
 
+// ── Full record cache (added for /api/recipes aggregation) ──
+// Stores the full exchange.recipe.* record body so clients can paginate a
+// single server-side feed instead of fanning out to every publisher's PDS.
+// On firehose delete we hard-delete the row to mirror the upstream.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS recipes (
+    at_uri TEXT PRIMARY KEY,
+    did TEXT NOT NULL,
+    collection TEXT NOT NULL,
+    rkey TEXT NOT NULL,
+    cid TEXT NOT NULL,
+    value TEXT NOT NULL,
+    name TEXT,
+    created_at TEXT NOT NULL,
+    indexed_at TEXT DEFAULT (datetime('now'))
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS recipes_did_idx ON recipes(did)`);
+db.exec(`CREATE INDEX IF NOT EXISTS recipes_collection_created_idx ON recipes(collection, created_at DESC, at_uri)`);
+db.exec(`CREATE INDEX IF NOT EXISTS recipes_name_idx ON recipes(name)`);
+
+// Add `inactive` column to publishers (idempotent — ignored if already present).
+try {
+  db.exec(`ALTER TABLE recipe_publishers ADD COLUMN inactive INTEGER DEFAULT 0`);
+} catch { /* column already exists */ }
+
 const getCursor = db.prepare('SELECT seq FROM cursor WHERE id = 1');
 const setCursorStmt = db.prepare(
   'INSERT INTO cursor (id, seq) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET seq = excluded.seq'
@@ -59,6 +85,26 @@ const decrementStmt = db.prepare(`
   SET recipe_count = MAX(0, recipe_count - 1), last_seen = datetime('now')
   WHERE did = ?
 `);
+
+// ── Prepared statements for the recipes table ──
+const upsertRecipeStmt = db.prepare(`
+  INSERT INTO recipes (at_uri, did, collection, rkey, cid, value, name, created_at, indexed_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+  ON CONFLICT(at_uri) DO UPDATE SET
+    cid = excluded.cid,
+    value = excluded.value,
+    name = excluded.name,
+    created_at = excluded.created_at,
+    indexed_at = datetime('now')
+`);
+const deleteRecipeStmt = db.prepare(`DELETE FROM recipes WHERE at_uri = ?`);
+const deleteRecipesByDidStmt = db.prepare(`DELETE FROM recipes WHERE did = ?`);
+const setPublisherInactiveStmt = db.prepare(
+  `UPDATE recipe_publishers SET inactive = ? WHERE did = ?`,
+);
+const updatePublisherHandleStmt = db.prepare(
+  `UPDATE recipe_publishers SET handle = ?, last_seen = datetime('now') WHERE did = ?`,
+);
 
 function savedCursor(): number | undefined {
   const row = getCursor.get() as { seq: number } | undefined;
@@ -98,7 +144,16 @@ function startFirehose() {
   const firehose = new Firehose({
     relay: FIREHOSE_URL,
     cursor,
-    handleEvent: async (event) => {
+    // Only surface events for the collections we care about — the relay
+    // doesn't actually filter on the wire, but this skips our handler for
+    // everything else and dramatically cuts CPU/DB work.
+    filterCollections: [LEXICON_RECIPE, LEXICON_COLLECTION],
+    // Accept unverified commits so one bad signature doesn't drop a whole
+    // create event. Record data itself is trustless either way — we're not
+    // authenticating on behalf of users.
+    unauthenticatedCommits: true,
+    unauthenticatedHandles: true,
+    handleEvent: async (event: any) => {
       eventsProcessed++;
 
       if (event.event === 'create' || event.event === 'update') {
@@ -106,20 +161,72 @@ function startFirehose() {
         if (collection === LEXICON_RECIPE || collection === LEXICON_COLLECTION) {
           const handle = await resolveHandle(event.did);
           upsertStmt.run(event.did, handle);
+
+          // Store the full record body so /api/recipes can serve paginated
+          // aggregated feeds without the client fanning out to every PDS.
+          try {
+            const atUri = `at://${event.did}/${collection}/${event.rkey}`;
+            const record = event.record as Record<string, unknown> | undefined;
+            const cid = event.cid?.toString?.() ?? String(event.cid ?? '');
+            if (record && cid) {
+              const name = typeof record.name === 'string' ? record.name : null;
+              const createdAt = typeof record.createdAt === 'string'
+                ? record.createdAt
+                : new Date().toISOString();
+              upsertRecipeStmt.run(
+                atUri,
+                event.did,
+                collection,
+                event.rkey,
+                cid,
+                JSON.stringify(record),
+                name,
+                createdAt,
+              );
+            } else {
+              console.warn(`[firehose] create/update without record body: ${atUri}`);
+            }
+          } catch (err) {
+            console.error('[firehose] failed to store record:', err);
+          }
+
           recipesFound++;
-          console.log(`[firehose] +${collection === LEXICON_COLLECTION ? 'collection' : 'recipe'} from @${handle} (total: ${recipesFound})`);
+          if (recipesFound % 50 === 0) {
+            console.log(`[firehose] indexed ${recipesFound} records so far`);
+          }
         }
       } else if (event.event === 'delete') {
         const collection = event.collection;
         if (collection === LEXICON_RECIPE || collection === LEXICON_COLLECTION) {
+          const atUri = `at://${event.did}/${collection}/${event.rkey}`;
+          deleteRecipeStmt.run(atUri);
           decrementStmt.run(event.did);
-          console.log(`[firehose] -${collection === LEXICON_COLLECTION ? 'collection' : 'recipe'} from ${event.did}`);
+          console.log(`[firehose] deleted ${atUri}`);
+        }
+      } else if (event.event === 'identity') {
+        // Handle change or did doc update — refresh our stored handle.
+        if (event.handle && typeof event.handle === 'string') {
+          updatePublisherHandleStmt.run(event.handle, event.did);
+          handleCache.set(event.did, event.handle);
+          console.log(`[firehose] identity update: ${event.did} -> @${event.handle}`);
+        }
+      } else if (event.event === 'account') {
+        // Takedown/deactivation: hide publisher + remove their records.
+        if (event.active === false) {
+          setPublisherInactiveStmt.run(1, event.did);
+          deleteRecipesByDidStmt.run(event.did);
+          console.log(`[firehose] account ${event.status ?? 'inactive'}: ${event.did}`);
+        } else if (event.active === true) {
+          setPublisherInactiveStmt.run(0, event.did);
+          console.log(`[firehose] account reactivated: ${event.did}`);
         }
       }
 
-      // Persist cursor periodically (every 1000 events)
-      if (event.cursor && eventsProcessed % 1000 === 0) {
-        setCursorStmt.run(event.cursor);
+      // Persist cursor periodically (every 1000 events). The event carries
+      // `seq` per @atproto/sync types; older versions exposed `cursor`.
+      const seq = event.seq ?? event.cursor;
+      if (seq && eventsProcessed % 1000 === 0) {
+        setCursorStmt.run(seq);
       }
     },
     onError: (err) => {
@@ -145,6 +252,90 @@ function startFirehose() {
   });
 }
 
+// ── One-time backfill ───────────────────────────────────────
+// On first deploy with the new `recipes` table, pull existing records for
+// every known publisher. Idempotent: skips DIDs that already have any rows.
+
+const countRecipesByDidStmt = db.prepare(
+  `SELECT COUNT(*) as n FROM recipes WHERE did = ?`,
+);
+const listPublisherDidsStmt = db.prepare(
+  `SELECT did FROM recipe_publishers WHERE inactive = 0 OR inactive IS NULL`,
+);
+
+const XRPC_BASE = 'https://bsky.social/xrpc';
+
+async function backfillRecordsForDid(did: string, collection: string) {
+  let cursor: string | undefined;
+  let fetched = 0;
+  do {
+    const params = new URLSearchParams({
+      repo: did,
+      collection,
+      limit: '100',
+    });
+    if (cursor) params.set('cursor', cursor);
+    const url = `${XRPC_BASE}/com.atproto.repo.listRecords?${params}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.warn(`[backfill] listRecords failed for ${did}/${collection}: ${res.status}`);
+      return fetched;
+    }
+    const body = (await res.json()) as {
+      records?: Array<{ uri: string; cid: string; value: Record<string, unknown> }>;
+      cursor?: string;
+    };
+    for (const r of body.records ?? []) {
+      try {
+        const atUri = r.uri;
+        // Parse rkey from at://did/collection/rkey
+        const m = atUri.match(/^at:\/\/[^/]+\/[^/]+\/(.+)$/);
+        const rkey = m?.[1] ?? '';
+        const name = typeof r.value.name === 'string' ? r.value.name : null;
+        const createdAt = typeof r.value.createdAt === 'string'
+          ? r.value.createdAt
+          : new Date().toISOString();
+        upsertRecipeStmt.run(
+          atUri, did, collection, rkey, r.cid,
+          JSON.stringify(r.value), name, createdAt,
+        );
+        fetched++;
+      } catch (err) {
+        console.error(`[backfill] failed to store ${r.uri}:`, err);
+      }
+    }
+    cursor = body.cursor;
+  } while (cursor);
+  return fetched;
+}
+
+async function startBackfill() {
+  const dids = (listPublisherDidsStmt.all() as Array<{ did: string }>).map((r) => r.did);
+  if (dids.length === 0) {
+    console.log('[backfill] no publishers yet — skipping');
+    return;
+  }
+  console.log(`[backfill] checking ${dids.length} publishers for missing records…`);
+  let totalFetched = 0;
+  let didsProcessed = 0;
+  for (const did of dids) {
+    const { n } = countRecipesByDidStmt.get(did) as { n: number };
+    if (n > 0) continue; // already have records for this DID
+    try {
+      const recipes = await backfillRecordsForDid(did, LEXICON_RECIPE);
+      const collections = await backfillRecordsForDid(did, LEXICON_COLLECTION);
+      totalFetched += recipes + collections;
+      didsProcessed++;
+      if (recipes + collections > 0) {
+        console.log(`[backfill] ${did}: ${recipes} recipes + ${collections} collections`);
+      }
+    } catch (err) {
+      console.error(`[backfill] error for ${did}:`, err);
+    }
+  }
+  console.log(`[backfill] done: ${totalFetched} records across ${didsProcessed} publishers`);
+}
+
 // ── HTTP API ─────────────────────────────────────────────────
 
 const app = express();
@@ -166,13 +357,79 @@ app.get('/health', (_req, res) => {
 });
 
 const listHandles = db.prepare(
-  'SELECT did, handle, recipe_count FROM recipe_publishers WHERE recipe_count > 0 ORDER BY recipe_count DESC'
+  `SELECT did, handle, recipe_count FROM recipe_publishers
+   WHERE recipe_count > 0 AND (inactive = 0 OR inactive IS NULL)
+   ORDER BY recipe_count DESC`,
 );
 
 app.get('/api/handles', (_req, res) => {
   const rows = listHandles.all();
   res.setHeader('Cache-Control', 'public, max-age=60');
   res.json(rows);
+});
+
+// ── Aggregated recipes feed ────────────────────────────────────
+// Single endpoint returning full record bodies across all publishers so
+// clients don't have to fan out to each PDS. Cursor-paginated.
+
+const listRecipesFirstPageStmt = db.prepare(`
+  SELECT r.at_uri, r.did, p.handle, r.collection, r.rkey, r.cid, r.value, r.created_at
+  FROM recipes r
+  JOIN recipe_publishers p ON p.did = r.did
+  WHERE r.collection = ?
+    AND (p.inactive = 0 OR p.inactive IS NULL)
+  ORDER BY r.created_at DESC, r.at_uri DESC
+  LIMIT ?
+`);
+
+const listRecipesPagedStmt = db.prepare(`
+  SELECT r.at_uri, r.did, p.handle, r.collection, r.rkey, r.cid, r.value, r.created_at
+  FROM recipes r
+  JOIN recipe_publishers p ON p.did = r.did
+  WHERE r.collection = ?
+    AND (p.inactive = 0 OR p.inactive IS NULL)
+    AND (r.created_at < ? OR (r.created_at = ? AND r.at_uri < ?))
+  ORDER BY r.created_at DESC, r.at_uri DESC
+  LIMIT ?
+`);
+
+app.get('/api/recipes', (req, res) => {
+  const collection = (req.query.collection as string) || LEXICON_RECIPE;
+  const limit = Math.min(Math.max(parseInt((req.query.limit as string) || '50', 10), 1), 100);
+  const cursor = req.query.cursor as string | undefined;
+
+  let rows: Array<{ at_uri: string; did: string; handle: string; collection: string; rkey: string; cid: string; value: string; created_at: string }>;
+  if (cursor) {
+    // Cursor format: "<createdAt>|<atUri>"
+    const sep = cursor.indexOf('|');
+    if (sep === -1) {
+      res.status(400).json({ error: 'invalid cursor' });
+      return;
+    }
+    const cursorTime = cursor.slice(0, sep);
+    const cursorUri = cursor.slice(sep + 1);
+    rows = listRecipesPagedStmt.all(collection, cursorTime, cursorTime, cursorUri, limit) as typeof rows;
+  } else {
+    rows = listRecipesFirstPageStmt.all(collection, limit) as typeof rows;
+  }
+
+  const recipes = rows.map((r) => ({
+    atUri: r.at_uri,
+    did: r.did,
+    handle: r.handle,
+    collection: r.collection,
+    rkey: r.rkey,
+    cid: r.cid,
+    value: JSON.parse(r.value),
+    createdAt: r.created_at,
+  }));
+
+  const nextCursor = rows.length === limit
+    ? `${rows[rows.length - 1].created_at}|${rows[rows.length - 1].at_uri}`
+    : null;
+
+  res.setHeader('Cache-Control', 'public, max-age=30');
+  res.json({ recipes, cursor: nextCursor });
 });
 
 // ── Nearby markets (Overpass proxy) ─────────────────────────
@@ -367,4 +624,6 @@ app.post('/api/fetch-recipe', express.json(), async (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[api] Listening on port ${PORT}`);
   startFirehose();
+  // Kick off backfill async — don't block firehose startup. Logs progress.
+  startBackfill().catch((err) => console.error('[backfill] error:', err));
 });

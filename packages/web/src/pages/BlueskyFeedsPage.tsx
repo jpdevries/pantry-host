@@ -50,8 +50,8 @@ export default function BlueskyFeedsPage() {
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
   const [mode, setMode] = useState<'bulk' | 'browse'>(() => {
-    if (typeof window === 'undefined') return 'bulk';
-    return (localStorage.getItem('bsky-feeds-mode') as 'bulk' | 'browse') || 'bulk';
+    if (typeof window === 'undefined') return 'browse';
+    return (localStorage.getItem('bsky-feeds-mode') as 'bulk' | 'browse') || 'browse';
   });
   useEffect(() => {
     if (typeof window !== 'undefined') localStorage.setItem('bsky-feeds-mode', mode);

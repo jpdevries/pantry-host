@@ -122,8 +122,8 @@ export default function AtRecipeDetail({
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
       {/* ── Import CTA bar ── */}
-      <div className="card p-4 mb-6 flex flex-wrap items-center gap-3">
-        <div className="flex flex-col items-start gap-1">
+      <div className="card p-4 mb-6 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+        <div className="flex items-center gap-2 min-w-0">
           <svg
             fill="currentColor"
             viewBox="0 0 600 530"
@@ -135,36 +135,38 @@ export default function AtRecipeDetail({
             <path d="M135.72 44.03C202.216 93.951 273.74 195.17 299.91 249.49c26.17-54.32 97.694-155.539 164.19-205.46C512.18 8.005 590 -19.728 590 69.04c0 17.726-10.155 148.928-16.111 170.208-20.703 73.984-96.144 92.854-163.25 81.433 117.262 19.96 147.131 86.084 82.654 152.208-122.385 125.621-175.86-31.511-189.563-71.807-2.512-7.387-3.687-10.832-3.69-7.905-.003-2.927-1.179.518-3.69 7.905-13.704 40.296-67.18 197.428-189.563 71.807-64.477-66.124-34.61-132.251 82.65-152.208-67.105 11.421-142.548-7.45-163.25-81.433C20.232 217.968 10.077 86.766 10.077 69.04c0-88.768 77.82-61.035 125.9-25.01z" />
           </svg>
           {handle && (
-            <span className="text-sm text-[var(--color-text-secondary)]">
+            <span className="text-sm text-[var(--color-text-secondary)] break-words min-w-0">
               by <a href={`https://bsky.app/profile/${handle}`} target="_blank" rel="noopener noreferrer" className="underline">@{handle}</a>
             </span>
           )}
         </div>
-        <div className="flex-1" />
-        <button
-          onClick={() => setQrOpen(true)}
-          className="btn-secondary text-sm flex items-center gap-1.5"
-          aria-label="Share QR code"
-        >
-          <ShareNetwork size={16} />
-          Share
-        </button>
-        {existingSlug ? (
-          renderRecipeLink(existingSlug, (
-            <span className="btn-secondary text-sm inline-flex items-center gap-1.5">
-              Already in your pantry →
-            </span>
-          ))
-        ) : (
+        <div className="hidden sm:block sm:flex-1" />
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <button
-            onClick={handleImport}
-            disabled={importing}
-            className="btn-primary text-sm flex items-center gap-1.5"
+            onClick={() => setQrOpen(true)}
+            className="btn-secondary text-sm flex items-center justify-center gap-1.5"
+            aria-label="Share QR code"
           >
-            <ArrowSquareIn size={16} />
-            {importing ? 'Importing…' : 'Import to your pantry'}
+            <ShareNetwork size={16} />
+            Share
           </button>
-        )}
+          {existingSlug ? (
+            renderRecipeLink(existingSlug, (
+              <span className="btn-secondary text-sm inline-flex items-center justify-center gap-1.5">
+                Already in your pantry →
+              </span>
+            ))
+          ) : (
+            <button
+              onClick={handleImport}
+              disabled={importing}
+              className="btn-primary text-sm flex items-center justify-center gap-1.5"
+            >
+              <ArrowSquareIn size={16} />
+              {importing ? 'Importing…' : 'Import to your pantry'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Photo ── */}

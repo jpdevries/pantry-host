@@ -55,7 +55,7 @@ import {
   type ParsedRecipe as BlueskyParsedRecipe,
 } from '@pantry-host/shared/bluesky';
 import CommunityDatasources from '@pantry-host/shared/components/CommunityDatasources';
-import { extractUrls, tryParsePantryHostExport } from '@pantry-host/shared/import-utils';
+import { parseImport } from '@/lib/parse-worker-client';
 import ImportGrid, { captureActiveElement, restoreFocus } from '@pantry-host/shared/components/ImportGrid';
 
 const CREATE_MUTATION = `mutation(
@@ -1614,7 +1614,7 @@ interface URLImportItem {
 function URLTab({ navigate, initialText }: { navigate: (path: string) => void; initialText?: string }) {
   const [pasteText, setPasteText] = useState(initialText ?? '');
   const [items, setItems] = useState<URLImportItem[]>([]);
-  const [step, setStep] = useState<'paste' | 'fetching' | 'review' | 'saving' | 'done'>('paste');
+  const [step, setStep] = useState<'paste' | 'parsing' | 'fetching' | 'review' | 'saving' | 'done'>('paste');
   const [saveProgress, setSaveProgress] = useState(0);
 
   // When parent pushes file contents, overwrite the textarea.
@@ -1626,9 +1626,12 @@ function URLTab({ navigate, initialText }: { navigate: (path: string) => void; i
     }
   }, [initialText]);
 
-  function handleParse() {
-    // Check for Pantry Host export first
-    const exported = tryParsePantryHostExport(pasteText);
+  async function handleParse() {
+    // Offload parsing to a web worker — large Pantry Host exports or
+    // multi-MB bookmarks files would otherwise block the main thread.
+    setStep('parsing');
+    const { exported, urls } = await parseImport(pasteText);
+
     if (exported) {
       setItems(exported.map((r) => ({
         url: r.sourceUrl ?? r.title,
@@ -1639,8 +1642,10 @@ function URLTab({ navigate, initialText }: { navigate: (path: string) => void; i
       return;
     }
 
-    const urls = extractUrls(pasteText);
-    if (urls.length === 0) return;
+    if (urls.length === 0) {
+      setStep('paste');
+      return;
+    }
     const initial: URLImportItem[] = urls.map((url) => ({ url, status: 'pending' }));
     setItems(initial);
     setStep('fetching');
@@ -1731,6 +1736,14 @@ function URLTab({ navigate, initialText }: { navigate: (path: string) => void; i
         <button onClick={() => { setStep('paste'); setPasteText(''); setItems([]); }} className="block mx-auto mt-4 text-sm text-[var(--color-text-secondary)] hover:underline">
           Import more
         </button>
+      </div>
+    );
+  }
+
+  if (step === 'parsing') {
+    return (
+      <div className="text-center py-8">
+        <p className="text-sm text-[var(--color-text-secondary)] animate-pulse">Parsing…</p>
       </div>
     );
   }

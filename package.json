@@ -26,6 +26,8 @@
     "@modelcontextprotocol/sdk": "^1.29.0"
   },
   "optionalDependencies": {
+    "@img/sharp-darwin-x64": "^0.34.5",
+    "@img/sharp-libvips-darwin-x64": "^1.2.4",
     "@limlabs/rex-darwin-x64": "^0.20.0",
     "@rollup/rollup-linux-x64-gnu": "^4.60.1",
     "@tailwindcss/oxide-linux-x64-gnu": "^4.2.2",

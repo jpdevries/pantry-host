@@ -163,79 +163,14 @@ interface ImportItem {
 
 type Step = 'input' | 'fetching' | 'review' | 'saving';
 
-function parseLdRecipe(data: Record<string, unknown>): ParsedRecipe | null {
-  if (data['@type'] !== 'Recipe') return null;
-  const parseDur = (iso?: string) => {
-    if (!iso) return undefined;
-    const m = (iso as string).match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
-    return m ? (parseInt(m[1] || '0') * 60 + parseInt(m[2] || '0')) || undefined : undefined;
-  };
-  const structured = data['pantryHost:ingredients'] as { name: string; quantity: number | null; unit: string | null }[] | undefined;
-  const ingredients = Array.isArray(structured)
-    ? structured.map((ing) => ({ ingredientName: ing.name, quantity: ing.quantity, unit: ing.unit }))
-    : ((data.recipeIngredient ?? []) as string[]).map((line) => ({ ingredientName: line, quantity: null, unit: null }));
-  return {
-    title: data.name as string,
-    description: data.description as string | undefined,
-    instructions: Array.isArray(data.recipeInstructions)
-      ? (data.recipeInstructions as (string | { text: string })[])
-          .map((s, i) => `${i + 1}. ${typeof s === 'string' ? s : s.text}`)
-          .join('\n')
-      : (data.recipeInstructions as string) ?? '',
-    servings: typeof data.recipeYield === 'string'
-      ? parseInt(data.recipeYield) || undefined
-      : data.recipeYield as number | undefined,
-    prepTime: parseDur(data.prepTime as string | undefined),
-    cookTime: parseDur(data.cookTime as string | undefined),
-    tags: [...((data.keywords ?? []) as string[])],
-    photoUrl: typeof data.image === 'string' ? data.image : undefined,
-    ingredients,
-  };
-}
+
+
+// Shared import utilities — extractUrls now supports at:// URIs
+import { extractUrls, tryParsePantryHostExport as tryParsePantryHostExportShared } from '@pantry-host/shared/import-utils';
+import { fetchBlueskyRecipe } from '@pantry-host/shared/bluesky';
 
 function tryParsePantryHostExport(text: string): ParsedRecipe[] | null {
-  if (!/<meta\s+name="generator"\s+content="Pantry Host"/i.test(text)) return null;
-  const ldMatch = text.match(/<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/i);
-  if (!ldMatch) return null;
-  try {
-    const data = JSON.parse(ldMatch[1]);
-    // Multi-recipe export: JSON-LD is an array
-    if (Array.isArray(data)) {
-      const recipes = data.map(parseLdRecipe).filter(Boolean) as ParsedRecipe[];
-      return recipes.length > 0 ? recipes : null;
-    }
-    // Single recipe export
-    const recipe = parseLdRecipe(data);
-    return recipe ? [recipe] : null;
-  } catch {
-    return null;
-  }
-}
-
-function extractUrls(text: string, filename?: string): string[] {
-  const isHtml = filename?.endsWith('.html') || /<A HREF=/i.test(text);
-  const isCsv = filename?.endsWith('.csv');
-
-  if (isHtml) {
-    return Array.from(text.matchAll(/<A HREF="([^"]+)"/gi))
-      .map((m) => m[1])
-      .filter((u) => /^https?:\/\//i.test(u));
-  }
-
-  if (isCsv) {
-    const lines = text.split(/\r?\n/);
-    const header = lines[0]?.toLowerCase().split(',') ?? [];
-    const urlCol = header.findIndex((h) => /^url|link|href|address$/i.test(h.trim()));
-    const col = urlCol >= 0 ? urlCol : 0;
-    return lines
-      .slice(urlCol >= 0 ? 1 : 0)
-      .map((l) => l.split(',')[col]?.replace(/^"|"$/g, '').trim() ?? '')
-      .filter((u) => /^https?:\/\//i.test(u));
-  }
-
-  return text.split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => /^https?:\/\//i.test(l));
+  return tryParsePantryHostExportShared(text) as ParsedRecipe[] | null;
 }
 
 const CREATE_RECIPE = `
@@ -281,13 +216,13 @@ export default function RecipeImportPage({ kitchen }: Props) {
   const clDebounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Community tab state
-  type CommunityTab = 'cooklang' | 'mealdb' | 'cocktaildb' | 'publicdomain' | 'wikibooks' | 'recipe-api';
-  const ALL_COMMUNITY_TABS: CommunityTab[] = ['cooklang', 'mealdb', 'cocktaildb', 'publicdomain', 'wikibooks', 'recipe-api'];
+  type CommunityTab = 'url' | 'cooklang' | 'mealdb' | 'cocktaildb' | 'publicdomain' | 'wikibooks' | 'recipe-api';
+  const ALL_COMMUNITY_TABS: CommunityTab[] = ['url', 'cooklang', 'mealdb', 'cocktaildb', 'publicdomain', 'wikibooks', 'recipe-api'];
   const [communityTab, setCommunityTab] = useState<CommunityTab>(() => {
-    if (typeof window === 'undefined') return 'cooklang';
+    if (typeof window === 'undefined') return 'url';
     const urlTab = new URLSearchParams(window.location.search).get('tab');
     if (urlTab && ALL_COMMUNITY_TABS.includes(urlTab as CommunityTab)) return urlTab as CommunityTab;
-    return 'cooklang';
+    return 'url';
   });
   // Recipe API tab is shown only if the server exposes a RECIPE_API_KEY via
   // the owner-gated /api/recipe-api-key route. Guests on HTTP LAN IPs get
@@ -318,7 +253,7 @@ export default function RecipeImportPage({ kitchen }: Props) {
   // empty-state with both an inline form and a Settings link when no key
   // is configured. This matches the web package's UX.
   const COMMUNITY_TAB_ORDER: CommunityTab[] = (
-    ['cooklang', 'mealdb', 'recipe-api', 'publicdomain', 'wikibooks', 'cocktaildb'] as CommunityTab[]
+    ['url', 'cooklang', 'mealdb', 'recipe-api', 'publicdomain', 'wikibooks', 'cocktaildb'] as CommunityTab[]
   ).filter((k) => {
     if (k === 'cocktaildb' && !showCocktailDB) return false;
     return true;
@@ -791,13 +726,19 @@ export default function RecipeImportPage({ kitchen }: Props) {
           setItems([...updated]);
 
           try {
-            const res = await fetch(`http://${window.location.hostname}:4001/fetch-recipe`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url: item.url }),
-            });
-            const data = await res.json() as ParsedRecipe & { error?: string };
-            if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`);
+            let data: ParsedRecipe;
+            if (item.url.startsWith('at://')) {
+              // AT URIs fetched client-side (bsky.social has open CORS)
+              data = await fetchBlueskyRecipe(item.url) as unknown as ParsedRecipe;
+            } else {
+              const res = await fetch(`http://${window.location.hostname}:4001/fetch-recipe`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: item.url }),
+              });
+              data = await res.json() as ParsedRecipe & { error?: string };
+              if (!res.ok || (data as { error?: string }).error) throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
+            }
             if (!data.title) throw new Error('No recipe data found on this page');
             updated[idx] = { ...updated[idx], status: 'done', recipe: data };
           } catch (err) {
@@ -899,53 +840,13 @@ export default function RecipeImportPage({ kitchen }: Props) {
               </label>
             </div>
 
-            <div
-              className={`p-6 border border-[var(--color-border-card)] bg-[var(--color-bg-card)] ${!apiOnline ? 'opacity-50' : ''}`}
-              {...(!apiOnline ? { inert: '' } : {})}
-            >
-              <h2 className="text-lg font-bold mb-1">Or paste URLs</h2>
-              {!apiOnline && (
-                <p className="text-sm text-[var(--color-accent)] mb-3">
-                  URL import requires a connection to your Pantry&nbsp;Host server.
-                </p>
-              )}
-              <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-                One URL per line, or paste bookmark HTML or CSV content directly.
-              </p>
-              <textarea
-                value={pasteText}
-                onChange={(e) => setPasteText(e.target.value)}
-                rows={8}
-                placeholder={'https://example.com/recipe-1\nhttps://example.com/recipe-2\n…'}
-                aria-label="Recipe URLs or file content"
-                className="field-input w-full font-mono text-sm"
-              />
-            </div>
-
-            {parseError && (
-              <p role="alert" className="text-sm text-red-600 dark:text-red-400">{parseError}</p>
-            )}
-
-            <button
-              type="button"
-              onClick={handleParse}
-              disabled={!pasteText.trim()}
-              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Parse URLs →
-            </button>
-
-          {/* Community Recipes */}
-          <div className="mt-10 pt-8 border-t border-[var(--color-border-card)]">
-            <h2 className="text-xl font-bold mb-2">Community Recipes</h2>
-            <p className="text-sm text-[var(--color-text-secondary)] mb-4 legible pretty">
-              Search community recipe datasources and import into your pantry.
-            </p>
+          {/* Import tabs — URL + Community Recipes */}
+          <div>
 
             {/* Tab toggle */}
             <div className="flex gap-1 mb-6 border-b border-[var(--color-border-card)] overflow-x-auto" role="tablist" aria-label="Recipe sources">
               {COMMUNITY_TAB_ORDER.map((key) => {
-                const label = key === 'cooklang' ? 'Cooklang' : key === 'mealdb' ? 'TheMealDB' : key === 'publicdomain' ? 'Public Domain' : key === 'wikibooks' ? 'Wikibooks' : key === 'cocktaildb' ? 'TheCocktailDB' : 'Recipe API';
+                const label = key === 'url' ? 'URL' : key === 'cooklang' ? 'Cooklang' : key === 'mealdb' ? 'TheMealDB' : key === 'publicdomain' ? 'Public Domain' : key === 'wikibooks' ? 'Wikibooks' : key === 'cocktaildb' ? 'TheCocktailDB' : 'Recipe API';
                 const active = communityTab === key;
                 return (
                   <button
@@ -972,6 +873,38 @@ export default function RecipeImportPage({ kitchen }: Props) {
                 );
               })}
             </div>
+
+            {communityTab === 'url' && (<div role="tabpanel" id="tabpanel-url" aria-labelledby="tab-url">
+              <div className={`${!apiOnline ? 'opacity-50' : ''}`} {...(!apiOnline ? { inert: '' } : {})}>
+                {!apiOnline && (
+                  <p className="text-sm text-accent mb-3">
+                    URL import requires a connection to your Pantry&nbsp;Host server.
+                  </p>
+                )}
+                <p className="text-sm text-[var(--color-text-secondary)] mb-3 legible pretty">
+                  Paste recipe URLs (one per line) or AT Protocol URIs (<code className="text-xs">at://</code>). You can also paste bookmark HTML or CSV content.
+                </p>
+                <textarea
+                  value={pasteText}
+                  onChange={(e) => setPasteText(e.target.value)}
+                  rows={6}
+                  placeholder={"https://www.allrecipes.com/recipe/...\nat://did:plc:.../exchange.recipe.recipe/...\nhttps://www.seriouseats.com/..."}
+                  aria-label="Recipe URLs or file content"
+                  className="field-input w-full font-mono text-sm mb-3"
+                />
+                {parseError && (
+                  <p role="alert" className="text-sm text-red-600 dark:text-red-400 mb-3">{parseError}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={handleParse}
+                  disabled={!pasteText.trim()}
+                  className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Parse URLs →
+                </button>
+              </div>
+            </div>)}
 
             {communityTab === 'cooklang' && (<div role="tabpanel" id="tabpanel-cooklang" aria-labelledby="tab-cooklang">
 

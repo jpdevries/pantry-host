@@ -36,6 +36,7 @@
     "./bluesky": "./src/bluesky.ts",
     "./pixabay": "./src/pixabay.ts",
     "./components/PixabayImage": "./src/components/PixabayImage.tsx",
+    "./import-utils": "./src/import-utils.ts",
     "./components/AtRecipeDetail": "./src/components/AtRecipeDetail.tsx",
     "./components/QRCodeModal": "./src/components/QRCodeModal.tsx"
   },

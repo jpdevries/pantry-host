@@ -55,6 +55,7 @@ import {
   type ParsedRecipe as BlueskyParsedRecipe,
 } from '@pantry-host/shared/bluesky';
 import CommunityDatasources from '@pantry-host/shared/components/CommunityDatasources';
+import { extractUrls, tryParsePantryHostExport } from '@pantry-host/shared/import-utils';
 import ImportGrid, { captureActiveElement, restoreFocus } from '@pantry-host/shared/components/ImportGrid';
 
 const CREATE_MUTATION = `mutation(
@@ -70,7 +71,7 @@ const CREATE_MUTATION = `mutation(
   ) { id slug }
 }`;
 
-type Tab = 'mealdb' | 'cocktaildb' | 'publicdomain' | 'cooklang' | 'wikibooks' | 'recipe-api';
+type Tab = 'url' | 'mealdb' | 'cocktaildb' | 'publicdomain' | 'cooklang' | 'wikibooks' | 'recipe-api';
 
 const RECIPE_API_KEY_STORAGE = 'recipe-api-key';
 
@@ -924,8 +925,9 @@ function __REMOVED() {
 
 // ── Main Import Page ────────────────────────────────────────────────────────
 
-const ALL_TAB_ORDER: Tab[] = ['mealdb', 'publicdomain', 'recipe-api', 'cooklang', 'wikibooks', 'cocktaildb'];
+const ALL_TAB_ORDER: Tab[] = ['url', 'mealdb', 'publicdomain', 'recipe-api', 'cooklang', 'wikibooks', 'cocktaildb'];
 const TAB_LABELS: Record<Tab, string> = {
+  url: 'URL',
   mealdb: 'TheMealDB',
   publicdomain: 'Public Domain',
   cooklang: 'Cooklang',
@@ -956,7 +958,7 @@ export default function RecipeImportPage() {
   const urlTab = searchParams.get('tab');
   const [tab, setTab] = useState<Tab>(() => {
     if (urlTab && ALL_TAB_ORDER.includes(urlTab as Tab)) return urlTab as Tab;
-    return 'mealdb';
+    return 'url';
   });
 
   const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -1020,6 +1022,7 @@ export default function RecipeImportPage() {
         })}
       </div>
 
+      {tab === 'url' && <div role="tabpanel" id="tabpanel-url" aria-labelledby="tab-url"><URLTab navigate={navigate} /></div>}
       {tab === 'mealdb' && <div role="tabpanel" id="tabpanel-mealdb" aria-labelledby="tab-mealdb"><MealDBTab navigate={navigate} /></div>}
       {tab === 'publicdomain' && <div role="tabpanel" id="tabpanel-publicdomain" aria-labelledby="tab-publicdomain"><PublicDomainTab navigate={navigate} /></div>}
       {tab === 'cooklang' && <div role="tabpanel" id="tabpanel-cooklang" aria-labelledby="tab-cooklang"><CooklangTab navigate={navigate} /></div>}
@@ -1550,6 +1553,247 @@ function RecipeAPITab({ navigate }: { navigate: ReturnType<typeof useNavigate> }
         {' '}
         <Link to="/settings#stage" className="underline">Manage key in Settings</Link>
       </p>
+    </>
+  );
+}
+
+// ── URL Import Tab ──────────────────────────────────────────────────────────
+
+const FEED_FETCH_URL = 'https://feed.pantryhost.app/api/fetch-recipe';
+
+interface URLImportItem {
+  url: string;
+  status: 'pending' | 'fetching' | 'done' | 'failed';
+  recipe?: { title: string; description?: string; instructions?: string; servings?: number; prepTime?: number; cookTime?: number; tags?: string[]; photoUrl?: string; sourceUrl?: string; ingredients: { ingredientName: string; quantity: number | null; unit: string | null }[] };
+  error?: string;
+  skip?: boolean;
+}
+
+function URLTab({ navigate }: { navigate: (path: string) => void }) {
+  const [pasteText, setPasteText] = useState('');
+  const [items, setItems] = useState<URLImportItem[]>([]);
+  const [step, setStep] = useState<'paste' | 'fetching' | 'review' | 'saving' | 'done'>('paste');
+  const [saveProgress, setSaveProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleParse() {
+    // Check for Pantry Host export first
+    const exported = tryParsePantryHostExport(pasteText);
+    if (exported) {
+      setItems(exported.map((r) => ({
+        url: r.sourceUrl ?? r.title,
+        status: 'done' as const,
+        recipe: { ...r, instructions: r.instructions ?? '', ingredients: r.ingredients ?? [] },
+      })));
+      setStep('review');
+      return;
+    }
+
+    const urls = extractUrls(pasteText);
+    if (urls.length === 0) return;
+    const initial: URLImportItem[] = urls.map((url) => ({ url, status: 'pending' }));
+    setItems(initial);
+    setStep('fetching');
+    fetchAll(initial);
+  }
+
+  async function fetchAll(initialItems: URLImportItem[]) {
+    const BATCH = 3;
+    const updated = [...initialItems];
+
+    for (let i = 0; i < updated.length; i += BATCH) {
+      const batch = updated.slice(i, i + BATCH);
+      await Promise.allSettled(
+        batch.map(async (item, batchIdx) => {
+          const idx = i + batchIdx;
+          updated[idx] = { ...updated[idx], status: 'fetching' };
+          setItems([...updated]);
+
+          try {
+            let data: URLImportItem['recipe'];
+            if (item.url.startsWith('at://')) {
+              // AT URIs fetched client-side (bsky.social has open CORS)
+              const bsky = await fetchBlueskyRecipe(item.url);
+              data = { ...bsky, instructions: bsky.instructions ?? '', ingredients: bsky.ingredients ?? [] };
+            } else {
+              const res = await fetch(FEED_FETCH_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: item.url }),
+              });
+              const json = await res.json();
+              if (!res.ok || json.error) throw new Error(json.error ?? `HTTP ${res.status}`);
+              if (!json.title) throw new Error('No recipe data found on this page');
+              data = { ...json, sourceUrl: item.url, ingredients: json.ingredients ?? [] };
+            }
+            updated[idx] = { ...updated[idx], status: 'done', recipe: data };
+          } catch (err) {
+            updated[idx] = { ...updated[idx], status: 'failed', error: (err as Error).message };
+          }
+          setItems([...updated]);
+        }),
+      );
+    }
+    setStep('review');
+  }
+
+  async function handleSave() {
+    setStep('saving');
+    const toSave = items.filter((i) => i.status === 'done' && !i.skip && i.recipe);
+    let saved = 0;
+    for (const item of toSave) {
+      const r = item.recipe!;
+      try {
+        await gql(CREATE_MUTATION, {
+          title: r.title,
+          description: r.description ?? null,
+          instructions: r.instructions || 'See source for instructions.',
+          servings: r.servings ?? null,
+          prepTime: r.prepTime ?? null,
+          cookTime: r.cookTime ?? null,
+          tags: r.tags ?? [],
+          photoUrl: r.photoUrl ?? null,
+          sourceUrl: r.sourceUrl ?? null,
+          ingredients: r.ingredients.map((i) => ({
+            ingredientName: i.ingredientName,
+            quantity: i.quantity ?? null,
+            unit: i.unit ?? null,
+          })),
+        });
+        saved++;
+        setSaveProgress(saved);
+      } catch (err) {
+        console.error('Save failed for', r.title, err);
+      }
+      // Throttle
+      if (saved < toSave.length) await new Promise((r) => setTimeout(r, 300));
+    }
+    setStep('done');
+  }
+
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') setPasteText(reader.result);
+    };
+    reader.readAsText(file);
+  }
+
+  if (step === 'done') {
+    const saved = items.filter((i) => i.status === 'done' && !i.skip).length;
+    return (
+      <div className="text-center py-8">
+        <p className="text-lg font-semibold mb-2">Imported {saved} recipe{saved !== 1 ? 's' : ''}</p>
+        <Link to="/recipes#stage" className="text-accent hover:underline">View recipes →</Link>
+        <button onClick={() => { setStep('paste'); setPasteText(''); setItems([]); }} className="block mx-auto mt-4 text-sm text-[var(--color-text-secondary)] hover:underline">
+          Import more
+        </button>
+      </div>
+    );
+  }
+
+  if (step === 'saving') {
+    const total = items.filter((i) => i.status === 'done' && !i.skip).length;
+    return (
+      <div className="text-center py-8">
+        <p className="text-sm text-[var(--color-text-secondary)]">Saving {saveProgress} of {total}…</p>
+      </div>
+    );
+  }
+
+  if (step === 'review' || step === 'fetching') {
+    const doneCount = items.filter((i) => i.status === 'done').length;
+    const failedCount = items.filter((i) => i.status === 'failed').length;
+    const saveable = items.filter((i) => i.status === 'done' && !i.skip).length;
+
+    return (
+      <div>
+        <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+          {step === 'fetching' ? 'Fetching recipes…' : `${doneCount} found, ${failedCount} failed`}
+        </p>
+
+        <div className="space-y-3 mb-6">
+          {items.map((item, idx) => (
+            <div key={idx} className={`card p-4 ${item.skip ? 'opacity-50' : ''}`}>
+              <div className="flex items-start gap-3">
+                {item.status === 'done' && (
+                  <input
+                    type="checkbox"
+                    checked={!item.skip}
+                    onChange={() => setItems((prev) => prev.map((it, i) => i === idx ? { ...it, skip: !it.skip } : it))}
+                    className="mt-1 w-4 h-4 accent-accent shrink-0"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  {item.status === 'fetching' && <p className="text-sm animate-pulse">Fetching…</p>}
+                  {item.status === 'pending' && <p className="text-sm text-[var(--color-text-secondary)]">Waiting…</p>}
+                  {item.status === 'done' && item.recipe && (
+                    <>
+                      <p className="font-semibold text-sm">{item.recipe.title}</p>
+                      {item.recipe.description && (
+                        <p className="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">{item.recipe.description}</p>
+                      )}
+                      <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+                        {item.recipe.ingredients.length} ingredients
+                      </p>
+                    </>
+                  )}
+                  {item.status === 'failed' && (
+                    <p className="text-sm text-red-400">{item.error}</p>
+                  )}
+                  <p className="text-xs text-[var(--color-text-secondary)] mt-1 truncate">{item.url}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {step === 'review' && saveable > 0 && (
+          <button onClick={handleSave} className="btn-primary">
+            Import {saveable} recipe{saveable !== 1 ? 's' : ''}
+          </button>
+        )}
+
+        <button onClick={() => { setStep('paste'); setItems([]); }} className="btn-secondary ml-3">
+          Start over
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <p className="text-sm text-[var(--color-text-secondary)] mb-3 legible pretty">
+        Paste recipe URLs (one per line) or AT Protocol URIs (<code className="text-xs">at://</code>). You can also upload a bookmarks file (.html) or CSV.
+      </p>
+      <textarea
+        value={pasteText}
+        onChange={(e) => setPasteText(e.target.value)}
+        rows={6}
+        placeholder={"https://www.allrecipes.com/recipe/...\nat://did:plc:.../exchange.recipe.recipe/...\nhttps://www.seriouseats.com/..."}
+        className="field-input w-full mb-3 font-mono text-sm"
+      />
+      <div className="flex gap-3 items-center">
+        <button
+          onClick={handleParse}
+          disabled={!pasteText.trim()}
+          className="btn-primary text-sm"
+        >
+          Parse URLs →
+        </button>
+        <label className="btn-secondary text-sm cursor-pointer">
+          Upload file
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".html,.csv,.txt"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+        </label>
+      </div>
     </>
   );
 }

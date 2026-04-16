@@ -35,7 +35,9 @@
     "./recipe-api": "./src/recipe-api.ts",
     "./bluesky": "./src/bluesky.ts",
     "./pixabay": "./src/pixabay.ts",
-    "./components/PixabayImage": "./src/components/PixabayImage.tsx"
+    "./components/PixabayImage": "./src/components/PixabayImage.tsx",
+    "./components/AtRecipeDetail": "./src/components/AtRecipeDetail.tsx",
+    "./components/QRCodeModal": "./src/components/QRCodeModal.tsx"
   },
   "peerDependencies": {
     "@phosphor-icons/react": "^2.1.10",

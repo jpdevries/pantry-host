@@ -49,6 +49,13 @@ export default function BlueskyFeedsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
+  const [mode, setMode] = useState<'bulk' | 'browse'>(() => {
+    if (typeof window === 'undefined') return 'bulk';
+    return (localStorage.getItem('bsky-feeds-mode') as 'bulk' | 'browse') || 'bulk';
+  });
+  useEffect(() => {
+    if (typeof window !== 'undefined') localStorage.setItem('bsky-feeds-mode', mode);
+  }, [mode]);
 
   useEffect(() => {
     (async () => {
@@ -201,7 +208,7 @@ export default function BlueskyFeedsPage() {
 
       {/* Filter chips */}
       {(categories.size > 0 || cuisines.size > 0) && (
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex flex-wrap gap-2 mb-4">
           {[...categories, ...cuisines].map((tag) => (
             <button
               key={tag}
@@ -214,6 +221,35 @@ export default function BlueskyFeedsPage() {
           ))}
         </div>
       )}
+
+      {/* Mode toggle */}
+      <fieldset className="mb-6 card p-3 text-sm">
+        <legend className="px-2 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">User Flow</legend>
+        <div className="flex flex-wrap gap-4 px-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="bsky-mode"
+              value="browse"
+              checked={mode === 'browse'}
+              onChange={() => setMode('browse')}
+              className="accent-[var(--color-accent)]"
+            />
+            <span>Browse &amp; Import</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="bsky-mode"
+              value="bulk"
+              checked={mode === 'bulk'}
+              onChange={() => setMode('bulk')}
+              className="accent-[var(--color-accent)]"
+            />
+            <span>Bulk Import</span>
+          </label>
+        </div>
+      </fieldset>
 
       {/* Loading */}
       {loading && (
@@ -237,17 +273,51 @@ export default function BlueskyFeedsPage() {
             <div id="bsky-recipes" className="sr-only" />
             {filtered.map((item) => {
               const isSelected = selected.has(item.atUri);
+              const photo = item.recipe.photoUrl ? (
+                <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
+                  <img src={item.recipe.photoUrl} alt={item.recipe.title} className="w-full h-full object-cover" loading="lazy" />
+                </div>
+              ) : pixabayActive ? (
+                <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
+                  <PixabayImage recipe={{ id: item.atUri, title: item.recipe.title }} apiKey={pixabayKey!} alt={item.recipe.title} />
+                </div>
+              ) : null;
+
+              const titleBlock = (
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-sm leading-snug mb-1 line-clamp-2">{item.recipe.title}</h3>
+                  <p className="text-xs text-[var(--color-text-secondary)]">@{item.handle}</p>
+                </div>
+              );
+
+              const tags = item.recipe.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {item.recipe.tags.filter((t) => t !== 'bluesky').slice(0, 4).map((t) => (
+                    <span key={t} className="tag text-[10px]">{t}</span>
+                  ))}
+                </div>
+              );
+
+              if (mode === 'browse') {
+                const path = '/at/' + item.atUri.replace(/^at:\/\//, '');
+                return (
+                  <Link
+                    key={item.atUri}
+                    to={path}
+                    className="card rounded-xl overflow-hidden flex flex-col transition-colors hover:border-[var(--color-accent)]"
+                  >
+                    {photo}
+                    <div className="p-4 flex-1 flex flex-col">
+                      {titleBlock}
+                      {tags}
+                    </div>
+                  </Link>
+                );
+              }
+
               return (
                 <label key={item.atUri} className={`card rounded-xl overflow-hidden flex flex-col cursor-pointer transition-colors group ${isSelected ? 'border-[var(--color-accent)]' : ''}`}>
-                  {item.recipe.photoUrl ? (
-                    <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
-                      <img src={item.recipe.photoUrl} alt={item.recipe.title} className="w-full h-full object-cover" loading="lazy" />
-                    </div>
-                  ) : pixabayActive ? (
-                    <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
-                      <PixabayImage recipe={{ id: item.atUri, title: item.recipe.title }} apiKey={pixabayKey!} alt={item.recipe.title} />
-                    </div>
-                  ) : null}
+                  {photo}
                   <div className="p-4 flex-1 flex flex-col">
                     <div className="flex items-start gap-3">
                       <input
@@ -256,18 +326,9 @@ export default function BlueskyFeedsPage() {
                         onChange={() => toggleSelect(item.atUri)}
                         className="mt-1 w-4 h-4 shrink-0 accent-[var(--color-accent)]"
                       />
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm leading-snug mb-1 line-clamp-2">{item.recipe.title}</h3>
-                        <p className="text-xs text-[var(--color-text-secondary)]">@{item.handle}</p>
-                      </div>
+                      {titleBlock}
                     </div>
-                    {item.recipe.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {item.recipe.tags.filter((t) => t !== 'bluesky').slice(0, 4).map((t) => (
-                          <span key={t} className="tag text-[10px]">{t}</span>
-                        ))}
-                      </div>
-                    )}
+                    {tags}
                   </div>
                   {isSelected && selected.size > 0 && (
                     <button type="button" onClick={(e) => { e.preventDefault(); handleBulkImport(); }} className="hidden group-focus-within:block btn-primary text-xs mx-3 mb-3 w-[calc(100%-1.5rem)]">
@@ -279,7 +340,7 @@ export default function BlueskyFeedsPage() {
             })}
           </ImportGrid>
 
-          {selected.size > 0 && (
+          {mode === 'bulk' && selected.size > 0 && (
             <div className="sticky bottom-4 mt-6 flex justify-center">
               <button
                 type="button"

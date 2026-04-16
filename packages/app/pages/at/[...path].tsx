@@ -19,12 +19,19 @@ function getAtPath(): string | null {
   return match ? match[1] : null;
 }
 
+/** Decode each path segment so URL-encoded colons (did%3Aplc%3A...) are restored. */
+function decodeSegments(path: string): string {
+  return path.replace(/^:\/\//, '').split('/').map((s) => {
+    try { return decodeURIComponent(s); } catch { return s; }
+  }).join('/');
+}
+
 function buildAtUri(wildcard: string): string {
-  return `at://${wildcard.replace(/^:\/\//, '')}`;
+  return `at://${decodeSegments(wildcard)}`;
 }
 
 function validateAtUri(path: string): string | null {
-  const parts = path.replace(/^:\/\//, '').split('/');
+  const parts = decodeSegments(path).split('/');
   if (parts.length < 3) return 'Incomplete AT URI — expected did/collection/rkey';
   const [did, collection] = parts;
   if (!did.startsWith('did:')) return `Invalid DID format: "${did}" — must start with did:`;

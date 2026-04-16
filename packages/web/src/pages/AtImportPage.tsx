@@ -11,16 +11,21 @@ import AtRecipeDetail from '@pantry-host/shared/components/AtRecipeDetail';
 import type { ParsedRecipe } from '@pantry-host/shared/bluesky';
 import { gql } from '@/lib/gql';
 
+/** Decode each path segment so URL-encoded colons (did%3Aplc%3A...) are restored. */
+function decodeSegments(path: string): string {
+  return path.replace(/^:\/\//, '').split('/').map((s) => {
+    try { return decodeURIComponent(s); } catch { return s; }
+  }).join('/');
+}
+
 /** Reconstruct the AT URI from the wildcard path segments. */
 function buildAtUri(wildcard: string): string {
-  // Strip leading :// if present (handles /at://did:plc:.../...)
-  const cleaned = wildcard.replace(/^:\/\//, '');
-  return `at://${cleaned}`;
+  return `at://${decodeSegments(wildcard)}`;
 }
 
 /** Validate the AT URI components and return an error message or null. */
 function validateAtUri(path: string): string | null {
-  const parts = path.replace(/^:\/\//, '').split('/');
+  const parts = decodeSegments(path).split('/');
   if (parts.length < 3) return 'Incomplete AT URI — expected did/collection/rkey';
   const [did, collection, rkey] = parts;
   if (!did.startsWith('did:')) return `Invalid DID format: "${did}" — must start with did:`;

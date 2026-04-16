@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { gql } from '@/lib/gql';
 import { listBlueskyRecipes, blueskyToRecipe, type ParsedRecipe, type BlueskyRecipeRecord } from '@pantry-host/shared/bluesky';
@@ -63,6 +63,14 @@ export default function BlueskyFeedsPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [serverFeedAvailable, setServerFeedAvailable] = useState(true);
+
+  // Focus + screen-reader handling for Load more: we remember the index of
+  // the first newly-appended card and, after React paints, move keyboard
+  // focus there so Tab continues naturally and the SR announces where they
+  // landed. `announcement` feeds an aria-live region.
+  const focusIdxRef = useRef<number | null>(null);
+  const loadMoreBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [announcement, setAnnouncement] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -136,14 +144,40 @@ export default function BlueskyFeedsPage() {
           handle: r.handle,
           recipe: blueskyToRecipe(r.value, r.atUri, r.handle),
         }));
-        setRecipes((prev) => [...prev, ...converted]);
+        // Remember the pre-append length so the effect below can focus the
+        // first *new* card after React paints.
+        setRecipes((prev) => {
+          focusIdxRef.current = prev.length;
+          return [...prev, ...converted];
+        });
         setCursor(data.cursor);
+        setAnnouncement(`Loaded ${converted.length} more recipes.${data.cursor ? '' : ' End of feed.'}`);
       }
     } catch {
       // ignore — button stays enabled for retry
     }
     setLoadingMore(false);
   }
+
+  // After the grid re-renders with new cards, move keyboard focus to the
+  // first new card so Tab continues naturally and screen readers announce
+  // the new context.
+  useEffect(() => {
+    if (focusIdxRef.current === null) return;
+    const idx = focusIdxRef.current;
+    focusIdxRef.current = null;
+    requestAnimationFrame(() => {
+      const cards = document.querySelectorAll<HTMLElement>('[data-bsky-card]');
+      const target = cards[idx];
+      if (target) {
+        // Labels aren't focusable natively; setting tabindex=-1 lets us
+        // programmatically focus without disrupting the tab order.
+        if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+        target.focus({ preventScroll: false });
+        target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+  }, [recipes.length]);
 
   const categories = new Set<string>();
   const cuisines = new Set<string>();
@@ -232,7 +266,7 @@ export default function BlueskyFeedsPage() {
           <svg fill="currentColor" viewBox={BLUESKY_VIEWBOX} width={28} height={24} aria-hidden="true" className="opacity-60 shrink-0">
             <path d={BLUESKY_PATH} />
           </svg>
-          <h1 className="text-3xl font-bold">Bluesky Recipes</h1>
+          <h1 id="bluesky-recipes" className="text-3xl font-bold">Bluesky Recipes</h1>
         </div>
         <p className="text-sm text-[var(--color-text-secondary)]">
           Browsing {loading ? '…' : `${recipes.length} recipes from ${new Set(recipes.map((r) => r.handle)).size} publishers`} on AT Protocol
@@ -334,7 +368,7 @@ export default function BlueskyFeedsPage() {
                 </div>
               ) : pixabayActive ? (
                 <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
-                  <PixabayImage recipe={{ id: item.atUri, title: item.recipe.title }} apiKey={pixabayKey!} alt={item.recipe.title} />
+                  <PixabayImage recipe={{ id: item.atUri, title: item.recipe.title }} apiKey={pixabayKey!} alt={item.recipe.title} inCard />
                 </div>
               ) : null;
 
@@ -359,6 +393,7 @@ export default function BlueskyFeedsPage() {
                   <Link
                     key={item.atUri}
                     to={path}
+                    data-bsky-card
                     className="card rounded-xl overflow-hidden flex flex-col transition-colors hover:border-[var(--color-accent)]"
                   >
                     {photo}
@@ -371,7 +406,7 @@ export default function BlueskyFeedsPage() {
               }
 
               return (
-                <label key={item.atUri} className={`card rounded-xl overflow-hidden flex flex-col cursor-pointer transition-colors group ${isSelected ? 'border-[var(--color-accent)]' : ''}`}>
+                <label key={item.atUri} data-bsky-card className={`card rounded-xl overflow-hidden flex flex-col cursor-pointer transition-colors group ${isSelected ? 'border-[var(--color-accent)]' : ''}`}>
                   {photo}
                   <div className="p-4 flex-1 flex flex-col">
                     <div className="flex items-start gap-3">
@@ -411,15 +446,23 @@ export default function BlueskyFeedsPage() {
           {serverFeedAvailable && cursor && (
             <div className="mt-6 flex justify-center">
               <button
+                ref={loadMoreBtnRef}
                 type="button"
                 onClick={loadMore}
                 disabled={loadingMore}
+                aria-busy={loadingMore}
+                aria-describedby="bluesky-recipes"
                 className="btn-secondary disabled:opacity-50"
               >
                 {loadingMore ? 'Loading…' : 'Load more'}
               </button>
             </div>
           )}
+
+          {/* SR-only live region for "Loaded N more recipes" updates. */}
+          <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+            {announcement}
+          </div>
         </>
       )}
 

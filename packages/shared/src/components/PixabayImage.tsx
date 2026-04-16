@@ -35,6 +35,15 @@ interface Props {
    *  for loading/miss states. Use on detail pages where a blank space
    *  is better than a faint icon in a hero slot. */
   hidePlaceholder?: boolean;
+  /** When true, the attribution overlay is rendered visually but
+   *  removed from the tab order and the a11y tree. Use inside card
+   *  grids so a 50-card feed is still 50 tab stops, not 150 — one
+   *  card's Link is the single tab stop, not three. Pixabay's
+   *  Content License makes attribution optional, so visual-only
+   *  display on cards is terms-compliant. Detail pages should leave
+   *  this false (the default) — the credits belong in the tab order
+   *  there, one stop away from the hero. */
+  inCard?: boolean;
 }
 
 type State =
@@ -47,7 +56,7 @@ type State =
 // key is bad or rate-limited, not once per recipe card.
 let warnedThisSession = false;
 
-export default function PixabayImage({ recipe, apiKey, alt, hidePlaceholder }: Props) {
+export default function PixabayImage({ recipe, apiKey, alt, hidePlaceholder, inCard }: Props) {
   const [state, setState] = useState<State>(() => {
     const cached = getPixabayCacheEntry(recipe.id);
     if (!cached) return { status: 'idle' };
@@ -103,7 +112,11 @@ export default function PixabayImage({ recipe, apiKey, alt, hidePlaceholder }: P
             }}
           />
         </picture>
-        <div className="absolute bottom-0 left-0 right-0 px-2 py-1 text-white text-[10px] leading-tight truncate text-right" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div
+          className="absolute bottom-0 left-0 right-0 px-2 py-1 text-white text-[10px] leading-tight truncate text-right"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          aria-hidden={inCard ? true : undefined}
+        >
           Photo by{' '}
           <a
             href={withPixabayUtm(hit.pageUrl)}
@@ -111,6 +124,7 @@ export default function PixabayImage({ recipe, apiKey, alt, hidePlaceholder }: P
             rel="noopener noreferrer"
             className="underline"
             onClick={(e) => e.stopPropagation()}
+            tabIndex={inCard ? -1 : undefined}
           >
             {hit.photographerName}
           </a>{' '}
@@ -121,6 +135,7 @@ export default function PixabayImage({ recipe, apiKey, alt, hidePlaceholder }: P
             rel="noopener noreferrer"
             className="underline"
             onClick={(e) => e.stopPropagation()}
+            tabIndex={inCard ? -1 : undefined}
           >
             Pixabay
           </a>

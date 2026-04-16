@@ -91,7 +91,7 @@ function RecipeCard({
       )}
       {imageZone === 'pixabay' && (
         <Link to={`/recipes/${recipe.slug || recipe.id}#stage`} className="block overflow-hidden" tabIndex={-1} aria-hidden="true">
-          <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey!} alt={recipe.title} />
+          <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey!} alt={recipe.title} inCard />
         </Link>
       )}
       {imageZone === 'placeholder' && (

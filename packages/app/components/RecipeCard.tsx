@@ -191,6 +191,7 @@ export default function RecipeCard({ recipe, recipesBase = '/recipes' }: Props) 
             recipe={{ id: recipe.id, title: recipe.title }}
             apiKey={pixabayKey!}
             alt={recipe.title}
+            inCard
           />
         </a>
       )}

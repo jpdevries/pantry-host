@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { gql } from '@/lib/gql';
 import { listBlueskyRecipes, blueskyToRecipe, type ParsedRecipe, type BlueskyRecipeRecord } from '@pantry-host/shared/bluesky';
 import ImportGrid, { captureActiveElement } from '@pantry-host/shared/components/ImportGrid';
@@ -70,6 +70,11 @@ export default function BlueskyFeedsPage({ kitchen }: Props) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [serverFeedAvailable, setServerFeedAvailable] = useState(true);
 
+  // Focus + screen-reader handling for Load more.
+  const focusIdxRef = useRef<number | null>(null);
+  const loadMoreBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [announcement, setAnnouncement] = useState('');
+
   useEffect(() => {
     (async () => {
       try {
@@ -140,14 +145,33 @@ export default function BlueskyFeedsPage({ kitchen }: Props) {
           handle: r.handle,
           recipe: blueskyToRecipe(r.value, r.atUri, r.handle),
         }));
-        setRecipes((prev) => [...prev, ...converted]);
+        setRecipes((prev) => {
+          focusIdxRef.current = prev.length;
+          return [...prev, ...converted];
+        });
         setCursor(data.cursor);
+        setAnnouncement(`Loaded ${converted.length} more recipes.${data.cursor ? '' : ' End of feed.'}`);
       }
     } catch {
       // ignore — button stays enabled for retry
     }
     setLoadingMore(false);
   }
+
+  useEffect(() => {
+    if (focusIdxRef.current === null) return;
+    const idx = focusIdxRef.current;
+    focusIdxRef.current = null;
+    requestAnimationFrame(() => {
+      const cards = document.querySelectorAll<HTMLElement>('[data-bsky-card]');
+      const target = cards[idx];
+      if (target) {
+        if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+        target.focus({ preventScroll: false });
+        target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+  }, [recipes.length]);
 
   const categories = new Set<string>();
   const cuisines = new Set<string>();
@@ -236,7 +260,7 @@ export default function BlueskyFeedsPage({ kitchen }: Props) {
           <svg fill="currentColor" viewBox={BLUESKY_VIEWBOX} width={28} height={24} aria-hidden="true" className="opacity-60 shrink-0">
             <path d={BLUESKY_PATH} />
           </svg>
-          <h1 className="text-4xl font-bold">Bluesky Recipes</h1>
+          <h1 id="bluesky-recipes" className="text-4xl font-bold">Bluesky Recipes</h1>
         </div>
         <p className="text-sm text-[var(--color-text-secondary)]">
           Browsing {loading ? '…' : `${recipes.length} recipes from ${new Set(recipes.map((r) => r.handle)).size} publishers`} on AT Protocol
@@ -334,7 +358,7 @@ export default function BlueskyFeedsPage({ kitchen }: Props) {
                 </div>
               ) : pixabayActive ? (
                 <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
-                  <PixabayImage recipe={{ id: item.atUri, title: item.recipe.title }} apiKey={pixabayKey!} alt={item.recipe.title} />
+                  <PixabayImage recipe={{ id: item.atUri, title: item.recipe.title }} apiKey={pixabayKey!} alt={item.recipe.title} inCard />
                 </div>
               ) : null;
 
@@ -359,6 +383,7 @@ export default function BlueskyFeedsPage({ kitchen }: Props) {
                   <a
                     key={item.atUri}
                     href={path}
+                    data-bsky-card
                     className="card rounded-xl overflow-hidden flex flex-col transition-colors hover:border-accent"
                   >
                     {photo}
@@ -371,7 +396,7 @@ export default function BlueskyFeedsPage({ kitchen }: Props) {
               }
 
               return (
-                <label key={item.atUri} className={`card rounded-xl overflow-hidden flex flex-col cursor-pointer transition-colors group ${isSelected ? 'border-accent' : ''}`}>
+                <label key={item.atUri} data-bsky-card className={`card rounded-xl overflow-hidden flex flex-col cursor-pointer transition-colors group ${isSelected ? 'border-accent' : ''}`}>
                   {photo}
                   <div className="p-4 flex-1 flex flex-col">
                     <div className="flex items-start gap-3">
@@ -411,15 +436,22 @@ export default function BlueskyFeedsPage({ kitchen }: Props) {
           {serverFeedAvailable && cursor && (
             <div className="mt-6 flex justify-center">
               <button
+                ref={loadMoreBtnRef}
                 type="button"
                 onClick={loadMore}
                 disabled={loadingMore}
+                aria-busy={loadingMore}
+                aria-describedby="bluesky-recipes"
                 className="btn-secondary disabled:opacity-50"
               >
                 {loadingMore ? 'Loading…' : 'Load more'}
               </button>
             </div>
           )}
+
+          <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+            {announcement}
+          </div>
         </>
       )}
 

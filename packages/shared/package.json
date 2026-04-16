@@ -34,10 +34,12 @@
     "./cocktaildb": "./src/cocktaildb.ts",
     "./recipe-api": "./src/recipe-api.ts",
     "./bluesky": "./src/bluesky.ts",
+    "./bluesky-import": "./src/bluesky-import.ts",
     "./pixabay": "./src/pixabay.ts",
     "./components/PixabayImage": "./src/components/PixabayImage.tsx",
     "./import-utils": "./src/import-utils.ts",
     "./components/AtRecipeDetail": "./src/components/AtRecipeDetail.tsx",
+    "./components/AtMenuDetail": "./src/components/AtMenuDetail.tsx",
     "./components/QRCodeModal": "./src/components/QRCodeModal.tsx"
   },
   "peerDependencies": {

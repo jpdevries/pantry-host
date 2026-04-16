@@ -1,20 +1,25 @@
 /**
- * AT Protocol recipe import page — self-hosted app (Rex).
+ * AT Protocol import page — self-hosted app (Rex).
  *
  * Catch-all route for /at/*. Parses the AT URI from window.location.pathname
- * (Rex's useRouter().query is unreliable in prod — gotcha #9).
+ * (Rex's useRouter().query is unreliable in prod — gotcha #9), detects whether
+ * the record is a recipe or a collection (menu), and dispatches to the
+ * appropriate shared detail component.
  */
 import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import AtRecipeDetail from '@pantry-host/shared/components/AtRecipeDetail';
+import AtMenuDetail from '@pantry-host/shared/components/AtMenuDetail';
 import type { ParsedRecipe } from '@pantry-host/shared/bluesky';
 import { gql } from '@/lib/gql';
+
+const LEXICON_RECIPE = 'exchange.recipe.recipe';
+const LEXICON_COLLECTION = 'exchange.recipe.collection';
 
 /** Extract the AT URI path from the current URL pathname. */
 function getAtPath(): string | null {
   if (typeof window === 'undefined') return null;
   const path = window.location.pathname;
-  // Strip /at/ prefix
   const match = path.match(/^\/at\/(.+)$/);
   return match ? match[1] : null;
 }
@@ -30,14 +35,17 @@ function buildAtUri(wildcard: string): string {
   return `at://${decodeSegments(wildcard)}`;
 }
 
-function validateAtUri(path: string): string | null {
+function parseAtPath(path: string): { ok: true; collection: string } | { ok: false; error: string } {
   const parts = decodeSegments(path).split('/');
-  if (parts.length < 3) return 'Incomplete AT URI — expected did/collection/rkey';
-  const [did, collection] = parts;
-  if (!did.startsWith('did:')) return `Invalid DID format: "${did}" — must start with did:`;
-  if (!collection.includes('.')) return `Invalid collection format: "${collection}" — must be a valid NSID`;
-  if (collection !== 'exchange.recipe.recipe') return `Unsupported record type: "${collection}" — only recipes can be imported`;
-  return null;
+  if (parts.length < 3) return { ok: false, error: 'Incomplete AT URI — expected did/collection/rkey' };
+  const [did, collection, rkey] = parts;
+  if (!did.startsWith('did:')) return { ok: false, error: `Invalid DID format: "${did}" — must start with did:` };
+  if (!collection.includes('.')) return { ok: false, error: `Invalid collection format: "${collection}" — must be a valid NSID` };
+  if (collection !== LEXICON_RECIPE && collection !== LEXICON_COLLECTION) {
+    return { ok: false, error: `Unsupported record type: "${collection}" — only exchange.recipe.recipe and exchange.recipe.collection are supported` };
+  }
+  if (!rkey || rkey.length < 5) return { ok: false, error: `Invalid record key: "${rkey}"` };
+  return { ok: true, collection };
 }
 
 const CREATE_RECIPE = `
@@ -57,6 +65,7 @@ const CREATE_RECIPE = `
 `;
 
 const RECIPES_QUERY = `{ recipes { id slug sourceUrl } }`;
+const MENUS_QUERY = `{ menus { id slug } }`;
 
 export default function AtImportAppPage() {
   const [wildcard, setWildcard] = useState<string | null>(null);
@@ -68,7 +77,7 @@ export default function AtImportAppPage() {
   if (wildcard === null) {
     return (
       <>
-        <Head><title>Import Recipe | Pantry Host</title></Head>
+        <Head><title>Importing from AT Protocol | Pantry Host</title></Head>
         <div className="max-w-3xl mx-auto py-12 px-4">
           <p className="text-[var(--color-text-secondary)]">Loading…</p>
         </div>
@@ -79,7 +88,7 @@ export default function AtImportAppPage() {
   if (!wildcard) {
     return (
       <>
-        <Head><title>Import Recipe | Pantry Host</title></Head>
+        <Head><title>Importing from AT Protocol | Pantry Host</title></Head>
         <div className="max-w-3xl mx-auto py-12 px-4">
           <p className="text-[var(--color-text-secondary)]">No AT URI provided.</p>
         </div>
@@ -87,15 +96,15 @@ export default function AtImportAppPage() {
     );
   }
 
-  const validationError = validateAtUri(wildcard);
-  if (validationError) {
+  const parsed = parseAtPath(wildcard);
+  if (!parsed.ok) {
     return (
       <>
         <Head><title>Invalid AT URI | Pantry Host</title></Head>
         <div className="max-w-3xl mx-auto py-12 px-4">
           <div className="card p-6">
             <p className="font-semibold mb-1">Invalid AT URI</p>
-            <p className="text-sm text-[var(--color-text-secondary)]">{validationError}</p>
+            <p className="text-sm text-[var(--color-text-secondary)]">{parsed.error}</p>
           </div>
         </div>
       </>
@@ -104,19 +113,24 @@ export default function AtImportAppPage() {
 
   const atUri = buildAtUri(wildcard);
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const isMenu = parsed.collection === LEXICON_COLLECTION;
 
   return (
     <>
       <Head>
-        <title>Import Recipe | Pantry Host</title>
-        <meta name="description" content="Import a recipe from the AT Protocol network into your Pantry Host." />
+        <title>{isMenu ? 'Import Menu' : 'Import Recipe'} | Pantry Host</title>
+        <meta name="description" content={isMenu ? 'Import a menu (collection) from the AT Protocol network into your Pantry Host.' : 'Import a recipe from the AT Protocol network into your Pantry Host.'} />
       </Head>
-      <AtImportInner atUri={atUri} shareUrl={shareUrl} />
+      {isMenu
+        ? <MenuBranch atUri={atUri} shareUrl={shareUrl} />
+        : <RecipeBranch atUri={atUri} shareUrl={shareUrl} />}
     </>
   );
 }
 
-function AtImportInner({ atUri, shareUrl }: { atUri: string; shareUrl: string }) {
+// ── Recipe branch ──────────────────────────────────────────────────────
+
+function RecipeBranch({ atUri, shareUrl }: { atUri: string; shareUrl: string }) {
   const handleImport = useCallback(async (recipe: ParsedRecipe) => {
     const data = await gql<{ createRecipe: { id: string; slug: string } }>(CREATE_RECIPE, {
       title: recipe.title,
@@ -155,6 +169,33 @@ function AtImportInner({ atUri, shareUrl }: { atUri: string; shareUrl: string })
       onImport={handleImport}
       checkDuplicate={checkDuplicate}
       renderRecipeLink={renderRecipeLink}
+    />
+  );
+}
+
+// ── Menu branch ────────────────────────────────────────────────────────
+
+function MenuBranch({ atUri, shareUrl }: { atUri: string; shareUrl: string }) {
+  const checkDuplicate = useCallback(async (_sourceUrl: string) => {
+    try {
+      await gql<{ menus: { id: string; slug: string }[] }>(MENUS_QUERY);
+    } catch { /* noop */ }
+    return null;
+  }, []);
+
+  const renderMenuLink = useCallback((slug: string, children: React.ReactNode) => (
+    <a href={`/menus/${slug}#stage`}>{children}</a>
+  ), []);
+
+  return (
+    <AtMenuDetail
+      atUri={atUri}
+      shareUrl={shareUrl}
+      menuBasePath="/menus"
+      recipeAtBase="/at"
+      gql={gql}
+      checkDuplicate={checkDuplicate}
+      renderMenuLink={renderMenuLink}
     />
   );
 }

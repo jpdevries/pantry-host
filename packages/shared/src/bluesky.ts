@@ -366,11 +366,13 @@ export async function fetchBlueskyRecipe(atUri: string): Promise<ParsedRecipe> {
   return blueskyToRecipe(record.value as BlueskyRecipeRecord, atUri, handle);
 }
 
-/** Fetch a collection and return its metadata + recipe URIs. */
+/** Fetch a collection and return its metadata + recipe URIs + best-effort handle. */
 export async function fetchBlueskyCollection(atUri: string): Promise<{
   name: string;
   description: string | null;
   recipeUris: string[];
+  /** Author handle resolved from the DID, or undefined if lookup failed. */
+  handle?: string;
 }> {
   const parsed = parseAtUri(atUri);
   if (!parsed || !isCollectionUri(parsed)) {
@@ -378,10 +380,22 @@ export async function fetchBlueskyCollection(atUri: string): Promise<{
   }
   const record = await getRecord<BlueskyCollectionRecord>(parsed.repo, parsed.collection, parsed.rkey);
   const val = record.value as BlueskyCollectionRecord;
+  // Best-effort: resolve the DID to a handle for attribution. Same pattern as fetchBlueskyRecipe.
+  let handle: string | undefined;
+  try {
+    if (parsed.repo.startsWith('did:')) {
+      const url = `${XRPC_BASE}/com.atproto.repo.describeRepo?repo=${encodeURIComponent(parsed.repo)}`;
+      const res = await fetch(url);
+      if (res.ok) handle = (await res.json()).handle;
+    } else {
+      handle = parsed.repo;
+    }
+  } catch { /* attribution is best-effort */ }
   return {
     name: val.name,
     description: val.text ?? null,
     recipeUris: val.recipes.map((r) => r.uri),
+    handle,
   };
 }
 

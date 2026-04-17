@@ -189,7 +189,7 @@ export default function Layout() {
         </a>
       </header>
 
-      <main id="stage" className="max-w-5xl mx-auto px-4 sm:px-6 py-8 scroll-mt-20">
+      <main id="stage" className="group/stage max-w-5xl mx-auto px-4 sm:px-6 py-8 scroll-mt-20">
         <Outlet />
       </main>
       <Footer />

@@ -41,17 +41,25 @@ function recipeSourceHasImages(recipe: { sourceUrl: string | null }): boolean {
 
 const TOGGLE_QUEUED = `mutation($id: String!) { toggleRecipeQueued(id: $id) { id queued } }`;
 
+type KeyboardMode = 'nav-and-queue' | 'nav-only' | 'queue-only';
+
 function RecipeCard({
   recipe,
   onToggleQueue,
   pixabayKey,
   pixabayEnabled,
+  keyboardMode,
 }: {
   recipe: Recipe;
   onToggleQueue: (id: string) => void;
   pixabayKey: string | null;
   pixabayEnabled: boolean;
+  keyboardMode: KeyboardMode;
 }) {
+  // tabIndex={-1} only removes elements from the keyboard tab order;
+  // mouse clicks and assistive-tech navigation-by-role still work.
+  const titleTabIndex = keyboardMode === 'queue-only' ? -1 : undefined;
+  const queueTabIndex = keyboardMode === 'nav-only' ? -1 : undefined;
   const [photoSrc, setPhotoSrc] = useState<string | null>(null);
   const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0);
   const visibleTags = recipe.tags.filter((t) => !HIDDEN_TAGS.has(t.toLowerCase()));
@@ -103,6 +111,7 @@ function RecipeCard({
         <Link
           to={`/recipes/${recipe.slug || recipe.id}#stage`}
           className="font-bold text-base leading-snug hover:underline line-clamp-2"
+          tabIndex={titleTabIndex}
         >
           {recipe.title}
         </Link>
@@ -111,6 +120,7 @@ function RecipeCard({
           onClick={(e) => { e.preventDefault(); onToggleQueue(recipe.id); }}
           aria-label={recipe.queued ? `Remove ${recipe.title} from list` : `Add ${recipe.title} to list`}
           aria-pressed={recipe.queued}
+          tabIndex={queueTabIndex}
           className={`add-to-list-cta w-7 h-7 flex items-center justify-center shrink-0 ${recipe.queued ? 'is-active' : ''}`}
         >
           <ShoppingCart size={14} aria-hidden />
@@ -195,6 +205,18 @@ export default function RecipesPage() {
   const [loading, setLoading] = useState(true);
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const pixabay = usePixabaySettings();
+
+  // Keyboard-flow mode. Revealed only on focus-within of <main id="stage">
+  // (the Layout adds `group/stage`). Default: current two-tab-per-card
+  // behavior. Persisted so power users don't re-pick on every visit.
+  const [keyboardMode, setKeyboardMode] = useState<KeyboardMode>(() => {
+    if (typeof window === 'undefined') return 'nav-and-queue';
+    const v = localStorage.getItem('recipes-grid-keyboard-mode');
+    return (v === 'nav-only' || v === 'queue-only' || v === 'nav-and-queue') ? v : 'nav-and-queue';
+  });
+  useEffect(() => {
+    if (typeof window !== 'undefined') localStorage.setItem('recipes-grid-keyboard-mode', keyboardMode);
+  }, [keyboardMode]);
 
   useEffect(() => {
     gql<{ recipes: Recipe[] }>(RECIPES_QUERY)
@@ -321,17 +343,50 @@ export default function RecipesPage() {
             : 'No recipes match your search.'}
         </p>
       ) : (
-        <div id="recipe-list" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((r) => (
-            <RecipeCard
-              key={r.id}
-              recipe={r}
-              onToggleQueue={handleToggleQueue}
-              pixabayKey={pixabay.key}
-              pixabayEnabled={pixabay.enabled}
-            />
-          ))}
-        </div>
+        <>
+          {/* Keyboard-flow toggle — hidden at rest, revealed only when
+              <main id="stage"> gains focus-within (Layout adds group/stage).
+              Lets keyboard users halve their tab stops per card. Mouse
+              and touch users never see this. */}
+          <fieldset
+            className="mb-6 card p-3 text-sm opacity-0 pointer-events-none transition-opacity duration-150 group-focus-within/stage:opacity-100 group-focus-within/stage:pointer-events-auto"
+            aria-label="Keyboard navigation mode"
+          >
+            <legend className="px-2 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">User Flow</legend>
+            <div className="flex flex-wrap gap-4 px-2">
+              {([
+                { value: 'nav-and-queue', label: 'Navigate & queue' },
+                { value: 'nav-only', label: 'Navigate only' },
+                { value: 'queue-only', label: 'Queue only' },
+              ] as const).map((opt) => (
+                <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="recipes-grid-keyboard-mode"
+                    value={opt.value}
+                    checked={keyboardMode === opt.value}
+                    onChange={() => setKeyboardMode(opt.value)}
+                    className="accent-[var(--color-accent)]"
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <div id="recipe-list" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filtered.map((r) => (
+              <RecipeCard
+                key={r.id}
+                recipe={r}
+                onToggleQueue={handleToggleQueue}
+                pixabayKey={pixabay.key}
+                pixabayEnabled={pixabay.enabled}
+                keyboardMode={keyboardMode}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

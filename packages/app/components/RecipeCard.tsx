@@ -122,14 +122,25 @@ interface Recipe {
   queued: boolean;
 }
 
+type KeyboardMode = 'nav-and-queue' | 'nav-only' | 'queue-only';
+
 interface Props {
   recipe: Recipe;
   recipesBase?: string;
+  /**
+   * Controls keyboard tab-stop density per card. Set by the /recipes
+   * grid's focus-within-revealed User Flow toggle. tabIndex={-1} only
+   * removes elements from the keyboard tab order — mouse clicks and
+   * assistive-tech navigation-by-role still work.
+   */
+  keyboardMode?: KeyboardMode;
 }
 
 const TOGGLE_QUEUED = `mutation ToggleQueued($id: String!) { toggleRecipeQueued(id: $id) { id queued } }`;
 
-export default function RecipeCard({ recipe, recipesBase = '/recipes' }: Props) {
+export default function RecipeCard({ recipe, recipesBase = '/recipes', keyboardMode = 'nav-and-queue' }: Props) {
+  const titleTabIndex = keyboardMode === 'queue-only' ? -1 : undefined;
+  const queueTabIndex = keyboardMode === 'nav-only' ? -1 : undefined;
   const pixabay = usePixabaySettings();
   const pixabayKey = pixabay.key;
   const pixabayEnabled = pixabay.enabled;
@@ -204,6 +215,7 @@ export default function RecipeCard({ recipe, recipesBase = '/recipes' }: Props) 
         <a
           href={`${recipesBase}/${recipe.slug ?? recipe.id}#stage`}
           className="font-bold text-base leading-snug hover:text-accent transition-colors line-clamp-2"
+          tabIndex={titleTabIndex}
         >
           {recipe.title}
         </a>
@@ -214,6 +226,7 @@ export default function RecipeCard({ recipe, recipesBase = '/recipes' }: Props) 
             disabled={toggling}
             aria-label={queued ? `Remove ${recipe.title} from list` : `Add ${recipe.title} to list`}
             aria-pressed={queued}
+            tabIndex={queueTabIndex}
             className={`add-to-list-cta w-7 h-7 flex items-center justify-center ${
               queued ? 'is-active' : ''
             }`}

@@ -16,7 +16,7 @@ import PixabayImage from '@pantry-host/shared/components/PixabayImage';
 import Modal from '@pantry-host/shared/components/Modal';
 import { NutritionFacts } from '@pantry-host/shared/components/NutritionFacts';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
-import { resolveGroceryStatus, pantryIndex } from '@pantry-host/shared/grocery-status';
+import { resolveGroceryStatus, pantryIndex, findPantryItem } from '@pantry-host/shared/grocery-status';
 import { isOwner } from '@/lib/isTrustedNetwork';
 
 interface RecipeIngredient {
@@ -319,7 +319,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
     const index = pantryIndex(pantry);
     const autoChecked = new Set<number>();
     recipe.ingredients.forEach((ing, i) => {
-      const match = index.get((ing.ingredientName ?? '').toLowerCase());
+      const match = findPantryItem(index, ing.ingredientName);
       if (resolveGroceryStatus(match, ing) === 'have') autoChecked.add(i);
     });
     pantryAutoCheckedRef.current = true;

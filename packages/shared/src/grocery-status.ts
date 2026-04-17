@@ -63,17 +63,103 @@ function toTotal(row: {
 }
 
 /**
- * Build a lowercase-keyed lookup from a pantry list. Callers usually
- * cache this at the top of a render/effect so every ingredient in the
- * loop does a cheap Map.get().
+ * Normalize an ingredient name for matching. Strips:
+ * - prep notes after the first comma (", softened", ", diced", ", to taste")
+ * - parenthetical annotations ("(8 oz)", "(about 2 cups)")
+ * - leading articles ("a ", "an ", "the ")
+ * - leading/trailing whitespace; collapses internal runs of whitespace
+ * Then lowercases the result.
+ *
+ * "Cream cheese, softened" → "cream cheese"
+ * "Tomato sauce (15 oz can)" → "tomato sauce"
+ * "A pinch of salt" → "pinch of salt"
  */
-export function pantryIndex<T extends PantryItemForStatus>(pantry: T[]): Map<string, T> {
-  const map = new Map<string, T>();
+export function normalizeIngredientName(name: string | null | undefined): string {
+  if (!name) return '';
+  return name
+    .replace(/\([^)]*\)/g, ' ')           // drop parentheticals
+    .split(',')[0]                         // drop anything after first comma
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/^(?:a|an|the) /, '');       // drop leading article
+}
+
+/**
+ * Lookup index built from a pantry list. Holds three tiers:
+ *   - exact: lowercased-name → item (preserves "Philadelphia Cream Cheese"
+ *     as distinct from "cream cheese" when both are in the pantry)
+ *   - normalized: stripped-name → item (so "cream cheese, softened"
+ *     finds "cream cheese")
+ *   - suffix: single-token pantry names sorted longest-first, so
+ *     "A pinch of salt" → pantry "Salt" via whole-word suffix match.
+ *     Only applied for short pantry names (≤3 words) to limit false
+ *     positives from overly generic terms.
+ *
+ * findPantryItem tries each tier in order. Exact always wins, so existing
+ * behavior is preserved; normalization and suffix match add flexibility
+ * only for names that would otherwise miss.
+ */
+export interface PantryLookup<T extends PantryItemForStatus> {
+  exact: Map<string, T>;
+  normalized: Map<string, T>;
+  /** Pantry items keyed by their normalized name, sorted longest-first
+   * so more-specific names ("olive oil") match before more-generic ones
+   * ("oil") on the same recipe ingredient. */
+  suffixEntries: { key: string; item: T }[];
+}
+
+export function pantryIndex<T extends PantryItemForStatus>(pantry: T[]): PantryLookup<T> {
+  const exact = new Map<string, T>();
+  const normalized = new Map<string, T>();
+  const suffix: { key: string; item: T }[] = [];
   for (const item of pantry) {
     if (!item?.name) continue;
-    map.set(item.name.toLowerCase(), item);
+    exact.set(item.name.toLowerCase(), item);
+    const norm = normalizeIngredientName(item.name);
+    if (!norm) continue;
+    // Earlier entries "win" the normalized slot so exact-intent pantry rows
+    // aren't shadowed by a later, more-specific collision.
+    if (!normalized.has(norm)) normalized.set(norm, item);
+    // Cap suffix match to short names (≤3 words) so "salt", "butter",
+    // "olive oil" participate, but "monterey jack cheese with jalapeno
+    // peppers" doesn't attempt suffix matching.
+    const wordCount = norm.split(' ').length;
+    if (wordCount <= 3) suffix.push({ key: norm, item });
   }
-  return map;
+  // Longest first: "olive oil" beats "oil" when both are in the pantry.
+  suffix.sort((a, b) => b.key.length - a.key.length);
+  return { exact, normalized, suffixEntries: suffix };
+}
+
+/**
+ * Look up a pantry item by recipe ingredient name. Tiers:
+ *   1. Exact lowercase match.
+ *   2. Normalized match (comma-prep notes + parentheticals + leading articles stripped).
+ *   3. Whole-word suffix match (short pantry names matching the tail of a
+ *      longer recipe ingredient, e.g. "A pinch of salt" → "Salt").
+ */
+export function findPantryItem<T extends PantryItemForStatus>(
+  index: PantryLookup<T>,
+  ingredientName: string | null | undefined,
+): T | undefined {
+  if (!ingredientName) return undefined;
+  const lower = ingredientName.toLowerCase();
+  const exact = index.exact.get(lower);
+  if (exact) return exact;
+  const norm = normalizeIngredientName(ingredientName);
+  if (!norm) return undefined;
+  const normalized = index.normalized.get(norm);
+  if (normalized) return normalized;
+  // Tier 3: whole-word suffix match against short pantry names.
+  for (const { key, item } of index.suffixEntries) {
+    // Skip when the pantry key is itself the full recipe name — already
+    // handled by the normalized tier. We only want tail matches.
+    if (key === norm) continue;
+    // Whole-word boundary: recipe name must end with " <key>" (space + key).
+    if (norm.length > key.length && norm.endsWith(' ' + key)) return item;
+  }
+  return undefined;
 }
 
 export function resolveGroceryStatus(

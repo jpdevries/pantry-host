@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { gql } from '@/lib/gql';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
+import { pantryIndex, findPantryItem, type PantryLookup } from '@pantry-host/shared/grocery-status';
 import { MapPin } from '@phosphor-icons/react';
 
 /** Convert a kebab-case tag to Title Case display: "farmers-market" → "Farmers Market" */
@@ -59,7 +60,7 @@ function storageKeyFor(key: string): string {
 export default function GroceryListPage() {
   const kitchen = useKitchen();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [pantryByName, setPantryByName] = useState<Map<string, PantryItem>>(new Map());
+  const [pantryLookup, setPantryLookup] = useState<PantryLookup<PantryItem>>({ exact: new Map(), normalized: new Map() });
   const [checked, setChecked] = useState<Set<string>>(() => loadChecked());
   const [loading, setLoading] = useState(true);
 
@@ -76,9 +77,7 @@ export default function GroceryListPage() {
         gql<{ ingredients: PantryItem[] }>(PANTRY_QUERY, { kitchenSlug: kitchen }),
       ]);
       setRecipes(rd.recipes);
-      const map = new Map<string, PantryItem>();
-      for (const item of pd.ingredients) map.set(item.name.toLowerCase(), item);
-      setPantryByName(map);
+      setPantryLookup(pantryIndex(pd.ingredients));
     } catch (err) {
       console.error(err);
     }
@@ -103,7 +102,7 @@ export default function GroceryListPage() {
 
   function getStores(ingredientName: string): string[] {
     if (harvestLocations.length === 0) return [];
-    const pantryItem = pantryByName.get(ingredientName.toLowerCase());
+    const pantryItem = findPantryItem(pantryLookup, ingredientName);
     if (!pantryItem) return [];
     return harvestLocations.filter((loc) => pantryItem.tags.includes(loc));
   }
@@ -170,7 +169,7 @@ export default function GroceryListPage() {
                 {sorted.map((ing) => {
                   const key = `${recipe.id}::${ing.ingredientName.toLowerCase()}`;
                   const isChecked = checked.has(key);
-                  const pantryItem = pantryByName.get(ing.ingredientName.toLowerCase());
+                  const pantryItem = findPantryItem(pantryLookup, ing.ingredientName);
                   const isHave = !!pantryItem?.alwaysOnHand;
                   return (
                     <li key={key}>

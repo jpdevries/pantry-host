@@ -7,7 +7,7 @@ import { hasCooklangSyntax, extractCooklang } from '@pantry-host/shared/cooklang
 import PixabayImage from '@pantry-host/shared/components/PixabayImage';
 import { NutritionFacts } from '@pantry-host/shared/components/NutritionFacts';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
-import { resolveGroceryStatus, pantryIndex } from '@pantry-host/shared/grocery-status';
+import { resolveGroceryStatus, pantryIndex, findPantryItem } from '@pantry-host/shared/grocery-status';
 import { getFileURL } from '@/lib/storage-opfs';
 import { PencilSimple, Trash, Printer, CalendarPlus, Export, Code, ShareNetwork, Rows, Columns, GridNine, ArrowsOut, ArrowsIn } from '@phosphor-icons/react';
 
@@ -207,7 +207,7 @@ export default function RecipeDetailPage() {
     const index = pantryIndex(pantry);
     const autoChecked = new Set<number>();
     recipe.ingredients.forEach((ing, i) => {
-      const match = index.get((ing.ingredientName ?? '').toLowerCase());
+      const match = findPantryItem(index, ing.ingredientName);
       if (resolveGroceryStatus(match, ing) === 'have') autoChecked.add(i);
     });
     pantryAutoCheckedRef.current = true;

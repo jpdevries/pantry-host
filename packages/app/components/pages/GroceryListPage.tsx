@@ -4,7 +4,7 @@ import { gql } from '@/lib/gql';
 import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
 import { enqueue } from '@/lib/offlineQueue';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
-import { resolveGroceryStatus, type GroceryStatus } from '@pantry-host/shared/grocery-status';
+import { resolveGroceryStatus, pantryIndex, findPantryItem, normalizeIngredientName, type GroceryStatus, type PantryLookup } from '@pantry-host/shared/grocery-status';
 import { ShoppingCart, Basket, MapPin } from '@phosphor-icons/react';
 
 /** Convert a kebab-case tag to Title Case display: "farmers-market" → "Farmers Market" */
@@ -69,21 +69,21 @@ const INGREDIENTS_QUERY = `
   }
 `;
 
-function resolveStatus(ing: RecipeIngredient, pantryByName: Map<string, PantryItem>): { status: ItemStatus; pantryQuantity: number | null } {
-  const pantryItem = pantryByName.get(ing.ingredientName.toLowerCase());
+function resolveStatus(ing: RecipeIngredient, lookup: PantryLookup<PantryItem>): { status: ItemStatus; pantryQuantity: number | null } {
+  const pantryItem = findPantryItem(lookup, ing.ingredientName);
   const status = resolveGroceryStatus(pantryItem, ing);
   const pantryQuantity = pantryItem && !pantryItem.alwaysOnHand ? pantryItem.quantity : null;
   return { status, pantryQuantity };
 }
 
-function buildPerRecipeItems(recipe: QueuedRecipe, pantryByName: Map<string, PantryItem>, harvestLocations: string[] = []): PerRecipeItem[] {
+function buildPerRecipeItems(recipe: QueuedRecipe, lookup: PantryLookup<PantryItem>, harvestLocations: string[] = []): PerRecipeItem[] {
   return recipe.groceryIngredients
     .map((ing) => {
-      const { status, pantryQuantity } = resolveStatus(ing, pantryByName);
-      const pantryItem = pantryByName.get(ing.ingredientName.toLowerCase());
+      const { status, pantryQuantity } = resolveStatus(ing, lookup);
+      const pantryItem = findPantryItem(lookup, ing.ingredientName);
       const stores = harvestLocations.filter((loc) => pantryItem?.tags.includes(loc));
       return {
-        key: `${recipe.id}::${ing.ingredientName.toLowerCase()}`,
+        key: `${recipe.id}::${normalizeIngredientName(ing.ingredientName)}`,
         ingredientName: ing.ingredientName,
         unit: ing.unit,
         quantity: ing.quantity,
@@ -211,18 +211,22 @@ export default function GroceryListPage({ kitchen }: Props) {
     });
   }
 
-  const pantryByName = new Map<string, PantryItem>();
+  // Merge tags from duplicate entries (same lowercased name).
+  const mergedPantry: PantryItem[] = [];
+  const mergedByKey = new Map<string, PantryItem>();
   for (const item of pantry) {
     const key = item.name.toLowerCase();
-    const existing = pantryByName.get(key);
+    const existing = mergedByKey.get(key);
     if (existing) {
-      // Merge tags from duplicate entries
       const merged = new Set([...existing.tags, ...item.tags]);
-      pantryByName.set(key, { ...existing, tags: [...merged] });
+      existing.tags = [...merged];
     } else {
-      pantryByName.set(key, item);
+      const copy = { ...item };
+      mergedByKey.set(key, copy);
+      mergedPantry.push(copy);
     }
   }
+  const pantryLookup = pantryIndex(mergedPantry);
 
 
   const sortedRecipes = [...recipes].sort((a, b) => a.title.localeCompare(b.title));
@@ -329,7 +333,7 @@ export default function GroceryListPage({ kitchen }: Props) {
           // Build all items with store tags
           const allRecipeItems = sortedRecipes.map((recipe) => ({
             recipe,
-            items: buildPerRecipeItems(recipe, pantryByName, harvestLocations),
+            items: buildPerRecipeItems(recipe, pantryLookup, harvestLocations),
           }));
 
           // Group by store if harvest locations are configured

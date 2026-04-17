@@ -756,7 +756,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
           />
           <span className="text-sm">Gluten-free</span>
         </label>
-        {['pescatarian', 'pregnancy-safe', 'breastfeeding-safe', 'lactation', 'breastfeeding-alert'].map((tag) => (
+        {['vegetarian', 'pescatarian', 'pregnancy-safe', 'breastfeeding-safe', 'lactation', 'breastfeeding-alert'].map((tag) => (
           <label key={tag} className="flex items-center gap-2 mt-2 cursor-pointer">
             <input
               type="checkbox"
@@ -774,7 +774,8 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
               className="w-4 h-4 accent-accent"
             />
             <span className="text-sm">
-              {tag === 'pescatarian' ? 'Pescatarian' :
+              {tag === 'vegetarian' ? 'Vegetarian' :
+               tag === 'pescatarian' ? 'Pescatarian' :
                tag === 'pregnancy-safe' ? 'Pregnancy safe' :
                tag === 'breastfeeding-safe' ? 'Breastfeeding safe' :
                tag === 'lactation' ? 'Supports lactation' :

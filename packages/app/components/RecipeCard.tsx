@@ -144,6 +144,7 @@ export default function RecipeCard({ recipe, recipesBase = '/recipes' }: Props) 
   const isBreastfeedingAlert = recipe.tags.some((t) => t.toLowerCase() === 'breastfeeding-alert');
   const isPregnancySafe = recipe.tags.some((t) => t.toLowerCase() === 'pregnancy-safe');
   const isPescatarian = recipe.tags.some((t) => t.toLowerCase() === 'pescatarian');
+  const isVegetarian = recipe.tags.some((t) => t.toLowerCase() === 'vegetarian');
 
   async function handleToggle(e: React.MouseEvent) {
     e.preventDefault();
@@ -280,6 +281,12 @@ export default function RecipeCard({ recipe, recipesBase = '/recipes' }: Props) 
             <span className="sr-only">Pescatarian</span>
           </span>
         )}
+        {isVegetarian && (
+          <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1" title="Vegetarian">
+            <CarrotIcon />
+            <span className="sr-only">Vegetarian</span>
+          </span>
+        )}
       </div>
 
       {/* Row 4: Tags */}
@@ -362,6 +369,15 @@ function FishIcon(props: React.SVGProps<SVGSVGElement>) {
     <svg {...props} xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 640 512" fill="currentColor" aria-hidden="true">
       {/* Font Awesome Pro 5.15.4 - fa-fish (light) */}
       <path d="M363.44 80c-99.96 0-187.27 60.25-235.86 111.79l-97.04-72.66c-3.65-2.73-7.78-3.94-11.8-3.94-10.85 0-20.87 8.78-18.36 20.06L27.27 256 .39 376.74c-2.51 11.28 7.52 20.06 18.36 20.06 4.02 0 8.15-1.21 11.8-3.94l97.04-72.66C176.17 371.75 263.48 432 363.44 432 516.18 432 640 291.2 640 256c0-35.2-123.82-176-276.56-176zm0 320c-86.02 0-166.21-52.56-212.57-101.74l-19.6-20.79-22.87 17.12-68.33 51.17 18.43-82.8 1.55-6.95-1.55-6.95-18.43-82.8 68.33 51.17 22.87 17.12 19.6-20.79C197.23 164.56 277.42 112 363.44 112 489 112 595.86 223.33 607.5 256 595.86 288.67 489 400 363.44 400zM448 232c-13.25 0-24 10.74-24 24 0 13.25 10.75 24 24 24s24-10.75 24-24c0-13.26-10.75-24-24-24z" />
+    </svg>
+  );
+}
+
+function CarrotIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
+      {/* Font Awesome Pro 5.15.4 - fa-carrot (light) */}
+      <path d="M504.6 138.5c-22.9-27.6-53.4-43.4-86.4-44.8-1.6-32.1-17.1-63.4-44.7-86.3-5.9-4.9-13.1-7.4-20.4-7.4-7.2 0-14.5 2.5-20.4 7.4-27.2 22.6-43.1 53-44.6 85.8-.7 14.5 1.8 28.7 6.6 42.2-13.3-4.4-26.8-7.3-40.3-7.3-48 0-94.1 26.8-116.6 72.8L2.4 478.3c-3 6.2-3.3 13.8 0 20.5 4.1 8.3 12.4 13.1 21 13.1 3.4 0 6.9-.8 10.2-2.4L311.2 374c25-12.2 46.4-32.6 59.6-59.6 15.4-31.5 16.7-66.2 6.5-97.1 11.8 4.1 23.9 6.6 36.4 6.6 34.7 0 67-15.9 90.9-44.7 9.9-11.7 9.9-28.9 0-40.7zm-162.5 162c-9.6 19.7-25.2 35.3-44.9 44.9l-124.8 60.9c-.4-.5-.6-1.1-1.1-1.6l-32-32c-6.2-6.2-16.4-6.2-22.6 0-6.2 6.2-6.2 16.4 0 22.6l25.6 25.6-100.2 49L154 240.6l26.7 26.7c3.1 3.1 7.2 4.7 11.3 4.7s8.2-1.6 11.3-4.7c6.2-6.2 6.2-16.4 0-22.6l-32-32c-.7-.7-1.7-1.1-2.5-1.7 17.1-31.5 49.4-51 85.6-51 14.9 0 29.2 3.3 42.7 9.9 23.4 11.4 41 31.3 49.5 56s6.9 51.1-4.5 74.6zM413.8 192c-21.5 0-43.1-8.9-60.6-26.5l-6.7-6.7c-37.2-37.1-35.4-92 6.6-126.8 33.2 27.5 41.5 67.6 25.3 101.6 11.2-5.3 23-8 34.9-8 24.1 0 48.3 11.1 66.7 33.3-18.3 22.1-42.3 33.1-66.2 33.1z" />
     </svg>
   );
 }

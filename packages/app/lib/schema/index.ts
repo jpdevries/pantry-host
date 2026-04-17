@@ -89,6 +89,33 @@ async function uniqueSlug(title: string, excludeId?: string): Promise<string> {
   }
 }
 
+/**
+ * Populate `sourceRecipeId` on any ingredient row whose name case-insensitively
+ * matches an existing recipe title. Keeps the database canonical so both
+ * directions of the sub-recipe relationship (Made from Scratch + Made With
+ * This / grocery unfurling) read from the same column. Mirrors the form's
+ * client-side auto-detect so non-form write paths (MCP, raw GraphQL, API
+ * imports) behave the same as the form.
+ */
+async function autoLinkSubRecipeIngredients<T extends { ingredientName: string; sourceRecipeId?: string | null }>(
+  ingredients: T[],
+  parentRecipeId: string | null,
+): Promise<T[]> {
+  const unresolved = ingredients.filter((i) => !i.sourceRecipeId && i.ingredientName?.trim());
+  if (unresolved.length === 0) return ingredients;
+  const names = Array.from(new Set(unresolved.map((i) => i.ingredientName.toLowerCase())));
+  const matches: { id: string; title: string }[] = parentRecipeId
+    ? await sql`SELECT id, lower(title) AS title FROM recipes WHERE lower(title) = ANY(${sql.array(names)}) AND id != ${parentRecipeId}`
+    : await sql`SELECT id, lower(title) AS title FROM recipes WHERE lower(title) = ANY(${sql.array(names)})`;
+  if (matches.length === 0) return ingredients;
+  const byTitle = new Map(matches.map((m) => [m.title, m.id]));
+  return ingredients.map((i) => {
+    if (i.sourceRecipeId || !i.ingredientName?.trim()) return i;
+    const id = byTitle.get(i.ingredientName.toLowerCase());
+    return id ? { ...i, sourceRecipeId: id } : i;
+  });
+}
+
 const RecipeType = builder.objectType('Recipe', {
   fields: (t) => ({
     id: t.exposeString('id'),
@@ -120,8 +147,19 @@ const RecipeType = builder.objectType('Recipe', {
     createdAt: t.string({ resolve: (r) => r.created_at?.toISOString() ?? '' }),
     usedIn: t.field({
       type: [RecipeType],
+      // Finds recipes that use THIS recipe as a sub-recipe. Honors the same
+      // name-match fallback that `sourceRecipeId` does on the ingredient
+      // side — otherwise the reverse lookup silently fails whenever the
+      // forward resolution was only auto-linked at read time (e.g. recipes
+      // created via GraphQL/MCP that skipped the form's auto-link).
       resolve: async (recipe) =>
-        sql`SELECT DISTINCT r.* FROM recipes r JOIN recipe_ingredients ri ON ri.recipe_id = r.id WHERE ri.source_recipe_id = ${recipe.id} ORDER BY r.title`,
+        sql`SELECT DISTINCT r.* FROM recipes r
+            JOIN recipe_ingredients ri ON ri.recipe_id = r.id
+            WHERE ri.recipe_id != ${recipe.id}
+              AND (ri.source_recipe_id = ${recipe.id}
+                   OR (ri.source_recipe_id IS NULL
+                       AND lower(ri.ingredient_name) = ${recipe.title.toLowerCase()}))
+            ORDER BY r.title`,
     }),
     groceryIngredients: t.field({
       type: [RecipeIngredientType],
@@ -534,9 +572,10 @@ async function insertRecipe(
   }
 
   if (ingredients.length > 0) {
+    const linked = await autoLinkSubRecipeIngredients(ingredients, recipe.id);
     await sql`
       INSERT INTO recipe_ingredients ${sql(
-        ingredients.map((i, idx) => ({
+        linked.map((i, idx) => ({
           recipe_id: recipe.id,
           ingredient_name: i.ingredientName,
           quantity: i.quantity ?? null,
@@ -661,16 +700,26 @@ builder.mutationField('updateRecipe', (t) =>
       if (args.ingredients) {
         await sql`DELETE FROM recipe_ingredients WHERE recipe_id = ${args.id}`;
         if (args.ingredients.length > 0) {
+          const linked = await autoLinkSubRecipeIngredients(
+            args.ingredients.map((i) => ({
+              ingredientName: i.ingredientName,
+              quantity: i.quantity ?? null,
+              unit: i.unit ?? null,
+              sourceRecipeId: i.sourceRecipeId ?? null,
+            })),
+            args.id,
+          );
           await sql`
             INSERT INTO recipe_ingredients ${sql(
-              args.ingredients.map((i, idx) => ({
+              linked.map((i, idx) => ({
                 recipe_id: args.id,
                 ingredient_name: i.ingredientName,
                 quantity: i.quantity ?? null,
                 unit: i.unit ?? null,
+                source_recipe_id: i.sourceRecipeId ?? null,
                 sort_order: idx,
               })),
-              'recipe_id', 'ingredient_name', 'quantity', 'unit', 'sort_order',
+              'recipe_id', 'ingredient_name', 'quantity', 'unit', 'source_recipe_id', 'sort_order',
             )}
           `;
         }

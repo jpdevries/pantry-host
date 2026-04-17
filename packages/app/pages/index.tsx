@@ -147,9 +147,19 @@ export default function HomePage() {
           ))}
         </section>
 
-        {/* Cookware chips — owner only */}
+        {/* Cookware chips — owner only. Each chip is a tab stop, so a
+            keyboard user without this skip link has to tab through every
+            piece of cookware before reaching the AI generator below. */}
         {isSecure && cookwareList.length > 0 && (
-          <section aria-label="Available cookware" className="mb-10">
+          <section aria-label="Available cookware" className="mb-10 relative">
+            {cookwareList.length >= 3 && (
+              <a
+                href="#ai-heading"
+                className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:right-0 focus-visible:top-0 focus-visible:z-10 focus-visible:bg-[var(--color-bg-card)] focus-visible:border focus-visible:border-[var(--color-accent)] focus-visible:rounded focus-visible:px-3 focus-visible:py-1 focus-visible:text-sm focus-visible:font-semibold focus-visible:text-accent focus-visible:underline"
+              >
+                Skip cookware list
+              </a>
+            )}
             <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-3">
               Cookware
             </h2>

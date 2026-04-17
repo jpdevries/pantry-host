@@ -155,7 +155,11 @@ export default function HomePage() {
             </h2>
             <ul className="flex flex-wrap gap-2" role="list">
               {cookwareList.map((c) => (
-                <li key={c.name}><span className="tag">{c.name}</span></li>
+                <li key={c.id}>
+                  <a href={`/cookware/${c.id}#stage`} className="tag hover:underline">
+                    {c.name}
+                  </a>
+                </li>
               ))}
             </ul>
           </section>

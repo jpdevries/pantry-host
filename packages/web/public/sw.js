@@ -9,6 +9,9 @@
  *    never trap a 429 or 5xx in the cache. Stale entries are preferred
  *    over a fresh error response, so a rate-limited repeat search still
  *    shows the last good result instead of an empty page.
+ *  - feed.pantryhost.app JSON: per-endpoint TTL (60s recipes, 5m handles,
+ *    7d markets) with the same stale-over-error semantics. Lets the
+ *    Bluesky feed page back/forward smoothly and survives brief Fly hiccups.
  *  - All user data lives in PGlite/IndexedDB — no remote user API to cache.
  */
 
@@ -20,7 +23,15 @@ const PIXABAY_CACHE = 'pantryhost-pixabay-v1';
 // 1-year TTL as a finite stand-in for "never expire"; the browser's
 // CacheStorage quota manager handles LRU eviction under storage pressure.
 const PIXABAY_TTL_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
-const KNOWN_CACHES = new Set([CACHE_NAME, COOKLANG_CACHE, PIXABAY_CACHE]);
+// Per-endpoint TTLs for feed.pantryhost.app. /api/recipes doubles the
+// server's own Cache-Control: 30s header; /api/handles changes only when
+// a new publisher appears; OSM-backed /api/markets is very slow-moving
+// and Overpass has tight rate limits.
+const FEED_CACHE = 'pantryhost-feed-v1';
+const FEED_RECIPES_TTL_MS = 60 * 1000;                  // 1 minute
+const FEED_HANDLES_TTL_MS = 5 * 60 * 1000;              // 5 minutes
+const FEED_MARKETS_TTL_MS = 7 * 24 * 60 * 60 * 1000;    // 7 days
+const KNOWN_CACHES = new Set([CACHE_NAME, COOKLANG_CACHE, PIXABAY_CACHE, FEED_CACHE]);
 
 const PRECACHE = [
   '/',
@@ -77,6 +88,20 @@ function isPixabayImage(url) {
   if (url.hostname === 'cdn.pixabay.com') return true;
   if (url.hostname === 'pixabay.com' && url.pathname.startsWith('/get/')) return true;
   return false;
+}
+
+/**
+ * feed.pantryhost.app JSON endpoints we cache. Returns the TTL for the
+ * matched endpoint, or 0 if not cacheable. /api/recipe-url and
+ * /api/fetch-recipe intentionally don't match — they proxy arbitrary
+ * third-party URLs and have their own freshness concerns.
+ */
+function feedApiTtl(url) {
+  if (url.hostname !== 'feed.pantryhost.app') return 0;
+  if (url.pathname === '/api/recipes') return FEED_RECIPES_TTL_MS;
+  if (url.pathname === '/api/handles') return FEED_HANDLES_TTL_MS;
+  if (url.pathname === '/api/markets') return FEED_MARKETS_TTL_MS;
+  return 0;
 }
 
 /**
@@ -148,6 +173,39 @@ async function cooklangHandler(request) {
  * because Pixabay photos are immutable — the URL is stable and the
  * bytes never change. No background revalidate needed.
  */
+/**
+ * feed.pantryhost.app JSON cache handler. Cache-first with per-endpoint
+ * TTL, background revalidate on fresh hit, and stale-over-error so a
+ * Fly hiccup doesn't empty the feed page.
+ */
+async function feedHandler(request, ttl) {
+  const cache = await caches.open(FEED_CACHE);
+  const cached = await cache.match(request);
+
+  if (cached && ageOf(cached) < ttl) {
+    // Fire-and-forget revalidate so the next visit sees fresh data.
+    fetch(request)
+      .then(async (fresh) => {
+        if (fresh.ok) await cache.put(request, await stampResponse(fresh));
+      })
+      .catch(() => { /* swallow background errors */ });
+    return cached;
+  }
+
+  try {
+    const fresh = await fetch(request);
+    if (fresh.ok) {
+      await cache.put(request, await stampResponse(fresh));
+      return fresh;
+    }
+    if (cached) return cached;
+    return fresh;
+  } catch (err) {
+    if (cached) return cached;
+    throw err;
+  }
+}
+
 async function pixabayHandler(request) {
   const cache = await caches.open(PIXABAY_CACHE);
   const cached = await cache.match(request);
@@ -183,6 +241,13 @@ self.addEventListener('fetch', (event) => {
   // Pixabay API JSON + photo bytes: both use 1-year TTL cache.
   if (isPixabayApi(url) || isPixabayImage(url)) {
     event.respondWith(pixabayHandler(request));
+    return;
+  }
+
+  // feed.pantryhost.app JSON endpoints: per-endpoint TTL cache.
+  const feedTtl = feedApiTtl(url);
+  if (feedTtl > 0) {
+    event.respondWith(feedHandler(request, feedTtl));
     return;
   }
 

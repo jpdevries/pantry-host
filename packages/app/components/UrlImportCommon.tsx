@@ -11,6 +11,7 @@ import Head from 'next/head';
 import UrlRecipeDetail from '@pantry-host/shared/components/UrlRecipeDetail';
 import type { ParsedRecipe } from '@pantry-host/shared/bluesky';
 import { gql } from '@/lib/gql';
+import { apiUrl } from '@/lib/apiUrl';
 
 const CREATE_RECIPE = `
   mutation CreateRecipe(
@@ -53,7 +54,7 @@ export default function UrlImportCommon({ scheme }: { scheme: 'http' | 'https' }
   }, [scheme]);
 
   const fetcher = useCallback(async (url: string) => {
-    const res = await fetch(`http://${window.location.hostname}:4001/fetch-recipe`, {
+    const res = await fetch(apiUrl('/fetch-recipe'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url }),

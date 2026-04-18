@@ -4,6 +4,8 @@
  * the Mac Mini at home. This module detects that.
  */
 
+import { apiUrl } from './apiUrl';
+
 export const API_STATUS_EVENT = 'api-status-change';
 
 let _online = true;
@@ -32,16 +34,9 @@ export function setApiOnline(online: boolean): void {
   }
 }
 
-function getGqlUrl(): string {
-  if (typeof window === 'undefined') return 'http://localhost:4001/graphql';
-  const proto = window.location.protocol === 'https:' ? 'https' : 'http';
-  const gqlPort = proto === 'https' ? 4443 : 4001;
-  return `${proto}://${window.location.hostname}:${gqlPort}/graphql`;
-}
-
 async function checkApi(): Promise<void> {
   try {
-    const res = await fetch(getGqlUrl(), {
+    const res = await fetch(apiUrl('/graphql'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: '{ __typename }' }),

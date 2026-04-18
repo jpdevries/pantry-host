@@ -138,7 +138,7 @@ export default function Nutrition() {
         Know what&rsquo;s in your&nbsp;food
       </h2>
       <p className="text-center text-[var(--color-text-secondary)] text-sm sm:text-base max-w-2xl mx-auto mb-12 leading-relaxed pretty">
-        Turn on barcode metadata storage and every scanned item carries <a href="https://world.openfoodfacts.org/" target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--color-accent)]">Open Food&nbsp;Facts</a> data. Recipes surface estimated nutritional information and a &ldquo;Contains:&hellip;&rdquo; allergen rollup &mdash; unioned from your <code className="text-xs">contains-*</code> recipe tags and stored metadata, computed locally.
+        Turn on barcode metadata storage and every scanned item carries <a href="https://world.openfoodfacts.org/" target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--color-accent)]">Open Food&nbsp;Facts</a> data. Recipes surface estimated nutritional information and a allergen rollup computed locally from your recipe tags and stored metadata.
       </p>
 
       {/* Two mockups side-by-side at md+, stacked on mobile.

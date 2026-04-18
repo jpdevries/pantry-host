@@ -40,6 +40,7 @@
     "./import-utils": "./src/import-utils.ts",
     "./grocery-status": "./src/grocery-status.ts",
     "./units": "./src/units.ts",
+    "./product-meta": "./src/product-meta.ts",
     "./components/AtRecipeDetail": "./src/components/AtRecipeDetail.tsx",
     "./components/AtMenuDetail": "./src/components/AtMenuDetail.tsx",
     "./components/UrlRecipeDetail": "./src/components/UrlRecipeDetail.tsx",

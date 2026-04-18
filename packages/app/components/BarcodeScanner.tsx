@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
+import type { ProductMeta } from '@pantry-host/shared/product-meta';
+
 export interface ScannedProduct {
   barcode: string;
   name: string;
@@ -10,6 +12,10 @@ export interface ScannedProduct {
   /** Per-item size from OFF product_quantity (e.g. 12 fl oz per jar) */
   itemSize?: number;
   itemSizeUnit?: string;
+  /** Whitelisted OFF metadata. Always populated when available; the
+   *  BatchScanSession decides whether to persist it based on the
+   *  STORE_BARCODE_META setting. */
+  meta?: ProductMeta;
 }
 
 interface Props {
@@ -43,7 +49,7 @@ export default function BarcodeScanner({ onScan, onError, cooldownMs = 2000 }: P
           onError?.(`Product not found for barcode ${code}: ${json.error}`);
           return;
         }
-        const product = await res.json() as { name: string; brand?: string; category?: string; quantity?: number; unit?: string; itemSize?: number; itemSizeUnit?: string };
+        const product = await res.json() as { name: string; brand?: string; category?: string; quantity?: number; unit?: string; itemSize?: number; itemSizeUnit?: string; meta?: ProductMeta };
         onScan({ barcode: code, ...product });
       } catch {
         onError?.(`Failed to look up barcode ${code}`);

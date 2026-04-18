@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { gql } from '@/lib/gql';
 import { HIDDEN_TAGS, ALL_CATEGORIES, CATEGORY_GROUPS } from '@pantry-host/shared/constants';
 import {
-  Trash, PencilSimple,
+  Trash, PencilSimple, Barcode,
   Leaf, Bone, Egg, Package, Snowflake, DotsThree,
   Carrot, OrangeSlice, Plant, Cow, Drop, Knife, Fish,
   Cube, Grains, Acorn, Jar, JarLabel, Pepper, Bread,
@@ -45,7 +45,7 @@ const CAT_ICONS: Record<string, ReactNode> = {
 import IngredientForm, { type IngredientFormVariables, type IngredientData } from '@pantry-host/shared/components/IngredientForm';
 import BatchScanSession from '../components/BatchScanSession';
 
-const QUERY = `{ ingredients { id name category quantity unit itemSize itemSizeUnit alwaysOnHand tags } }`;
+const QUERY = `{ ingredients { id name category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta } }`;
 
 const ADD_MUTATION = `
   mutation($name: String!, $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!]) {
@@ -215,6 +215,15 @@ export default function IngredientsPage() {
                     <div className="flex items-center gap-3 py-3">
                       <div className="flex-1 min-w-0">
                         <span id={`ing-${ing.id}`} className="text-sm font-medium">{ing.name}</span>
+                        {(ing.barcode || ing.productMeta) && (
+                          <span
+                            className="inline-flex items-center gap-0.5 ml-1.5 text-[var(--color-text-secondary)] align-text-bottom"
+                            aria-label={ing.productMeta ? 'Barcode + nutrition data stored' : 'Barcode stored'}
+                            title={ing.productMeta ? 'Barcode + nutrition data stored' : 'Barcode stored'}
+                          >
+                            <Barcode size={12} aria-hidden />
+                          </span>
+                        )}
                         {ing.quantity != null && (
                           <span className="ml-2 text-xs text-[var(--color-text-secondary)]">
                             {ing.quantity}{ing.unit && ing.unit !== 'whole' ? ` ${ing.unit}` : ''}

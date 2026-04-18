@@ -92,8 +92,11 @@ export default function SettingsPage({ adapter }: { adapter: SettingsAdapter }) 
       const next: Record<string, FieldState> = {};
       for (const def of schemaForPackage) {
         const raw = values[def.key];
+        // For booleans, honor explicit `defaultValue`; fall back to 'true'
+        // only when defaultValue isn't set (legacy behavior).
+        const booleanDefault = def.defaultValue ?? 'true';
         next[def.key] = {
-          value: raw ?? (def.kind === 'boolean' ? 'true' : ''),
+          value: raw ?? (def.kind === 'boolean' ? booleanDefault : ''),
           masked: def.kind === 'secret' && !!maskedKeys?.has(def.key) && !!raw,
           dirty: false,
         };

@@ -4,6 +4,8 @@
  * so no server-side proxy is needed.
  */
 
+import { whitelistProductMeta, OFF_METADATA_FIELDS, type ProductMeta } from '@pantry-host/shared/product-meta';
+
 export interface BarcodeResult {
   name: string;
   category?: string;
@@ -13,6 +15,10 @@ export interface BarcodeResult {
   itemSize?: number;
   itemSizeUnit?: string;
   brand?: string;
+  /** Raw barcode string. Client persists only when STORE_BARCODE_META is on. */
+  barcode?: string;
+  /** Whitelisted OFF metadata. Same opt-in gate. */
+  meta?: ProductMeta;
 }
 
 function mapCategory(categories: string): string {
@@ -74,8 +80,10 @@ const unitMap: Record<string, string> = {
 export async function lookupBarcode(code: string): Promise<BarcodeResult> {
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), 8_000);
+  const coreFields = 'product_name,brands,categories_tags,quantity,product_quantity,product_quantity_unit';
+  const metaFields = OFF_METADATA_FIELDS.join(',');
   const response = await fetch(
-    `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=product_name,brands,categories_tags,quantity,product_quantity,product_quantity_unit`,
+    `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=${coreFields},${metaFields}`,
     { signal: ac.signal },
   );
   clearTimeout(timer);
@@ -155,5 +163,6 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
     unit = 'whole';
   }
 
-  return { name, brand, category, quantity: qty, unit, itemSize, itemSizeUnit };
+  const meta = whitelistProductMeta(product as unknown as Record<string, unknown>) ?? undefined;
+  return { name, brand, category, quantity: qty, unit, itemSize, itemSizeUnit, barcode: code, meta };
 }

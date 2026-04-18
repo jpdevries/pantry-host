@@ -27,6 +27,21 @@ async function resolveKitchenId(slug: string | null | undefined): Promise<string
   return kitchen.id;
 }
 
+/** Accepts the productMeta input (serialized JSON string) and returns a
+ *  value safe to persist into a JSONB column — or null if empty/invalid.
+ *  Kept permissive: unparseable JSON becomes null rather than 500-ing, so
+ *  an agent sending malformed data gets a stored row with no metadata. */
+function parseProductMeta(input: string | null | undefined): unknown | null {
+  if (input == null || input === '') return null;
+  try {
+    const parsed = JSON.parse(input);
+    if (parsed == null || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 // ── Ingredient ────────────────────────────────────────────────────────────────
 
 const IngredientType = builder.objectType('Ingredient', {
@@ -43,6 +58,14 @@ const IngredientType = builder.objectType('Ingredient', {
     itemSizeUnit: t.string({ nullable: true, resolve: (r) => r.item_size_unit }),
     alwaysOnHand: t.boolean({ resolve: (r) => r.always_on_hand ?? false }),
     tags: t.stringList({ resolve: (r) => r.tags ?? [] }),
+    // Opt-in barcode + whitelisted OFF metadata (STORE_BARCODE_META setting).
+    // Null on rows scanned before the setting was enabled, or on manually-added rows.
+    barcode: t.string({ nullable: true, resolve: (r) => r.barcode }),
+    /** Serialized JSON string of the ProductMeta payload. Clients/MCP parse as needed. */
+    productMeta: t.string({
+      nullable: true,
+      resolve: (r) => (r.product_meta == null ? null : typeof r.product_meta === 'string' ? r.product_meta : JSON.stringify(r.product_meta)),
+    }),
     createdAt: t.string({ resolve: (r) => r.created_at?.toISOString() ?? '' }),
   }),
 });
@@ -57,6 +80,9 @@ const IngredientInputType = builder.inputType('IngredientInput', {
     itemSizeUnit: t.string(),
     alwaysOnHand: t.boolean(),
     tags: t.stringList(),
+    barcode: t.string(),
+    /** Serialized JSON string of ProductMeta; the server JSON.parse-es on write. */
+    productMeta: t.string(),
   }),
 });
 
@@ -441,12 +467,15 @@ builder.mutationField('addIngredient', (t) =>
       itemSizeUnit: t.arg.string(),
       alwaysOnHand: t.arg.boolean(),
       tags: t.arg.stringList(),
+      barcode: t.arg.string(),
+      productMeta: t.arg.string(),
       kitchenSlug: t.arg.string(),
     },
     resolve: async (_, args) => {
       const kitchenId = await resolveKitchenId(args.kitchenSlug);
+      const productMetaJson = parseProductMeta(args.productMeta);
       const [row] = await sql`
-        INSERT INTO ingredients (name, category, quantity, unit, item_size, item_size_unit, always_on_hand, tags, kitchen_id)
+        INSERT INTO ingredients (name, category, quantity, unit, item_size, item_size_unit, always_on_hand, tags, barcode, product_meta, kitchen_id)
         VALUES (
           ${args.name},
           ${args.category ?? null},
@@ -456,6 +485,8 @@ builder.mutationField('addIngredient', (t) =>
           ${args.itemSizeUnit ?? null},
           ${args.alwaysOnHand ?? false},
           ${sql.array(args.tags ?? [])},
+          ${args.barcode ?? null},
+          ${productMetaJson},
           ${kitchenId}
         )
         RETURNING *
@@ -483,9 +514,11 @@ builder.mutationField('addIngredients', (t) =>
             item_size_unit: i.itemSizeUnit ?? null,
             always_on_hand: i.alwaysOnHand ?? false,
             tags: i.tags ?? [],
+            barcode: i.barcode ?? null,
+            product_meta: parseProductMeta(i.productMeta),
             kitchen_id: kitchenId,
           })),
-          'name', 'category', 'quantity', 'unit', 'item_size', 'item_size_unit', 'always_on_hand', 'tags', 'kitchen_id',
+          'name', 'category', 'quantity', 'unit', 'item_size', 'item_size_unit', 'always_on_hand', 'tags', 'barcode', 'product_meta', 'kitchen_id',
         )}
         RETURNING *
       `;
@@ -507,8 +540,11 @@ builder.mutationField('updateIngredient', (t) =>
       itemSizeUnit: t.arg.string(),
       alwaysOnHand: t.arg.boolean(),
       tags: t.arg.stringList(),
+      barcode: t.arg.string(),
+      productMeta: t.arg.string(),
     },
     resolve: async (_, args) => {
+      const productMetaJson = args.productMeta === undefined ? undefined : parseProductMeta(args.productMeta);
       const [row] = await sql`
         UPDATE ingredients SET
           name = COALESCE(${args.name ?? null}, name),
@@ -519,6 +555,8 @@ builder.mutationField('updateIngredient', (t) =>
           item_size = COALESCE(${args.itemSize ?? null}, item_size),
           item_size_unit = COALESCE(${args.itemSizeUnit ?? null}, item_size_unit),
           tags = COALESCE(${args.tags ? sql.array(args.tags) : null}, tags),
+          barcode = COALESCE(${args.barcode ?? null}, barcode),
+          product_meta = COALESCE(${productMetaJson ?? null}::jsonb, product_meta),
           updated_at = NOW()
         WHERE id = ${args.id}
         RETURNING *

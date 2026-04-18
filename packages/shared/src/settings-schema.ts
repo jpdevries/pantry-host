@@ -17,7 +17,8 @@ export type SettingKey =
   | 'SHOW_COCKTAILDB'
   | 'PIXABAY_API_KEY'
   | 'PIXABAY_FALLBACK_ENABLED'
-  | 'HARVEST_LOCATIONS';
+  | 'HARVEST_LOCATIONS'
+  | 'STORE_BARCODE_META';
 
 export type SettingKind = 'text' | 'secret' | 'boolean' | 'enum';
 
@@ -107,6 +108,15 @@ export const SETTINGS_SCHEMA: SettingDef[] = [
       "Defaults to on. Turn off to hide the alcoholic drink source on /recipes/import.",
     kind: 'boolean',
     packages: ['app', 'web'],
+  },
+  {
+    key: 'STORE_BARCODE_META',
+    label: 'Store barcode + product metadata',
+    description:
+      "Power user: when on, the batch scanner persists each item's barcode plus a whitelisted subset of Open Food Facts data (nutrition per 100g, ingredients text, allergens, Nutri-Score, NOVA group). Lets MCP agents and nutrition-aware tools reason about your pantry. Off by default; turning this on only affects new scans. Also toggleable from the scan modal header.",
+    kind: 'boolean',
+    packages: ['app', 'web'],
+    defaultValue: 'false',
   },
   {
     key: 'HARVEST_LOCATIONS',

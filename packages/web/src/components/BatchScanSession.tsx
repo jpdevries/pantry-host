@@ -1,8 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import BarcodeScanner, { type ScannedProduct } from './BarcodeScanner';
 import { gql } from '@/lib/gql';
 import { UNIT_GROUPS, CATEGORIES } from '@pantry-host/shared/constants';
+
+/** localStorage key that mirrors STORE_BARCODE_META. Shared SettingsPage
+ *  kebab-cases schema keys (see SettingsPage.tsx::storageKeyFor). */
+const STORE_META_KEY = 'store-barcode-meta';
 
 interface BatchItem extends ScannedProduct {
   key: string;
@@ -33,6 +37,35 @@ export default function BatchScanSession({ open, onComplete, onCancel }: Props) 
   const [items, setItems] = useState<BatchItem[]>([]);
   const [toasts, setToasts] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  // Mirror of the STORE_BARCODE_META setting. Local state for reactivity;
+  // writes go straight to localStorage so Settings page stays in sync.
+  const [storeMetaEnabled, setStoreMetaEnabled] = useState<boolean>(
+    () => typeof window !== 'undefined' && localStorage.getItem(STORE_META_KEY) === 'true',
+  );
+  // Listen for external changes (Settings page save fires a synthetic storage event).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORE_META_KEY) setStoreMetaEnabled(e.newValue === 'true');
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+  const toggleStoreMeta = (next: boolean) => {
+    setStoreMetaEnabled(next);
+    if (typeof window === 'undefined') return;
+    if (next) localStorage.setItem(STORE_META_KEY, 'true');
+    else localStorage.removeItem(STORE_META_KEY);
+    try {
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: STORE_META_KEY,
+        newValue: next ? 'true' : null,
+        storageArea: localStorage,
+      }));
+    } catch {
+      /* older webviews */
+    }
+  };
 
   const addToast = (msg: string) => {
     setToasts((prev) => [...prev.slice(-4), msg]);
@@ -81,6 +114,9 @@ export default function BatchScanSession({ open, onComplete, onCancel }: Props) 
           itemSizeUnit: i.alwaysOnHand ? null : (i.itemSizeUnit ?? null),
           alwaysOnHand: i.alwaysOnHand,
           tags: i.tags,
+          // Only persist barcode + metadata when the user opts in.
+          barcode: storeMetaEnabled ? (i.barcode ?? null) : null,
+          productMeta: storeMetaEnabled && i.meta ? JSON.stringify(i.meta) : null,
         })),
       });
     } catch (err) {
@@ -98,10 +134,19 @@ export default function BatchScanSession({ open, onComplete, onCancel }: Props) 
           aria-describedby={undefined}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-card)] shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-card)] shrink-0 gap-3">
             <Dialog.Title className="font-bold text-lg">
               {phase === 'scanning' ? 'Scan Groceries' : `Review (${items.length})`}
             </Dialog.Title>
+            <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] cursor-pointer select-none ml-auto" title="When on, each scanned item's barcode + a whitelisted subset of Open Food Facts data is saved. Power-user feature for MCP agents and nutrition tooling.">
+              <input
+                type="checkbox"
+                checked={storeMetaEnabled}
+                onChange={(e) => toggleStoreMeta(e.target.checked)}
+                className="accent-[var(--color-accent)]"
+              />
+              <span>Save barcode data</span>
+            </label>
             <Dialog.Close
               aria-label="Cancel batch scan"
               className="text-[var(--color-text-secondary)] hover:underline p-2"

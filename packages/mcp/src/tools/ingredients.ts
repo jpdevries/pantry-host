@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { gql } from '../graphql-client.js';
 
-const INGREDIENT_FIELDS = `id name category quantity unit itemSize itemSizeUnit alwaysOnHand tags createdAt`;
+const INGREDIENT_FIELDS = `id name category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta createdAt`;
 
 export function registerIngredientTools(server: McpServer) {
   server.tool(
@@ -26,7 +26,7 @@ export function registerIngredientTools(server: McpServer) {
 
   server.tool(
     'add_ingredient',
-    'Add an ingredient to the pantry. Use itemSize + itemSizeUnit for packaged goods with known per-item sizing (e.g. "3 jars × 12 fl oz": quantity=3, unit="jar", itemSize=12, itemSizeUnit="fl oz").',
+    'Add an ingredient to the pantry. Use itemSize + itemSizeUnit for packaged goods with known per-item sizing (e.g. "3 jars × 12 fl oz": quantity=3, unit="jar", itemSize=12, itemSizeUnit="fl oz"). Power-user: set barcode + productMeta (JSON-encoded OFF metadata) when you already have that data — persisted only if the host side has opted in.',
     {
       name: z.string().describe('Ingredient name'),
       category: z.enum(['vegetables', 'fruit', 'fresh herbs', 'dairy', 'meat & poultry', 'seafood & fish', 'eggs', 'tofu & tempeh', 'legumes & pulses', 'nuts & seeds', 'plant-based milks', 'dry goods & grains', 'canned & jarred', 'condiments & sauces', 'herbs & spices', 'oils & vinegars', 'baking', 'frozen', 'deli & charcuterie', 'beverages', 'snacks', 'other']).optional().describe('Category'),
@@ -36,12 +36,14 @@ export function registerIngredientTools(server: McpServer) {
       itemSizeUnit: z.string().optional().describe('Unit of the per-item size (e.g. "fl oz", "oz", "g")'),
       alwaysOnHand: z.boolean().optional().describe('If true, never track quantity'),
       tags: z.array(z.string()).optional().describe('Tags'),
+      barcode: z.string().optional().describe('EAN-13 / UPC-A barcode string. Typically written by the scanner; agents can pass one when sourcing data from elsewhere.'),
+      productMeta: z.string().optional().describe('JSON-encoded whitelisted Open Food Facts metadata (nutriments per 100g / per serving, allergens_tags, ingredients_text, nutriscore_grade, nova_group, labels_tags, etc). Persisted as JSONB.'),
       kitchenSlug: z.string().optional().describe('Kitchen slug (default: home)'),
     },
     async (args) => {
       const data = await gql<{ addIngredient: unknown }>(
-        `mutation($name: String!, $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!], $kitchenSlug: String) {
-          addIngredient(name: $name, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags, kitchenSlug: $kitchenSlug) { ${INGREDIENT_FIELDS} }
+        `mutation($name: String!, $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!], $barcode: String, $productMeta: String, $kitchenSlug: String) {
+          addIngredient(name: $name, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags, barcode: $barcode, productMeta: $productMeta, kitchenSlug: $kitchenSlug) { ${INGREDIENT_FIELDS} }
         }`,
         args,
       );
@@ -51,7 +53,7 @@ export function registerIngredientTools(server: McpServer) {
 
   server.tool(
     'add_ingredients',
-    'Bulk-add multiple ingredients to the pantry. Set itemSize + itemSizeUnit for packaged goods with known per-item sizing.',
+    'Bulk-add multiple ingredients to the pantry. Set itemSize + itemSizeUnit for packaged goods with known per-item sizing. Set barcode + productMeta (JSON-encoded) when sourcing from barcode data.',
     {
       ingredients: z.array(z.object({
         name: z.string(),
@@ -62,6 +64,8 @@ export function registerIngredientTools(server: McpServer) {
         itemSizeUnit: z.string().optional(),
         alwaysOnHand: z.boolean().optional(),
         tags: z.array(z.string()).optional(),
+        barcode: z.string().optional(),
+        productMeta: z.string().optional(),
       })).describe('Array of ingredients to add'),
       kitchenSlug: z.string().optional().describe('Kitchen slug (default: home)'),
     },
@@ -89,11 +93,13 @@ export function registerIngredientTools(server: McpServer) {
       itemSizeUnit: z.string().optional().describe('New per-item size unit'),
       alwaysOnHand: z.boolean().optional().describe('Mark as always on hand'),
       tags: z.array(z.string()).optional().describe('New tags (e.g. harvest location tags like costco, farmers-market)'),
+      barcode: z.string().optional().describe('Barcode string (EAN-13/UPC-A).'),
+      productMeta: z.string().optional().describe('JSON-encoded whitelisted OFF metadata.'),
     },
     async (args) => {
       const data = await gql<{ updateIngredient: unknown }>(
-        `mutation($id: String!, $name: String, $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!]) {
-          updateIngredient(id: $id, name: $name, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags) { ${INGREDIENT_FIELDS} }
+        `mutation($id: String!, $name: String, $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!], $barcode: String, $productMeta: String) {
+          updateIngredient(id: $id, name: $name, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags, barcode: $barcode, productMeta: $productMeta) { ${INGREDIENT_FIELDS} }
         }`,
         args,
       );

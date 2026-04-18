@@ -22,6 +22,9 @@ export interface IngredientData {
   itemSizeUnit?: string | null;
   alwaysOnHand: boolean;
   tags: string[];
+  /** Opt-in barcode metadata (STORE_BARCODE_META setting). */
+  barcode?: string | null;
+  productMeta?: string | null;
 }
 
 export interface IngredientFormVariables {

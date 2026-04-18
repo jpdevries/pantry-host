@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import BarcodeScanner, { ScannedProduct } from './BarcodeScanner';
 import { gql } from '@/lib/gql';
 import { enqueue } from '@/lib/offlineQueue';
@@ -34,6 +34,27 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
   const [toasts, setToasts] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Mirror of the STORE_BARCODE_META setting. Loaded via /api/settings-read;
+  // toggled in-place via /api/settings-write so /settings stays in sync.
+  const [storeMetaEnabled, setStoreMetaEnabled] = useState(false);
+  useEffect(() => {
+    fetch('/api/settings-read')
+      .then((r) => r.json())
+      .then((b) => setStoreMetaEnabled(b?.values?.STORE_BARCODE_META === 'true'))
+      .catch(() => { /* fall back to off */ });
+  }, []);
+  async function toggleStoreMeta(next: boolean) {
+    setStoreMetaEnabled(next);
+    try {
+      await fetch('/api/settings-write', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ values: { STORE_BARCODE_META: next ? 'true' : 'false' } }),
+      });
+    } catch {
+      /* setting will reconcile on next page load if the write fails */
+    }
+  }
 
   const addToast = (msg: string) => {
     setToasts((prev) => [...prev.slice(-4), msg]);
@@ -83,6 +104,9 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
         itemSizeUnit: i.alwaysOnHand ? null : (i.itemSizeUnit ?? null),
         alwaysOnHand: i.alwaysOnHand,
         tags: i.tags,
+        // Opt-in: persist barcode + OFF metadata only when the setting is on.
+        barcode: storeMetaEnabled ? (i.barcode ?? null) : null,
+        productMeta: storeMetaEnabled && i.meta ? JSON.stringify(i.meta) : null,
       })),
     };
     try {
@@ -97,10 +121,22 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
   return (
     <Modal open={true} onClose={onCancel} title="Batch scan groceries" fullScreen>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-card)] shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-card)] shrink-0 gap-3">
         <h2 className="text-[var(--color-text-primary)] font-bold text-lg">
           {phase === 'scanning' ? 'Scan Groceries' : `Review (${items.length})`}
         </h2>
+        <label
+          className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] cursor-pointer select-none ml-auto"
+          title="When on, each scanned item's barcode + a whitelisted subset of Open Food Facts data is saved. Power-user feature for MCP agents and nutrition tooling."
+        >
+          <input
+            type="checkbox"
+            checked={storeMetaEnabled}
+            onChange={(e) => toggleStoreMeta(e.target.checked)}
+            className="accent-[var(--color-accent)]"
+          />
+          <span>Save barcode data</span>
+        </label>
         <button
           type="button"
           onClick={onCancel}

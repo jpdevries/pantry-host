@@ -4,7 +4,7 @@ import IngredientForm from '@/components/IngredientForm';
 import BatchScanSession from '@/components/BatchScanSession';
 import { gql } from '@/lib/gql';
 import {
-  Camera, PencilSimple, Trash,
+  Camera, PencilSimple, Trash, Barcode,
   Leaf, Bone, Egg, Package, Snowflake, DotsThree,
   Carrot, OrangeSlice, Plant, Cow, Drop, Knife, Fish,
   Cube, Grains, Acorn, Jar, JarLabel, Pepper, Bread,
@@ -58,11 +58,13 @@ interface Ingredient {
   itemSizeUnit: string | null;
   alwaysOnHand: boolean;
   tags: string[];
+  barcode: string | null;
+  productMeta: string | null;
 }
 
 const INGREDIENTS_QUERY = `
   query Ingredients($kitchenSlug: String) {
-    ingredients(kitchenSlug: $kitchenSlug) { id name category quantity unit itemSize itemSizeUnit alwaysOnHand tags }
+    ingredients(kitchenSlug: $kitchenSlug) { id name category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta }
   }
 `;
 
@@ -291,6 +293,15 @@ export default function IngredientsPage({ kitchen }: Props) {
                     <div className="flex items-center gap-3 py-3">
                       <div className="flex-1 min-w-0">
                         <span className="font-medium" id={`ing-${ing.id}`}>{ing.name}</span>
+                        {(ing.barcode || ing.productMeta) && (
+                          <span
+                            className="inline-flex items-center gap-0.5 ml-1.5 text-[var(--color-text-secondary)] align-text-bottom"
+                            aria-label={ing.productMeta ? 'Barcode + nutrition data stored' : 'Barcode stored'}
+                            title={ing.productMeta ? 'Barcode + nutrition data stored' : 'Barcode stored'}
+                          >
+                            <Barcode size={12} aria-hidden />
+                          </span>
+                        )}
                         {ing.alwaysOnHand ? (
                           <span className="ml-2 text-xs font-medium text-accent">always on hand</span>
                         ) : (ing.quantity != null || ing.unit) && (

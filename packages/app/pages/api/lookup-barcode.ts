@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { whitelistProductMeta, OFF_METADATA_FIELDS, type ProductMeta } from '@pantry-host/shared/product-meta';
 
 interface BarcodeResult {
   name: string;
@@ -10,6 +11,11 @@ interface BarcodeResult {
   /** Unit of the per-item size (e.g. "fl oz") */
   itemSizeUnit?: string;
   brand?: string;
+  /** The raw barcode string (EAN-13, UPC-A, etc.). Client persists this
+   *  only when the STORE_BARCODE_META setting is on. */
+  barcode?: string;
+  /** Whitelisted OFF product metadata. Same opt-in as barcode. */
+  meta?: ProductMeta;
 }
 
 // Map Open Food Facts categories to our predefined categories
@@ -76,8 +82,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   try {
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), 8_000);
+    // Request both the core fields we've always consumed AND the wider
+    // metadata set. The client decides whether to persist the metadata
+    // based on STORE_BARCODE_META; the endpoint is policy-free.
+    const coreFields = 'product_name,brands,categories_tags,quantity,product_quantity,product_quantity_unit';
+    const metaFields = OFF_METADATA_FIELDS.join(',');
     const response = await fetch(
-      `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=product_name,brands,categories_tags,quantity,product_quantity,product_quantity_unit`,
+      `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=${coreFields},${metaFields}`,
       {
         headers: { 'User-Agent': 'PantryListApp/1.0 (family recipe management)' },
         signal: ac.signal,
@@ -183,7 +194,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       unit = 'whole';
     }
 
-    return res.json({ name, brand, category, quantity: qty, unit, itemSize, itemSizeUnit });
+    const meta = whitelistProductMeta(product as unknown as Record<string, unknown>) ?? undefined;
+    return res.json({ name, brand, category, quantity: qty, unit, itemSize, itemSizeUnit, barcode: code, meta });
   } catch (err) {
     return res.status(502).json({ error: `Lookup failed: ${(err as Error).message}` });
   }

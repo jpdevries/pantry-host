@@ -29,13 +29,15 @@ type SettingKey =
   | 'SHOW_COCKTAILDB'
   | 'PIXABAY_API_KEY'
   | 'PIXABAY_FALLBACK_ENABLED'
-  | 'HARVEST_LOCATIONS';
+  | 'HARVEST_LOCATIONS'
+  | 'STORE_BARCODE_META';
 const APP_KEYS: SettingKey[] = [
   'RECIPE_API_KEY',
   'SHOW_COCKTAILDB',
   'PIXABAY_API_KEY',
   'PIXABAY_FALLBACK_ENABLED',
   'HARVEST_LOCATIONS',
+  'STORE_BARCODE_META',
 ];
 const SECRET_KEYS = new Set<SettingKey>(['RECIPE_API_KEY', 'PIXABAY_API_KEY']);
 
@@ -100,6 +102,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     PIXABAY_API_KEY: process.env.PIXABAY_API_KEY,
     PIXABAY_FALLBACK_ENABLED: process.env.PIXABAY_FALLBACK_ENABLED,
     HARVEST_LOCATIONS: process.env.HARVEST_LOCATIONS,
+    STORE_BARCODE_META: process.env.STORE_BARCODE_META,
   };
   // Overrides win over .env.local-derived process.env so user edits on
   // /settings take effect immediately without a restart.

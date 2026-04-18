@@ -14,7 +14,8 @@ import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang
 import { hasCooklangSyntax, extractCooklang } from '@pantry-host/shared/cooklang-parser';
 import PixabayImage from '@pantry-host/shared/components/PixabayImage';
 import Modal from '@pantry-host/shared/components/Modal';
-import { NutritionFacts } from '@pantry-host/shared/components/NutritionFacts';
+import { NutritionSource } from '@pantry-host/shared/components/NutritionSource';
+import { AllergensLine } from '@pantry-host/shared/components/AllergensLine';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem } from '@pantry-host/shared/grocery-status';
 import { isOwner } from '@/lib/isTrustedNetwork';
@@ -76,10 +77,10 @@ const RECIPE_QUERY = `
 const DELETE_RECIPE = `mutation DeleteRecipe($id: String!) { deleteRecipe(id: $id) }`;
 const COMPLETE_RECIPE = `mutation CompleteRecipe($id: String!, $servings: Int) { completeRecipe(id: $id, servings: $servings) { id lastMadeAt } }`;
 const TOGGLE_QUEUED = `mutation ToggleQueued($id: String!) { toggleRecipeQueued(id: $id) { id queued } }`;
-const PANTRY_QUERY = `query Ingredients($kitchenSlug: String) { ingredients(kitchenSlug: $kitchenSlug) { id name quantity unit itemSize itemSizeUnit alwaysOnHand } }`;
+const PANTRY_QUERY = `query Ingredients($kitchenSlug: String) { ingredients(kitchenSlug: $kitchenSlug) { id name quantity unit itemSize itemSizeUnit alwaysOnHand barcode productMeta } }`;
 const UPDATE_INGREDIENT = `mutation UpdateIngredient($id: String!, $quantity: Float) { updateIngredient(id: $id, quantity: $quantity) { id quantity } }`;
 
-interface PantryItem { id: string; name: string; quantity: number | null; unit: string | null; itemSize: number | null; itemSizeUnit: string | null; alwaysOnHand: boolean; }
+interface PantryItem { id: string; name: string; quantity: number | null; unit: string | null; itemSize: number | null; itemSizeUnit: string | null; alwaysOnHand: boolean; barcode: string | null; productMeta: string | null; }
 
 interface Props { kitchen: string; recipeId: string; }
 
@@ -844,10 +845,20 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
 
           <StepPhotos steps={steps} sourceUrl={recipe.sourceUrl} dbStepPhotos={recipe.stepPhotos} />
 
-          {/* Borrowed nutrition data for recipe-api.com imports. Fetched
-              lazily on first expand, never stored. Hidden silently for
-              non-recipe-api sources or when no key is available. */}
-          <NutritionFacts sourceUrl={recipe.sourceUrl} apiKey={recipeApiKey} />
+          {/* Allergens aggregated from pantry OFF metadata ("Contains: …").
+              Silent when no matches. */}
+          <AllergensLine ingredients={recipe.ingredients} pantry={pantry ?? []} />
+
+          {/* Nutrition panel — recipe-api.com import wins when available,
+              otherwise aggregated from pantry OFF metadata where possible.
+              Hidden silently when neither source has usable data. */}
+          <NutritionSource
+            sourceUrl={recipe.sourceUrl}
+            recipeApiKey={recipeApiKey}
+            ingredients={recipe.ingredients}
+            pantry={pantry ?? []}
+            servings={recipe.servings}
+          />
 
           {subRecipes.length > 0 && (
             <section aria-labelledby="sub-recipes-heading" className="mt-12">

@@ -5,7 +5,8 @@ import { recipeToDataURI, downloadRecipeICS, imageToDataURI } from '@pantry-host
 import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang';
 import { hasCooklangSyntax, extractCooklang } from '@pantry-host/shared/cooklang-parser';
 import PixabayImage from '@pantry-host/shared/components/PixabayImage';
-import { NutritionFacts } from '@pantry-host/shared/components/NutritionFacts';
+import { NutritionSource } from '@pantry-host/shared/components/NutritionSource';
+import { AllergensLine } from '@pantry-host/shared/components/AllergensLine';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem } from '@pantry-host/shared/grocery-status';
 import { getFileURL } from '@/lib/storage-opfs';
@@ -155,6 +156,8 @@ interface PantryItemForCheck {
   itemSize: number | null;
   itemSizeUnit: string | null;
   alwaysOnHand: boolean;
+  barcode: string | null;
+  productMeta: string | null;
 }
 
 export default function RecipeDetailPage() {
@@ -189,7 +192,7 @@ export default function RecipeDetailPage() {
   // recipe load so both can resolve in parallel.
   useEffect(() => {
     gql<{ ingredients: PantryItemForCheck[] }>(
-      `{ ingredients { name quantity unit itemSize itemSizeUnit alwaysOnHand } }`,
+      `{ ingredients { name quantity unit itemSize itemSizeUnit alwaysOnHand barcode productMeta } }`,
     )
       .then((d) => setPantry(d.ingredients ?? []))
       .catch((err) => { console.warn('[pantry fetch]', err); setPantry([]); });
@@ -539,11 +542,17 @@ export default function RecipeDetailPage() {
 
       <StepPhotos instructions={recipe.instructions} sourceUrl={recipe.sourceUrl} dbStepPhotos={recipe.stepPhotos} />
 
-      {/* Borrowed nutrition data for recipe-api.com imports. Fetched lazily,
-          never stored — see packages/shared/src/components/NutritionFacts.tsx */}
-      <NutritionFacts
+      {/* Allergens from pantry OFF metadata. */}
+      <AllergensLine ingredients={recipe.ingredients} pantry={pantry ?? []} />
+
+      {/* Nutrition panel — recipe-api.com when available, otherwise
+          aggregated from pantry OFF metadata where possible. */}
+      <NutritionSource
         sourceUrl={recipe.sourceUrl}
-        apiKey={typeof window !== 'undefined' ? localStorage.getItem('recipe-api-key') : null}
+        recipeApiKey={typeof window !== 'undefined' ? localStorage.getItem('recipe-api-key') : null}
+        ingredients={recipe.ingredients}
+        pantry={pantry ?? []}
+        servings={recipe.servings}
       />
 
       {subRecipes.length > 0 && (

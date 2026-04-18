@@ -108,40 +108,12 @@ export type RecipeAPIStorage = Record<string, { notes: string | null; duration: 
  * Pantry Host does NOT persist this. It's a borrowed display-only view on
  * the Recipe Detail page, fetched lazily from recipe-api.com on demand.
  */
-export interface RecipeAPINutritionPerServing {
-  calories: number | null;
-  protein_g: number | null;
-  carbohydrates_g: number | null;
-  fat_g: number | null;
-  saturated_fat_g: number | null;
-  trans_fat_g: number | null;
-  monounsaturated_fat_g: number | null;
-  polyunsaturated_fat_g: number | null;
-  fiber_g: number | null;
-  sugar_g: number | null;
-  sodium_mg: number | null;
-  cholesterol_mg: number | null;
-  potassium_mg: number | null;
-  calcium_mg: number | null;
-  iron_mg: number | null;
-  magnesium_mg: number | null;
-  phosphorus_mg: number | null;
-  zinc_mg: number | null;
-  vitamin_a_mcg: number | null;
-  vitamin_c_mg: number | null;
-  vitamin_d_mcg: number | null;
-  vitamin_e_mg: number | null;
-  vitamin_k_mcg: number | null;
-  vitamin_b6_mg: number | null;
-  vitamin_b12_mcg: number | null;
-  thiamin_mg: number | null;
-  riboflavin_mg: number | null;
-  niacin_mg: number | null;
-  folate_mcg: number | null;
-  water_g: number | null;
-  alcohol_g: number | null;
-  caffeine_mg: number | null;
-}
+// The canonical shape now lives in `./types/nutrition` so non-recipe-api
+// sources (e.g. aggregated OFF nutriments from pantry-linked ingredients)
+// can feed the same UI. Re-exported here under the legacy name for any
+// callers still importing from `recipe-api`.
+import type { NutritionPerServing } from './types/nutrition';
+export type RecipeAPINutritionPerServing = NutritionPerServing;
 
 export interface RecipeAPINutrition {
   per_serving: RecipeAPINutritionPerServing;

@@ -274,6 +274,14 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // The Cache API only supports GET requests — any cache.put of a POST/PUT/
+  // DELETE request throws "Request method 'X' is unsupported". Today the
+  // only same-origin non-GET is not caught by any of the handlers below, but
+  // any future same-origin mutation endpoint would hit the generic
+  // stale-while-revalidate handler at the bottom and throw. Let non-GETs
+  // pass through to the network unconditionally.
+  if (request.method !== 'GET') return;
+
   // Federated recipe sources (Cooklang + recipe-api.com): dedicated TTL cache.
   if (isCachedRecipeSource(url)) {
     event.respondWith(cooklangHandler(request));

@@ -47,6 +47,7 @@
     "./components/PantryNutritionFacts": "./src/components/PantryNutritionFacts.tsx",
     "./components/NutritionSource": "./src/components/NutritionSource.tsx",
     "./components/AllergensLine": "./src/components/AllergensLine.tsx",
+    "./components/IngredientMetaPanel": "./src/components/IngredientMetaPanel.tsx",
     "./components/AtRecipeDetail": "./src/components/AtRecipeDetail.tsx",
     "./components/AtMenuDetail": "./src/components/AtMenuDetail.tsx",
     "./components/UrlRecipeDetail": "./src/components/UrlRecipeDetail.tsx",

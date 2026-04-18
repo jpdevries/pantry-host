@@ -14,7 +14,7 @@
 import { convert, normalizeUnit } from './units';
 import { findPantryItem, type PantryLookup, type PantryItemForStatus } from './grocery-status';
 import { emptyNutrition, type NutritionPerServing } from './types/nutrition';
-import type { ProductMeta } from './product-meta';
+import { safeParseMeta, type ProductMeta } from './product-meta';
 
 export interface RecipeIngredientForNutrition {
   ingredientName: string;
@@ -159,15 +159,8 @@ export function offToNutritionPer100g(
   return out;
 }
 
-function parseProductMeta(raw: string | null | undefined): ProductMeta | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? (parsed as ProductMeta) : null;
-  } catch {
-    return null;
-  }
-}
+// (parseProductMeta lifted to product-meta.ts as safeParseMeta — same
+// shape, shared with IngredientMetaPanel and any future consumer.)
 
 /** Sum a per-100g fragment scaled by `grams/100` into the running total. */
 function addContribution(
@@ -215,7 +208,7 @@ export function aggregateNutrition(input: AggregateInput): AggregateResult {
       missing.push({ name: ing.ingredientName, reason: 'no-match', qty: ing.quantity, unit: ing.unit });
       continue;
     }
-    const meta = parseProductMeta(pantry.productMeta);
+    const meta = safeParseMeta(pantry.productMeta);
     const per100g = offToNutritionPer100g(meta?.nutriments);
     if (Object.keys(per100g).length === 0) {
       missing.push({ name: ing.ingredientName, reason: 'no-metadata', qty: ing.quantity, unit: ing.unit });
@@ -250,7 +243,7 @@ export function aggregateAllergens(input: {
   const seen = new Set<string>();
   for (const ing of input.ingredients) {
     const pantry = findPantryItem(input.lookup, ing.ingredientName);
-    const meta = parseProductMeta(pantry?.productMeta);
+    const meta = safeParseMeta(pantry?.productMeta);
     if (!meta?.allergens_tags) continue;
     for (const tag of meta.allergens_tags) {
       // "en:milk" → "milk"; "fr:soja" → "soja"; no prefix → as-is.

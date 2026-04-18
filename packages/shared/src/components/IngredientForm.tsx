@@ -6,7 +6,9 @@
  */
 
 import { useState } from 'react';
+import { Barcode, CaretRight } from '@phosphor-icons/react';
 import { CATEGORY_GROUPS, UNIT_GROUPS, COMMON_INGREDIENTS } from '../constants';
+import { IngredientMetaPanel } from './IngredientMetaPanel';
 
 /** Units from the "Count" group — the only ones where a per-item measurable size makes sense.
  * "3 jars × 12 fl oz" is meaningful; "2 cups × 4 cups" is not. */
@@ -115,8 +117,24 @@ export default function IngredientForm({ ingredient, onSubmit, onCancel, autoFoc
       </datalist>
 
       <div className="mb-4">
-        <label htmlFor="ing-name" className="field-label">
-          Name <span aria-hidden="true" className="text-red-500">*</span>
+        <label htmlFor="ing-name" className="field-label inline-flex items-center gap-1.5">
+          <span>Name <span aria-hidden="true" className="text-red-500">*</span></span>
+          {(ingredient?.barcode || ingredient?.productMeta) && (
+            <a
+              href="#ing-meta-panel"
+              onClick={(e) => {
+                // Force-open the Meta info disclosure when the user clicks
+                // the indicator. Plain anchor jump alone wouldn't expand it.
+                const det = document.getElementById('ing-meta-panel') as HTMLDetailsElement | null;
+                if (det) det.open = true;
+              }}
+              className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+              aria-label="Barcode metadata stored — jump to details"
+              title="Barcode metadata stored"
+            >
+              <Barcode size={14} aria-hidden />
+            </a>
+          )}
         </label>
         <input
           id="ing-name"
@@ -271,6 +289,25 @@ export default function IngredientForm({ ingredient, onSubmit, onCancel, autoFoc
           className="field-input w-full"
         />
       </div>
+
+      {/* Display-only Meta info from barcode scan. Hidden when no
+          metadata is attached. Edits to this panel are out of scope —
+          the data comes from the scanner. */}
+      {(ingredient?.barcode || ingredient?.productMeta) && (
+        <details id="ing-meta-panel" className="group mb-5 border-t border-[var(--color-border-card)] pt-4">
+          <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] select-none hover:text-[var(--color-text-primary)] group-open:text-[var(--color-text-primary)] list-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-2">
+            <CaretRight size={14} weight="bold" aria-hidden className="transition-transform group-open:rotate-90" />
+            <span className="inline-flex items-center gap-1">
+              <Barcode size={14} aria-hidden />
+              Meta info
+            </span>
+          </summary>
+          <IngredientMetaPanel
+            barcode={ingredient.barcode}
+            productMeta={ingredient.productMeta}
+          />
+        </details>
+      )}
 
       {error && (
         <p role="alert" id="ing-error" className="mb-3 text-sm text-red-500">

@@ -56,6 +56,19 @@ export const OFF_METADATA_FIELDS = [
  *  responses from bloating a row. */
 export const PRODUCT_META_MAX_BYTES = 8 * 1024;
 
+/** Safely parse a serialized ProductMeta string. Returns null on
+ *  empty input, malformed JSON, or non-object payloads — callers
+ *  treat that the same as "no metadata available". */
+export function safeParseMeta(raw: string | null | undefined): ProductMeta | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as ProductMeta) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Keep only per-100g and per-serving nutriment values (numbers). Drops
  *  _value, _unit, and other modifier clones that OFF duplicates. */
 function trimNutriments(n: Record<string, unknown> | undefined): Record<string, number> | undefined {

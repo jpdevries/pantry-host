@@ -70,12 +70,20 @@ interface Props {
   /** When true, prefix each primary value with "≈" to signal
    *  approximate/partial data. Used by pantry-sourced aggregation. */
   approximate?: boolean;
+  /** Optional caption rendered above the primary grid — useful for
+   *  distinguishing "per serving" vs "per 100 g" vs other framings. */
+  caption?: string;
 }
 
-export function NutritionGrid({ nutrition, approximate = false }: Props) {
+export function NutritionGrid({ nutrition, approximate = false, caption }: Props) {
   const moreId = useId();
   return (
     <>
+      {caption && (
+        <p className="text-xs uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
+          {caption}
+        </p>
+      )}
       <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
         {PRIMARY.map(({ key, label, unit, precision }) => (
           <div key={key as string} className="flex flex-col">

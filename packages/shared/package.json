@@ -10,6 +10,7 @@
     "./constants": "./src/constants.ts",
     "./theme": "./src/theme.ts",
     "./cache": "./src/cache.ts",
+    "./favorites": "./src/favorites.ts",
     "./dailyQuote": "./src/dailyQuote.ts",
     "./components/Footer": "./src/components/Footer.tsx",
     "./components/AccessibilityPreferences": "./src/components/AccessibilityPreferences.tsx",

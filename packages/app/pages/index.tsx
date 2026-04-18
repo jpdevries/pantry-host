@@ -4,8 +4,9 @@ import { gql } from '@/lib/gql';
 import GenerateButton from '@/components/GenerateButton';
 import RecipeCard from '@/components/RecipeCard';
 import { getDailyQuote } from '@pantry-host/shared/dailyQuote';
-import { Carrot, BookOpen, Coffee, Package, Leaf, Tag, Wine, ForkKnife, CookingPot, Flask } from '@phosphor-icons/react';
+import { Carrot, BookOpen, Coffee, Package, Leaf, Tag, Wine, ForkKnife, CookingPot, Flask, Heart } from '@phosphor-icons/react';
 import { isTrustedNetwork } from '@/lib/isTrustedNetwork';
+import { readFavorites } from '@pantry-host/shared/favorites';
 
 interface HomeRecipe {
   id: string;
@@ -47,6 +48,10 @@ export default function HomePage() {
 
   const [recipeLimit, setRecipeLimit] = useState(6);
   const [seasonalLimit, setSeasonalLimit] = useState(2);
+  const [favoritesLimit, setFavoritesLimit] = useState(3);
+  // Favorites are localStorage-only; hydrate after mount so SSR doesn't crash.
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  useEffect(() => { setFavoriteIds(readFavorites()); }, []);
 
   const ingredientCount = data?.ingredients.length ?? 0;
   const cookwareList = data?.cookware ?? [];
@@ -59,6 +64,13 @@ export default function HomePage() {
   const seasonalAll = allRecipes.filter((r) => r.tags.some((t) => t.toLowerCase() === season));
   const seasonalRecipes = seasonalAll.slice(0, seasonalLimit);
   const hasMoreSeasonal = seasonalAll.length > seasonalLimit;
+
+  // Favorites: intersect localStorage IDs with the current-kitchen recipe
+  // list so deleted/other-kitchen recipes silently drop out.
+  const favoriteSet = new Set(favoriteIds);
+  const favoritesAll = allRecipes.filter((r) => favoriteSet.has(r.id));
+  const favoriteRecipes = favoritesAll.slice(0, favoritesLimit);
+  const hasMoreFavorites = favoritesAll.length > favoritesLimit;
 
   const categoryCounts = data
     ? Object.entries(
@@ -181,6 +193,39 @@ export default function HomePage() {
             <h2 id="ai-heading" className="text-xl font-bold mb-2">Artificial Intelligence</h2>
             <p className="legible text-sm text-zinc-500 dark:text-zinc-400 mb-4">Generate a recipe based on the ingredients and cookware in your kitchen.<br />Your ingredient list is sent to the Anthropic API. Anthropic does not use API data to train models or sell it to third parties.</p>
             <GenerateButton ingredientCount={ingredientCount} cookware={cookwareList} />
+          </section>
+        )}
+
+        {/* Favorites — read from localStorage.favorites, intersected with
+            the current kitchen's recipe list. Silent when empty. */}
+        {favoriteRecipes.length > 0 && (
+          <section aria-labelledby="favorites-heading" className="mb-12">
+            <div className="flex items-center justify-between mb-4">
+              <h2 id="favorites-heading" className="text-xl font-bold inline-flex items-center gap-2">
+                <Heart size={18} weight="fill" aria-hidden className="opacity-70" />
+                Your Favorites
+              </h2>
+              <a href="/recipes?favorites=1#stage" className="text-sm font-semibold text-accent hover:underline">
+                All favorites &rarr;
+              </a>
+            </div>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {favoriteRecipes.map((r) => (
+                <RecipeCard key={r.id} recipe={r} />
+              ))}
+            </div>
+            {hasMoreFavorites && (
+              <div className="mt-6 text-center">
+                <button
+                  type="button"
+                  onClick={() => setFavoritesLimit((n) => n + 6)}
+                  className="text-sm font-semibold text-accent hover:underline"
+                  aria-describedby="favorites-heading"
+                >
+                  Load more favorites
+                </button>
+              </div>
+            )}
           </section>
         )}
 

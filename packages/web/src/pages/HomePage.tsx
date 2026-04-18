@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { gql } from '@/lib/gql';
-import { BookOpen, Wine, ForkKnife, CookingPot, Leaf, Flask } from '@phosphor-icons/react';
+import { BookOpen, Wine, ForkKnife, CookingPot, Leaf, Flask, Heart } from '@phosphor-icons/react';
+import { readFavorites } from '@pantry-host/shared/favorites';
+import { getFileURL } from '@/lib/storage-opfs';
 
 const COMMUNITY_SOURCES = [
   { name: 'TheMealDB', tab: 'mealdb', icon: ForkKnife, catalog: '~300 recipes', blurb: 'Browse by category, cuisine, or ingredient.' },
@@ -18,25 +20,79 @@ interface Kitchen {
   name: string;
 }
 
+interface HomeRecipe {
+  id: string;
+  slug: string;
+  title: string;
+  tags: string[];
+  photoUrl: string | null;
+  prepTime: number | null;
+  cookTime: number | null;
+}
+
 interface Stats {
-  recipes: { id: string }[];
+  recipes: HomeRecipe[];
   ingredients: { id: string }[];
   cookware: { id: string }[];
   kitchens: Kitchen[];
 }
 
 const STATS_QUERY = `{
-  recipes { id }
+  recipes { id slug title tags photoUrl prepTime cookTime }
   ingredients { id }
   cookware { id }
   kitchens { id slug name }
 }`;
 
+/** Lightweight favorite-card for the home-page grid. Full-featured
+ *  cards with queue + Pixabay fallback live in RecipesPage; the home
+ *  surface is view-only so we keep this compact. */
+function FavoriteCard({ recipe }: { recipe: HomeRecipe }) {
+  const [photoSrc, setPhotoSrc] = useState<string | null>(null);
+  useEffect(() => {
+    if (!recipe.photoUrl) return;
+    if (recipe.photoUrl.startsWith('opfs://')) {
+      getFileURL(recipe.photoUrl.replace('opfs://', '')).then(setPhotoSrc).catch(() => {});
+    } else {
+      setPhotoSrc(recipe.photoUrl);
+    }
+  }, [recipe.photoUrl]);
+  const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0);
+  return (
+    <Link
+      to={`/recipes/${recipe.slug || recipe.id}#stage`}
+      className="card rounded-xl overflow-hidden flex flex-col hover:border-[var(--color-accent)] transition-colors"
+    >
+      {photoSrc ? (
+        <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
+          <img
+            src={photoSrc}
+            alt=""
+            loading="lazy"
+            className="w-full h-full object-cover"
+          />
+        </div>
+      ) : (
+        <div className="aspect-[16/9] bg-[var(--color-bg-card)]" aria-hidden />
+      )}
+      <div className="p-4 flex-1 flex flex-col">
+        <h3 className="font-semibold text-sm leading-snug mb-1 hover:underline">{recipe.title}</h3>
+        {totalTime > 0 && (
+          <p className="text-xs text-[var(--color-text-secondary)]">{totalTime} min</p>
+        )}
+      </div>
+    </Link>
+  );
+}
+
 export default function HomePage() {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [favoritesLimit, setFavoritesLimit] = useState(3);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
   useEffect(() => {
     gql<Stats>(STATS_QUERY).then(setStats).catch(console.error);
+    setFavoriteIds(readFavorites());
   }, []);
 
   const cards = [
@@ -44,6 +100,13 @@ export default function HomePage() {
     { label: 'Ingredients', count: stats?.ingredients.length ?? 0, to: '/ingredients' },
     { label: 'Cookware', count: stats?.cookware.length ?? 0, to: '/cookware' },
   ];
+
+  // Favorites: intersect localStorage IDs with the actual recipe list
+  // so deletions / other-origin writes silently drop out.
+  const favoriteSet = new Set(favoriteIds);
+  const favoritesAll = (stats?.recipes ?? []).filter((r) => favoriteSet.has(r.id));
+  const favoriteRecipes = favoritesAll.slice(0, favoritesLimit);
+  const hasMoreFavorites = favoritesAll.length > favoritesLimit;
 
   return (
     <div>
@@ -65,6 +128,39 @@ export default function HomePage() {
           </Link>
         ))}
       </div>
+
+      {/* Favorites — read from localStorage.favorites, intersected with
+          the current recipe list. Silent when empty. */}
+      {favoriteRecipes.length > 0 && (
+        <section aria-labelledby="favorites-heading" className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 id="favorites-heading" className="text-xl font-bold inline-flex items-center gap-2">
+              <Heart size={18} weight="fill" aria-hidden className="opacity-70" />
+              Your Favorites
+            </h2>
+            <Link to="/recipes?favorites=1#stage" className="text-sm font-semibold text-[var(--color-accent)] hover:underline">
+              All favorites &rarr;
+            </Link>
+          </div>
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {favoriteRecipes.map((r) => (
+              <FavoriteCard key={r.id} recipe={r} />
+            ))}
+          </div>
+          {hasMoreFavorites && (
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => setFavoritesLimit((n) => n + 6)}
+                className="text-sm font-semibold text-[var(--color-accent)] hover:underline"
+                aria-describedby="favorites-heading"
+              >
+                Load more favorites
+              </button>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Kitchens */}
       {stats && stats.kitchens.length > 0 && (

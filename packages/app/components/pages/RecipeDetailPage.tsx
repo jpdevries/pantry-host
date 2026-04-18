@@ -17,6 +17,7 @@ import Modal from '@pantry-host/shared/components/Modal';
 import { NutritionSource } from '@pantry-host/shared/components/NutritionSource';
 import { AllergensLine } from '@pantry-host/shared/components/AllergensLine';
 import { getAllergenIcon } from '@pantry-host/shared/components/allergen-icons';
+import { readFavorites, toggleFavorite } from '@pantry-host/shared/favorites';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem } from '@pantry-host/shared/grocery-status';
 import { isOwner } from '@/lib/isTrustedNetwork';
@@ -268,41 +269,26 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
 
   useEffect(() => {
     if (!recipeId) return;
-    try {
-      const favs: string[] = JSON.parse(localStorage.getItem('favorites') || '[]');
-      setFavorited(favs.includes(recipeId));
-    } catch { /* ignored */ }
+    setFavorited(readFavorites().includes(recipeId));
   }, [recipeId]);
 
   // Fetch favorited recipes for the aside grid
   useEffect(() => {
-    try {
-      const favs: string[] = JSON.parse(localStorage.getItem('favorites') || '[]');
-      const others = favs.filter((id) => id !== recipeId);
-      if (others.length === 0) { setFavoritedRecipes([]); return; }
-      Promise.all(
-        others.slice(0, 4).map((id) =>
-          gql<{ recipe: SubRecipe | null }>(
-            `query FavRecipe($id: String!) { recipe(id: $id) { id slug title cookTime prepTime servings source tags photoUrl queued } }`,
-            { id },
-          ).then((d) => d.recipe),
-        ),
-      ).then((results) => setFavoritedRecipes(results.filter((r): r is SubRecipe => r != null)));
-    } catch { /* ignored */ }
-  }, [favorited]);
+    const others = readFavorites().filter((id) => id !== recipeId);
+    if (others.length === 0) { setFavoritedRecipes([]); return; }
+    Promise.all(
+      others.slice(0, 4).map((id) =>
+        gql<{ recipe: SubRecipe | null }>(
+          `query FavRecipe($id: String!) { recipe(id: $id) { id slug title cookTime prepTime servings source tags photoUrl queued } }`,
+          { id },
+        ).then((d) => d.recipe).catch(() => null),
+      ),
+    ).then((results) => setFavoritedRecipes(results.filter((r): r is SubRecipe => r != null)));
+  }, [favorited, recipeId]);
 
   function handleToggleFavorite() {
-    try {
-      const favs: string[] = JSON.parse(localStorage.getItem('favorites') || '[]');
-      let next: string[];
-      if (favs.includes(recipeId)) {
-        next = favs.filter((id) => id !== recipeId);
-      } else {
-        next = [...favs, recipeId];
-      }
-      localStorage.setItem('favorites', JSON.stringify(next));
-      setFavorited(!favorited);
-    } catch { /* ignored */ }
+    const next = toggleFavorite(recipeId);
+    setFavorited(next.includes(recipeId));
   }
 
   // Pantry fetch for ingredient auto-check. Runs in parallel with the

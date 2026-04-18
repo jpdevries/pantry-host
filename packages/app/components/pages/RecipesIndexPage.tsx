@@ -3,6 +3,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { gql } from '@/lib/gql';
 import RecipeCard from '@/components/RecipeCard';
 import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
+import { readFavorites } from '@pantry-host/shared/favorites';
+import { Heart } from '@phosphor-icons/react';
 import { isOwner } from '@/lib/isTrustedNetwork';
 
 interface Recipe {
@@ -44,6 +46,25 @@ export default function RecipesIndexPage({ kitchen }: Props) {
     return '';
   });
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
+  // `?favorites=1` — intersect visible recipes with localStorage.favorites.
+  // Off unless the URL explicitly asks. Hydrates after mount (same guard
+  // as `search`) so SSR doesn't touch `window.location`.
+  const [favoritesOnly, setFavoritesOnly] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('favorites') === '1';
+    }
+    return false;
+  });
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  useEffect(() => { setFavoriteIds(readFavorites()); }, []);
+  function clearFavoritesFilter() {
+    setFavoritesOnly(false);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('favorites');
+      window.history.replaceState({}, '', url);
+    }
+  }
 
   // Keyboard-flow mode. Revealed only on focus-within of <main id="stage">
   // (the main element adds `group/stage`). Default keeps the current
@@ -169,6 +190,26 @@ export default function RecipesIndexPage({ kitchen }: Props) {
           Skip to recipes
         </a>
 
+        {favoritesOnly && (
+          <div className="mb-4 inline-flex items-center gap-2">
+            <span
+              className="tag inline-flex items-center gap-1"
+              style={{ color: 'var(--color-accent)' }}
+              title="Showing only favorited recipes"
+            >
+              <Heart size={12} weight="fill" aria-hidden />
+              Favorites only
+            </span>
+            <button
+              type="button"
+              onClick={clearFavoritesFilter}
+              className="text-xs text-[var(--color-text-secondary)] hover:underline px-2 py-1"
+            >
+              Show all recipes
+            </button>
+          </div>
+        )}
+
         {availableFilters.length > 0 && (
           <div className="mb-6">
             <p id="filter-desc" className="text-xs text-[var(--color-text-secondary)] mb-2">Filter by tag</p>
@@ -212,9 +253,13 @@ export default function RecipesIndexPage({ kitchen }: Props) {
 
         {(() => {
           const q = search.toLowerCase().trim();
-          const visible = ageVerified
+          let visible = ageVerified
             ? recipes
             : recipes.filter((r) => !r.tags.some((t) => ADULT_TAGS.includes(t.toLowerCase())));
+          if (favoritesOnly) {
+            const favSet = new Set(favoriteIds);
+            visible = visible.filter((r) => favSet.has(r.id));
+          }
           const searched = q
             ? visible.filter((r) =>
                 r.title.toLowerCase().includes(q) ||

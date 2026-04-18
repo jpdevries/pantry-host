@@ -6,12 +6,13 @@ import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang
 import { hasCooklangSyntax, extractCooklang } from '@pantry-host/shared/cooklang-parser';
 import PixabayImage from '@pantry-host/shared/components/PixabayImage';
 import { NutritionSource } from '@pantry-host/shared/components/NutritionSource';
+import { readFavorites, toggleFavorite } from '@pantry-host/shared/favorites';
 import { AllergensLine } from '@pantry-host/shared/components/AllergensLine';
 import { getAllergenIcon } from '@pantry-host/shared/components/allergen-icons';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem } from '@pantry-host/shared/grocery-status';
 import { getFileURL } from '@/lib/storage-opfs';
-import { PencilSimple, Trash, Printer, CalendarPlus, Export, Code, ShareNetwork, Rows, Columns, GridNine, ArrowsOut, ArrowsIn } from '@phosphor-icons/react';
+import { PencilSimple, Trash, Printer, CalendarPlus, Export, Code, ShareNetwork, Rows, Columns, GridNine, ArrowsOut, ArrowsIn, Heart, CheckCircle, Circle } from '@phosphor-icons/react';
 
 /** Resolves opfs:// URLs to blob URLs for display */
 function OpfsImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
@@ -51,6 +52,7 @@ interface Recipe {
   stepPhotos: string[];
   sourceUrl: string | null;
   queued: boolean;
+  lastMadeAt: string | null;
   ingredients: RecipeIngredient[];
   /** Recursively-unfurled ingredient list — feeds AllergensLine so
    *  warnings bubble up through sub-recipes. */
@@ -73,7 +75,7 @@ interface SubRecipe {
 const RECIPE_QUERY = `query($id: String!) {
   recipe(id: $id) {
     id slug title description instructions servings prepTime cookTime
-    tags requiredCookware { id name brand } photoUrl stepPhotos sourceUrl queued createdAt
+    tags requiredCookware { id name brand } photoUrl stepPhotos sourceUrl queued lastMadeAt createdAt
     ingredients { ingredientName quantity unit itemSize itemSizeUnit sourceRecipeId }
     groceryIngredients { ingredientName quantity unit itemSize itemSizeUnit }
     usedIn { id slug title cookTime prepTime servings tags photoUrl }
@@ -186,6 +188,34 @@ export default function RecipeDetailPage() {
   const [servings, setServings] = useState(2);
   const articleRef = useRef<HTMLDivElement>(null);
   const [copiedUri, setCopiedUri] = useState(false);
+  // "I Made This" / "Add to Favorites" state — mirrors the app detail page.
+  const [completing, setCompleting] = useState(false);
+  const [favorited, setFavorited] = useState(false);
+  useEffect(() => {
+    if (!recipe) return;
+    setFavorited(readFavorites().includes(recipe.id));
+  }, [recipe?.id]);
+
+  async function handleComplete() {
+    if (!recipe || completing) return;
+    setCompleting(true);
+    try {
+      const data = await gql<{ completeRecipe: { lastMadeAt: string } }>(
+        `mutation($id: String!, $servings: Int) { completeRecipe(id: $id, servings: $servings) { id lastMadeAt } }`,
+        { id: recipe.id, servings },
+      );
+      setRecipe({ ...recipe, lastMadeAt: data.completeRecipe.lastMadeAt });
+    } catch (err) {
+      console.error(err);
+    }
+    setCompleting(false);
+  }
+
+  function handleToggleFavorite() {
+    if (!recipe) return;
+    const next = toggleFavorite(recipe.id);
+    setFavorited(next.includes(recipe.id));
+  }
 
   useEffect(() => {
     setSupportsFullscreen(Boolean(document.documentElement.requestFullscreen || (document.documentElement as any).webkitRequestFullscreen));
@@ -587,6 +617,71 @@ export default function RecipeDetailPage() {
         pantry={pantry ?? []}
         servings={recipe.servings}
       />
+
+      {/* Three-CTA action strip: I Made This · Add it to the List · Favorite.
+          Mirrors the app detail page. Each action is independent; their
+          state comes from different sources (lastMadeAt mutation, queued
+          mutation, localStorage). */}
+      <aside className="no-print pt-10 mt-10 border-t border-[var(--color-border-card)]">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:text-center">
+          <section aria-labelledby="made-this-heading">
+            <h2 id="made-this-heading" className="text-xl font-bold mb-3">I Made This</h2>
+            <button
+              type="button"
+              onClick={handleComplete}
+              disabled={completing}
+              aria-busy={completing}
+              aria-pressed={!!recipe.lastMadeAt}
+              className="inline-flex items-center gap-2 btn-secondary text-sm transition-colors"
+            >
+              {recipe.lastMadeAt
+                ? <CheckCircle size={18} weight="fill" aria-hidden />
+                : <Circle size={18} aria-hidden />}
+              {recipe.lastMadeAt ? 'I Made This Again' : 'I Made This'}
+            </button>
+            <p className="text-sm text-[var(--color-text-secondary)] mt-3">
+              Mark this recipe as made to track when you last cooked it.
+            </p>
+            {recipe.lastMadeAt && (Date.now() - new Date(recipe.lastMadeAt).getTime()) > 7 * 24 * 60 * 60 * 1000 && (
+              <p className="mt-2 text-xs italic text-[var(--color-text-secondary)]">
+                Last made on {new Date(recipe.lastMadeAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+              </p>
+            )}
+          </section>
+
+          <section aria-labelledby="queue-heading">
+            <h2 id="queue-heading" className="text-xl font-bold mb-3">Add it to the List</h2>
+            <button
+              type="button"
+              onClick={handleToggleQueue}
+              aria-pressed={recipe.queued}
+              aria-label={recipe.queued ? 'Remove from grocery list' : 'Add to grocery list'}
+              className={`btn-primary text-sm transition-colors ${recipe.queued ? 'border-[var(--color-accent)] text-[var(--color-accent)]' : ''}`}
+            >
+              {recipe.queued ? '✓ On List' : '+ Grocery List'}
+            </button>
+            <p className="text-sm text-[var(--color-text-secondary)] mt-3">
+              Add ingredients for this recipe to your grocery list.
+            </p>
+          </section>
+
+          <section aria-labelledby="feedback-heading">
+            <h2 id="feedback-heading" className="text-xl font-bold mb-3">What&rsquo;d you Think?</h2>
+            <button
+              type="button"
+              onClick={handleToggleFavorite}
+              aria-pressed={favorited}
+              className={`inline-flex items-center gap-2 btn-secondary text-sm transition-colors ${favorited ? 'border-[var(--color-accent)] text-[var(--color-accent)]' : ''}`}
+            >
+              <Heart size={18} weight={favorited ? 'fill' : 'regular'} aria-hidden />
+              {favorited ? 'Favorited' : 'Add to Favorites'}
+            </button>
+            <p className="text-sm text-[var(--color-text-secondary)] mt-3">
+              Save this recipe to your favorites so you can find it again later.
+            </p>
+          </section>
+        </div>
+      </aside>
 
       {subRecipes.length > 0 && (
         <section className="mt-12">

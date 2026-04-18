@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { gql } from '@/lib/gql';
 import { getFileURL } from '@/lib/storage-opfs';
-import { ShoppingCart } from '@phosphor-icons/react';
+import { ShoppingCart, Heart } from '@phosphor-icons/react';
 import { HIDDEN_TAGS } from '@pantry-host/shared/constants';
+import { readFavorites } from '@pantry-host/shared/favorites';
 import { recipeApiIdFromSourceUrl } from '@pantry-host/shared/recipe-api';
 import PixabayImage from '@pantry-host/shared/components/PixabayImage';
 import { clearPixabayCache } from '@pantry-host/shared/pixabay';
@@ -205,6 +206,16 @@ export default function RecipesPage() {
   const [loading, setLoading] = useState(true);
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const pixabay = usePixabaySettings();
+  // `?favorites=1` — intersect recipes with localStorage.favorites.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const favoritesOnly = searchParams.get('favorites') === '1';
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  useEffect(() => { setFavoriteIds(readFavorites()); }, []);
+  function clearFavoritesFilter() {
+    const next = new URLSearchParams(searchParams);
+    next.delete('favorites');
+    setSearchParams(next, { replace: true });
+  }
 
   // Keyboard-flow mode. Revealed only on focus-within of <main id="stage">
   // (the Layout adds `group/stage`). Default: current two-tab-per-card
@@ -250,7 +261,9 @@ export default function RecipesPage() {
     });
   }
 
-  const searched = recipes.filter(
+  const favoriteSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
+  const favoriteFiltered = favoritesOnly ? recipes.filter((r) => favoriteSet.has(r.id)) : recipes;
+  const searched = favoriteFiltered.filter(
     (r) =>
       r.title.toLowerCase().includes(search.toLowerCase()) ||
       r.tags.some((t) => t.toLowerCase().includes(search.toLowerCase())),
@@ -297,6 +310,26 @@ export default function RecipesPage() {
       <a href="#recipe-list" className="sr-only focus:not-sr-only focus:inline-block focus:mb-2 focus:text-sm focus:underline focus:text-[var(--color-accent)]">
         Skip to recipes
       </a>
+
+      {favoritesOnly && (
+        <div className="mb-4 inline-flex items-center gap-2">
+          <span
+            className="tag inline-flex items-center gap-1"
+            style={{ color: 'var(--color-accent)' }}
+            title="Showing only favorited recipes"
+          >
+            <Heart size={12} weight="fill" aria-hidden />
+            Favorites only
+          </span>
+          <button
+            type="button"
+            onClick={clearFavoritesFilter}
+            className="text-xs text-[var(--color-text-secondary)] hover:underline px-2 py-1"
+          >
+            Show all recipes
+          </button>
+        </div>
+      )}
 
       {availableFilters.length > 0 && (
         <div className="mb-6">

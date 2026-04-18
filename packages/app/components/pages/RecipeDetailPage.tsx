@@ -561,6 +561,9 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
   const isPregnancySafe = recipe.tags.some((t) => t.toLowerCase() === 'pregnancy-safe');
   const isPescatarian = recipe.tags.some((t) => t.toLowerCase() === 'pescatarian');
   const isVegetarian = recipe.tags.some((t) => t.toLowerCase() === 'vegetarian');
+  // Allergen warning tags — render with the same amber chip treatment as
+  // breastfeeding-alert. Substance label = strip the "contains-" prefix.
+  const allergenTags = recipe.tags.filter((t) => t.toLowerCase().startsWith('contains-'));
 
   if (isAdult && !ageVerified) {
     return (
@@ -692,11 +695,25 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                 </span>
               )}
               {isBreastfeedingAlert && (
-                <span className="tag inline-flex items-center gap-1 text-amber-600 dark:text-amber-400" title="Breastfeeding caution">
+                <span className="tag inline-flex items-center gap-1" style={{ color: 'var(--color-warning)' }} title="Breastfeeding caution">
                   <ExclamationTriangleIcon />
                   breastfeeding-alert
                 </span>
               )}
+              {allergenTags.map((t) => {
+                const substance = t.replace(/^contains-/i, '').replace(/-/g, ' ');
+                return (
+                  <span
+                    key={t}
+                    className="tag inline-flex items-center gap-1"
+                    style={{ color: 'var(--color-warning)' }}
+                    title={`Contains ${substance}`}
+                  >
+                    <ExclamationTriangleIcon />
+                    {t}
+                  </span>
+                );
+              })}
               {isPregnancySafe && (
                 <span className="tag inline-flex items-center gap-1 text-pink-600 dark:text-pink-400" title="Pregnancy safe">
                   <HeartIcon />
@@ -715,7 +732,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                   vegetarian
                 </span>
               )}
-              {recipe.tags.filter((t) => !HIDDEN_TAGS.has(t.toLowerCase()) && !['gluten-free', '420', 'cannabis', 'adult-only', 'sustainable', 'local', 'breastfeeding-safe', 'lactation', 'breastfeeding-alert', 'pregnancy-safe', 'pescatarian', 'vegetarian'].includes(t.toLowerCase())).map((t) => <span key={t} className="tag">{t}</span>)}
+              {recipe.tags.filter((t) => !HIDDEN_TAGS.has(t.toLowerCase()) && !t.toLowerCase().startsWith('contains-') && !['gluten-free', '420', 'cannabis', 'adult-only', 'sustainable', 'local', 'breastfeeding-safe', 'lactation', 'breastfeeding-alert', 'pregnancy-safe', 'pescatarian', 'vegetarian'].includes(t.toLowerCase())).map((t) => <span key={t} className="tag">{t}</span>)}
             </div>
             <h1 className="text-4xl font-bold mb-4">{recipe.title}</h1>
             {recipe.description && (
@@ -848,9 +865,13 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
 
           <StepPhotos steps={steps} sourceUrl={recipe.sourceUrl} dbStepPhotos={recipe.stepPhotos} />
 
-          {/* Allergens aggregated from pantry OFF metadata ("Contains: …").
-              Silent when no matches. */}
-          <AllergensLine ingredients={recipe.ingredients} pantry={pantry ?? []} />
+          {/* Allergens — unions `contains-*` recipe tags with pantry OFF
+              metadata. Silent when no matches. */}
+          <AllergensLine
+            ingredients={recipe.ingredients}
+            pantry={pantry ?? []}
+            recipeTags={recipe.tags}
+          />
 
           {/* Nutrition panel — recipe-api.com import wins when available,
               otherwise aggregated from pantry OFF metadata where possible.

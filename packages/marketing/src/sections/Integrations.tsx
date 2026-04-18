@@ -1,4 +1,4 @@
-import { MagnifyingGlass, ForkKnife, GearSix, TreeStructure, Microphone } from '@phosphor-icons/react';
+import { MagnifyingGlass, ForkKnife, GearSix, TreeStructure, Microphone, Heartbeat } from '@phosphor-icons/react';
 
 function ThoughtBubble({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
@@ -24,6 +24,11 @@ const capabilities = [
     title: 'Get recipe help',
     description: 'Search recipes by tag or cookware. Generate new ones from what\u2019s on hand. Queue meals for the week.',
     icon: ForkKnife,
+  },
+  {
+    title: 'Read nutrition labels',
+    description: 'Agents see the per-ingredient Open Food\u00a0Facts metadata alongside everything else \u2014 calories, allergens, Nutri-Score. Useful for diet-aware planning without uploading a thing.',
+    icon: Heartbeat,
   },
   {
     title: 'Manage your kitchen',
@@ -59,7 +64,7 @@ export default function Integrations() {
       <p className="text-center text-[var(--color-text-secondary)] text-sm sm:text-base max-w-2xl mx-auto mb-12 leading-relaxed">
         Pantry&nbsp;Host ships an <abbr title="Model Context Protocol">MCP</abbr> server so any compatible AI&nbsp;client can read and write your kitchen&nbsp;data&nbsp;&mdash; right from your&nbsp;<abbr title="Local Area Network">LAN</abbr>.
       </p>
-      <div className="grid md:grid-cols-3 gap-6 mb-6">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         {capabilities.map((cap) => (
           <div
             key={cap.title}
@@ -104,6 +109,7 @@ export default function Integrations() {
           <ThoughtBubble className="mt-auto">
             <p>What spices are on&nbsp;hand?</p>
             <p>What can I make for&nbsp;dinner?</p>
+            <p>Are there any nuts in tomorrow&rsquo;s&nbsp;dinner?</p>
             <p>Add bananas to the&nbsp;list.</p>
           </ThoughtBubble>
         </div>
@@ -128,6 +134,7 @@ export default function Integrations() {
           </p>
           <ThoughtBubble className="mt-auto">
             <p>What&rsquo;s in the&nbsp;freezer?</p>
+            <p>How many calories are in this&nbsp;lunch?</p>
             <p>Add lettuce to the&nbsp;pantry.</p>
             <p>List most perishable&nbsp;ingredients.</p>
           </ThoughtBubble>

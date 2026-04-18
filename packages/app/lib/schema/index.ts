@@ -58,7 +58,7 @@ const IngredientType = builder.objectType('Ingredient', {
     itemSizeUnit: t.string({ nullable: true, resolve: (r) => r.item_size_unit }),
     alwaysOnHand: t.boolean({ resolve: (r) => r.always_on_hand ?? false }),
     tags: t.stringList({ resolve: (r) => r.tags ?? [] }),
-    // Opt-in barcode + whitelisted OFF metadata (STORE_BARCODE_META setting).
+    // Opt-in barcode + allowlisted OFF metadata (STORE_BARCODE_META setting).
     // Null on rows scanned before the setting was enabled, or on manually-added rows.
     barcode: t.string({ nullable: true, resolve: (r) => r.barcode }),
     /** Serialized JSON string of the ProductMeta payload. Clients/MCP parse as needed. */

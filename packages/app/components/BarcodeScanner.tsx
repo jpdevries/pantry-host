@@ -12,7 +12,7 @@ export interface ScannedProduct {
   /** Per-item size from OFF product_quantity (e.g. 12 fl oz per jar) */
   itemSize?: number;
   itemSizeUnit?: string;
-  /** Whitelisted OFF metadata. Always populated when available; the
+  /** Allowlisted OFF metadata. Always populated when available; the
    *  BatchScanSession decides whether to persist it based on the
    *  STORE_BARCODE_META setting. */
   meta?: ProductMeta;

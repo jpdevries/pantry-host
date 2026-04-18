@@ -119,7 +119,7 @@ ALTER TABLE recipe_ingredients  ADD COLUMN IF NOT EXISTS item_size_unit VARCHAR(
 
 -- v0.5.0: Opt-in barcode + product metadata on pantry ingredients.
 -- When the STORE_BARCODE_META setting is on, the batch scanner persists
--- the barcode and a whitelisted subset of Open Food Facts data for
+-- the barcode and a allowlisted subset of Open Food Facts data for
 -- power users / MCP agents to reason about nutrition, allergens, etc.
 -- Off by default; both columns nullable so existing rows are unaffected.
 ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS barcode       VARCHAR(64);

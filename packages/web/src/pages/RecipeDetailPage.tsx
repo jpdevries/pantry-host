@@ -10,7 +10,7 @@ import { AllergensLine } from '@pantry-host/shared/components/AllergensLine';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem } from '@pantry-host/shared/grocery-status';
 import { getFileURL } from '@/lib/storage-opfs';
-import { PencilSimple, Trash, Printer, CalendarPlus, Export, Code, ShareNetwork, Rows, Columns, GridNine, ArrowsOut, ArrowsIn } from '@phosphor-icons/react';
+import { PencilSimple, Trash, Printer, CalendarPlus, Export, Code, ShareNetwork, Rows, Columns, GridNine, ArrowsOut, ArrowsIn, Warning } from '@phosphor-icons/react';
 
 /** Resolves opfs:// URLs to blob URLs for display */
 function OpfsImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
@@ -402,9 +402,27 @@ export default function RecipeDetailPage() {
               vegetarian
             </span>
           )}
-          {recipe.tags.filter((t) => t.toLowerCase() !== 'vegetarian').map((tag) => (
-            <span key={tag} className="tag">{tag}</span>
-          ))}
+          {/* Allergen warning chips — `contains-*` tags get the amber
+              warning treatment via the shared --color-warning token. */}
+          {recipe.tags.filter((t) => t.toLowerCase().startsWith('contains-')).map((t) => {
+            const substance = t.replace(/^contains-/i, '').replace(/-/g, ' ');
+            return (
+              <span
+                key={t}
+                className="tag inline-flex items-center gap-1"
+                style={{ color: 'var(--color-warning)' }}
+                title={`Contains ${substance}`}
+              >
+                <Warning size={12} aria-hidden weight="bold" />
+                {t}
+              </span>
+            );
+          })}
+          {recipe.tags
+            .filter((t) => t.toLowerCase() !== 'vegetarian' && !t.toLowerCase().startsWith('contains-'))
+            .map((tag) => (
+              <span key={tag} className="tag">{tag}</span>
+            ))}
         </div>
       )}
 
@@ -544,8 +562,12 @@ export default function RecipeDetailPage() {
 
       <StepPhotos instructions={recipe.instructions} sourceUrl={recipe.sourceUrl} dbStepPhotos={recipe.stepPhotos} />
 
-      {/* Allergens from pantry OFF metadata. */}
-      <AllergensLine ingredients={recipe.ingredients} pantry={pantry ?? []} />
+      {/* Allergens — `contains-*` recipe tags + pantry OFF metadata. */}
+      <AllergensLine
+        ingredients={recipe.ingredients}
+        pantry={pantry ?? []}
+        recipeTags={recipe.tags}
+      />
 
       {/* Nutrition panel — recipe-api.com when available, otherwise
           aggregated from pantry OFF metadata where possible. */}

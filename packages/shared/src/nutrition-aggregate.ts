@@ -232,15 +232,34 @@ export function aggregateNutrition(input: AggregateInput): AggregateResult {
   };
 }
 
-/** Convenience: collect allergens tags across contributing (and even
- *  non-contributing) pantry-matched ingredients. Returns a deduped
- *  sorted array of human-readable labels (strips the "en:" / "fr:"
- *  prefix). Used for a "Contains: milk, nuts" line on the recipe page. */
+/** Collect allergens from two sources, unioned and deduped:
+ *
+ *   1. **Recipe `contains-*` tags** the user (or AI generator / importer)
+ *      has explicitly set on the recipe. Substance derived from the tag
+ *      name: `contains-tree-nuts` → `tree nuts`. Doesn't require any
+ *      pantry data; reflects the user's manual assertion.
+ *   2. **Pantry-side OFF metadata** — for each ingredient that maps to
+ *      a pantry row with `meta.allergens_tags`, strip the language
+ *      prefix and include the substance.
+ *
+ * Returns a deduped, sorted array of human-readable substance labels.
+ * Used for the "Contains: …" line on the recipe page.
+ */
 export function aggregateAllergens(input: {
   ingredients: RecipeIngredientForNutrition[];
   lookup: PantryLookup<PantryItemForNutrition>;
+  /** Optional recipe tags — `contains-*` are folded into the result. */
+  recipeTags?: readonly string[];
 }): string[] {
   const seen = new Set<string>();
+  // Tag-based: recipe author asserted these directly.
+  for (const tag of input.recipeTags ?? []) {
+    const lower = tag.toLowerCase();
+    if (!lower.startsWith('contains-')) continue;
+    const substance = lower.slice('contains-'.length).replace(/-/g, ' ');
+    if (substance) seen.add(substance);
+  }
+  // Metadata-based: derived from scanned barcode data.
   for (const ing of input.ingredients) {
     const pantry = findPantryItem(input.lookup, ing.ingredientName);
     const meta = safeParseMeta(pantry?.productMeta);

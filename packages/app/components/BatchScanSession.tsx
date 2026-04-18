@@ -127,7 +127,7 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
         </h2>
         <label
           className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] cursor-pointer select-none ml-auto"
-          title="When on, each scanned item's barcode + a whitelisted subset of Open Food Facts data is saved. Power-user feature for MCP agents and nutrition tooling."
+          title="When on, each scanned item's barcode + an allowlisted subset of Open Food Facts data is saved. Power-user feature for MCP agents and nutrition tooling."
         >
           <input
             type="checkbox"

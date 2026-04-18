@@ -138,7 +138,7 @@ export default function BatchScanSession({ open, onComplete, onCancel }: Props) 
             <Dialog.Title className="font-bold text-lg">
               {phase === 'scanning' ? 'Scan Groceries' : `Review (${items.length})`}
             </Dialog.Title>
-            <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] cursor-pointer select-none ml-auto" title="When on, each scanned item's barcode + a whitelisted subset of Open Food Facts data is saved. Power-user feature for MCP agents and nutrition tooling.">
+            <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] cursor-pointer select-none ml-auto" title="When on, each scanned item's barcode + an allowlisted subset of Open Food Facts data is saved. Power-user feature for MCP agents and nutrition tooling.">
               <input
                 type="checkbox"
                 checked={storeMetaEnabled}

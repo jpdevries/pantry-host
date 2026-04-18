@@ -113,7 +113,7 @@ export const SETTINGS_SCHEMA: SettingDef[] = [
     key: 'STORE_BARCODE_META',
     label: 'Store barcode + product metadata',
     description:
-      "Power user: when on, the batch scanner persists each item's barcode plus a whitelisted subset of Open Food Facts data (nutrition per 100g, ingredients text, allergens, Nutri-Score, NOVA group). Lets MCP agents and nutrition-aware tools reason about your pantry. Off by default; turning this on only affects new scans. Also toggleable from the scan modal header.",
+      "Power user: when on, the batch scanner persists each item's barcode plus a allowlisted subset of Open Food Facts data (nutrition per 100g, ingredients text, allergens, Nutri-Score, NOVA group). Lets MCP agents and nutrition-aware tools reason about your pantry. Off by default; turning this on only affects new scans. Also toggleable from the scan modal header.",
     kind: 'boolean',
     packages: ['app', 'web'],
     defaultValue: 'false',
@@ -139,7 +139,7 @@ export function isSecretSetting(key: SettingKey): boolean {
 }
 
 /**
- * Whitelist check — used by the app's settings-read/write API routes
+ * Allowlist check — used by the app's settings-read/write API routes
  * to reject any key not on the schema. Prevents a misconfigured client
  * from reading or writing arbitrary env vars.
  */

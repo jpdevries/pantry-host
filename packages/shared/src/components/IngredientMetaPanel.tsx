@@ -1,5 +1,5 @@
 /**
- * Display-only panel for the barcode + whitelisted OFF metadata
+ * Display-only panel for the barcode + allowlisted OFF metadata
  * stored on a pantry row. Used inside the IngredientForm edit flow,
  * collapsed under a "Meta info" disclosure. Could later slot into a
  * pantry-list "expand row" view as well.

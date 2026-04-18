@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import Hero from './sections/Hero';
 import Tiers from './sections/Tiers';
 import Features from './sections/Features';
+import Nutrition from './sections/Nutrition';
 import Integrations from './sections/Integrations';
 import AtProtocol from './sections/AtProtocol';
 import ImportFromBluesky from './sections/ImportFromBluesky';
@@ -64,6 +65,7 @@ function Landing() {
       <main>
         <Tiers />
         <Features />
+        <Nutrition />
         <Integrations />
         <AtProtocol />
         <ImportFromBluesky />

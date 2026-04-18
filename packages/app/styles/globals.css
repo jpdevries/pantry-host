@@ -40,6 +40,7 @@
     --color-ring-focus: #18181b;     /* zinc-900 */
     --color-ring-offset: #ffffff;
     --color-danger: #dc2626;         /* red-600 */
+    --color-warning: #b45309;        /* amber-700 — AA on white */
   }
 
   /* ── Default dark (system preference — no JS needed) ── */
@@ -57,6 +58,7 @@
       --color-ring-focus: #e4e4e7;     /* zinc-200 */
       --color-ring-offset: #09090b;    /* zinc-950 */
       --color-danger: #ef4444;         /* red-500 */
+      --color-warning: #fbbf24;        /* amber-400 — AA on near-black */
     }
   }
   /* ── Default dark (forced via JS) ── */
@@ -73,6 +75,7 @@
     --color-ring-focus: #e4e4e7;
     --color-ring-offset: #09090b;
     --color-danger: #ef4444;
+    --color-warning: #fbbf24;
   }
 
   /* ── Rosé palette (light) ── */
@@ -658,6 +661,7 @@
     --color-ring-focus: #000000;
     --color-ring-offset: #ffffff;
     --color-danger: #000000;
+    --color-warning: #000000;
   }
   /* High Contrast: white-on-black (system) */
   @media (prefers-color-scheme: dark) {
@@ -674,6 +678,7 @@
       --color-ring-focus: #ffffff;
       --color-ring-offset: #000000;
       --color-danger: #ffffff;
+      --color-warning: #ffffff;
     }
   }
   /* High Contrast: white-on-black (forced) */
@@ -690,6 +695,7 @@
     --color-ring-focus: #ffffff;
     --color-ring-offset: #000000;
     --color-danger: #ffffff;
+    --color-warning: #ffffff;
   }
 
   *,
@@ -1339,6 +1345,7 @@
     --color-ring-focus: Highlight;
     --color-ring-offset: Canvas;
     --color-danger: CanvasText;
+    --color-warning: CanvasText;
   }
 
   :focus-visible {

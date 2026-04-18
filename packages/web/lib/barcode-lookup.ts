@@ -4,7 +4,7 @@
  * so no server-side proxy is needed.
  */
 
-import { whitelistProductMeta, OFF_METADATA_FIELDS, type ProductMeta } from '@pantry-host/shared/product-meta';
+import { allowlistProductMeta, OFF_METADATA_FIELDS, type ProductMeta } from '@pantry-host/shared/product-meta';
 
 export interface BarcodeResult {
   name: string;
@@ -17,7 +17,7 @@ export interface BarcodeResult {
   brand?: string;
   /** Raw barcode string. Client persists only when STORE_BARCODE_META is on. */
   barcode?: string;
-  /** Whitelisted OFF metadata. Same opt-in gate. */
+  /** Allowlisted OFF metadata. Same opt-in gate. */
   meta?: ProductMeta;
 }
 
@@ -163,6 +163,6 @@ export async function lookupBarcode(code: string): Promise<BarcodeResult> {
     unit = 'whole';
   }
 
-  const meta = whitelistProductMeta(product as unknown as Record<string, unknown>) ?? undefined;
+  const meta = allowlistProductMeta(product as unknown as Record<string, unknown>) ?? undefined;
   return { name, brand, category, quantity: qty, unit, itemSize, itemSizeUnit, barcode: code, meta };
 }

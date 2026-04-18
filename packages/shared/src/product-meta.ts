@@ -1,5 +1,5 @@
 /**
- * Whitelisted subset of Open Food Facts product data that Pantry Host
+ * Allowlisted subset of Open Food Facts product data that Pantry Host
  * is willing to persist on pantry ingredients when the user opts in
  * (STORE_BARCODE_META setting). Intended to enable MCP agents and
  * nutrition-aware tools to reason about pantry items without hoarding
@@ -95,9 +95,9 @@ function trimString(s: unknown, max: number): string | undefined {
   return s.length > max ? s.slice(0, max) : s;
 }
 
-/** Narrow the full OFF product payload to the whitelisted ProductMeta
+/** Narrow the full OFF product payload to the allowlisted ProductMeta
  *  shape. Unknown fields are discarded by design. */
-export function whitelistProductMeta(raw: Record<string, unknown> | null | undefined): ProductMeta | null {
+export function allowlistProductMeta(raw: Record<string, unknown> | null | undefined): ProductMeta | null {
   if (!raw || typeof raw !== 'object') return null;
 
   const meta: ProductMeta = {};
@@ -135,7 +135,7 @@ export function whitelistProductMeta(raw: Record<string, unknown> | null | undef
 
   if (Object.keys(meta).length === 0) return null;
 
-  // Enforce soft cap: if the whitelisted payload is still too big, drop
+  // Enforce soft cap: if the allowlisted payload is still too big, drop
   // heavy fields in order of least-structural-value.
   const overBudget = () => JSON.stringify(meta).length > PRODUCT_META_MAX_BYTES;
   if (overBudget()) delete meta.ingredients_text;

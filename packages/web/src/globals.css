@@ -35,6 +35,7 @@
     --color-ring-focus: #18181b;
     --color-ring-offset: #ffffff;
     --color-danger: #dc2626;
+    --color-warning: #b45309;        /* amber-700 — AA on white */
   }
 
   /* ── Default dark (system preference — no JS needed) ── */
@@ -52,6 +53,7 @@
       --color-ring-focus: #e4e4e7;
       --color-ring-offset: #09090b;
       --color-danger: #ef4444;
+      --color-warning: #fbbf24;        /* amber-400 — AA on near-black */
     }
   }
   body[data-color-scheme="dark"] {
@@ -67,6 +69,7 @@
     --color-ring-focus: #e4e4e7;
     --color-ring-offset: #09090b;
     --color-danger: #ef4444;
+    --color-warning: #fbbf24;
   }
 
   /* ── Rosé palette (light) ── */
@@ -644,6 +647,7 @@
     --color-ring-focus: #000000;
     --color-ring-offset: #ffffff;
     --color-danger: #000000;
+    --color-warning: #000000;
   }
   @media (prefers-color-scheme: dark) {
     body[data-high-contrast]:not([data-color-scheme="light"]) {
@@ -659,6 +663,7 @@
       --color-ring-focus: #ffffff;
       --color-ring-offset: #000000;
       --color-danger: #ffffff;
+      --color-warning: #ffffff;
     }
   }
   body[data-high-contrast][data-color-scheme="dark"] {
@@ -674,6 +679,7 @@
     --color-ring-focus: #ffffff;
     --color-ring-offset: #000000;
     --color-danger: #ffffff;
+    --color-warning: #ffffff;
   }
 
   body {

@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { whitelistProductMeta, OFF_METADATA_FIELDS, type ProductMeta } from '@pantry-host/shared/product-meta';
+import { allowlistProductMeta, OFF_METADATA_FIELDS, type ProductMeta } from '@pantry-host/shared/product-meta';
 
 interface BarcodeResult {
   name: string;
@@ -14,7 +14,7 @@ interface BarcodeResult {
   /** The raw barcode string (EAN-13, UPC-A, etc.). Client persists this
    *  only when the STORE_BARCODE_META setting is on. */
   barcode?: string;
-  /** Whitelisted OFF product metadata. Same opt-in as barcode. */
+  /** Allowlisted OFF product metadata. Same opt-in as barcode. */
   meta?: ProductMeta;
 }
 
@@ -194,7 +194,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       unit = 'whole';
     }
 
-    const meta = whitelistProductMeta(product as unknown as Record<string, unknown>) ?? undefined;
+    const meta = allowlistProductMeta(product as unknown as Record<string, unknown>) ?? undefined;
     return res.json({ name, brand, category, quantity: qty, unit, itemSize, itemSizeUnit, barcode: code, meta });
   } catch (err) {
     return res.status(502).json({ error: `Lookup failed: ${(err as Error).message}` });

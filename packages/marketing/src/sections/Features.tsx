@@ -1,10 +1,15 @@
-import { Barcode, ClipboardText, FileArrowUp, Sparkle, Leaf, Palette, WifiSlash, ShieldCheck } from '@phosphor-icons/react';
+import { Barcode, ClipboardText, FileArrowUp, Sparkle, Leaf, Palette, ShieldCheck, Heartbeat } from '@phosphor-icons/react';
 
 const features = [
   {
     title: 'Barcode scanning',
-    description: 'Scan grocery barcodes with your phone camera to add ingredients instantly via Open Food\u00a0Facts.',
+    description: 'Scan grocery barcodes with your phone camera to add ingredients instantly. Optionally save Open Food\u00a0Facts data \u2014 nutrition, allergens, Nutri-Score, NOVA group \u2014 for offline lookup and AI\u00a0agents.',
     icon: Barcode,
+  },
+  {
+    title: 'Nutrition & allergens',
+    description: 'Estimated calories and macros from stored Open Food\u00a0Facts data. Allergen warning chips from your `contains-*` recipe tags, unioned with any allergens in stored barcode metadata.',
+    icon: Heartbeat,
   },
   {
     title: 'Grocery list',
@@ -32,16 +37,14 @@ const features = [
     icon: Palette,
   },
   {
-    title: 'Offline first',
-    description: 'Service worker caching, offline queue, and cache-seeded state. Works without a network connection.',
-    icon: WifiSlash,
-  },
-  {
     title: 'Privacy by design',
     description: 'No accounts, no tracking, no analytics. Your data never leaves your machine.',
     icon: ShieldCheck,
   },
 ];
+// Offline-first is intentionally absent from this grid — covered
+// implicitly by the "Three ways to run it" tiers (browser PWA + self-host)
+// and by the SelfHost section. Keeps the grid at 8 cards (clean 4×2/2×4).
 
 export default function Features() {
   return (

@@ -37,7 +37,7 @@ export function registerIngredientTools(server: McpServer) {
       alwaysOnHand: z.boolean().optional().describe('If true, never track quantity'),
       tags: z.array(z.string()).optional().describe('Tags'),
       barcode: z.string().optional().describe('EAN-13 / UPC-A barcode string. Typically written by the scanner; agents can pass one when sourcing data from elsewhere.'),
-      productMeta: z.string().optional().describe('JSON-encoded whitelisted Open Food Facts metadata (nutriments per 100g / per serving, allergens_tags, ingredients_text, nutriscore_grade, nova_group, labels_tags, etc). Persisted as JSONB.'),
+      productMeta: z.string().optional().describe('JSON-encoded allowlisted Open Food Facts metadata (nutriments per 100g / per serving, allergens_tags, ingredients_text, nutriscore_grade, nova_group, labels_tags, etc). Persisted as JSONB.'),
       kitchenSlug: z.string().optional().describe('Kitchen slug (default: home)'),
     },
     async (args) => {
@@ -94,7 +94,7 @@ export function registerIngredientTools(server: McpServer) {
       alwaysOnHand: z.boolean().optional().describe('Mark as always on hand'),
       tags: z.array(z.string()).optional().describe('New tags (e.g. harvest location tags like costco, farmers-market)'),
       barcode: z.string().optional().describe('Barcode string (EAN-13/UPC-A).'),
-      productMeta: z.string().optional().describe('JSON-encoded whitelisted OFF metadata.'),
+      productMeta: z.string().optional().describe('JSON-encoded allowlisted OFF metadata.'),
     },
     async (args) => {
       const data = await gql<{ updateIngredient: unknown }>(

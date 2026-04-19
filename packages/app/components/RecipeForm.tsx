@@ -291,12 +291,14 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
       const fd = new FormData();
       fd.append('file', file);
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
-      const data = await res.json() as { url?: string; error?: string };
+      // /api/upload may return plaintext (e.g. Rex's default 413 page) on
+      // failure, so read as text first and only parse if it looks like JSON.
+      const text = await res.text();
+      let data: { url?: string; error?: string } = {};
+      try { data = text ? JSON.parse(text) : {}; } catch { /* non-JSON body */ }
       if (!res.ok || !data.url) {
-        // Surface upload failures so the user doesn't think a re-upload
-        // succeeded when the existing (possibly bad) photoUrl is what
-        // ends up persisted on Save.
-        setPhotoError(data.error ?? `Upload failed (${res.status})`);
+        const detail = data.error ?? text.slice(0, 200) ?? `HTTP ${res.status}`;
+        setPhotoError(`Upload failed: ${detail}`);
         return;
       }
       setPhotoUrl(data.url);

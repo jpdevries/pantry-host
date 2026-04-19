@@ -553,6 +553,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
   const isPregnancySafe = recipe.tags.some((t) => t.toLowerCase() === 'pregnancy-safe');
   const isPescatarian = recipe.tags.some((t) => t.toLowerCase() === 'pescatarian');
   const isVegetarian = recipe.tags.some((t) => t.toLowerCase() === 'vegetarian');
+  const isVegan = recipe.tags.some((t) => t.toLowerCase() === 'vegan');
   // Allergen warning tags — render with the same amber chip treatment as
   // breastfeeding-alert. Substance label = strip the "contains-" prefix.
   const allergenTags = recipe.tags.filter((t) => t.toLowerCase().startsWith('contains-'));
@@ -725,7 +726,13 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                   vegetarian
                 </span>
               )}
-              {recipe.tags.filter((t) => !HIDDEN_TAGS.has(t.toLowerCase()) && !t.toLowerCase().startsWith('contains-') && !['gluten-free', '420', 'cannabis', 'adult-only', 'sustainable', 'local', 'breastfeeding-safe', 'lactation', 'breastfeeding-alert', 'pregnancy-safe', 'pescatarian', 'vegetarian'].includes(t.toLowerCase())).map((t) => <span key={t} className="tag">{t}</span>)}
+              {isVegan && (
+                <span className="tag inline-flex items-center gap-1" style={{ color: 'var(--color-diet-vegan)' }} title="Vegan">
+                  <LeafIcon />
+                  vegan
+                </span>
+              )}
+              {recipe.tags.filter((t) => !HIDDEN_TAGS.has(t.toLowerCase()) && !t.toLowerCase().startsWith('contains-') && !['gluten-free', '420', 'cannabis', 'adult-only', 'sustainable', 'local', 'breastfeeding-safe', 'lactation', 'breastfeeding-alert', 'pregnancy-safe', 'pescatarian', 'vegetarian', 'vegan'].includes(t.toLowerCase())).map((t) => <span key={t} className="tag">{t}</span>)}
             </div>
             <h1 className="text-4xl font-bold mb-4">{recipe.title}</h1>
             {recipe.description && (
@@ -1275,6 +1282,15 @@ function CarrotIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
       <path d="M504.6 138.5c-22.9-27.6-53.4-43.4-86.4-44.8-1.6-32.1-17.1-63.4-44.7-86.3-5.9-4.9-13.1-7.4-20.4-7.4-7.2 0-14.5 2.5-20.4 7.4-27.2 22.6-43.1 53-44.6 85.8-.7 14.5 1.8 28.7 6.6 42.2-13.3-4.4-26.8-7.3-40.3-7.3-48 0-94.1 26.8-116.6 72.8L2.4 478.3c-3 6.2-3.3 13.8 0 20.5 4.1 8.3 12.4 13.1 21 13.1 3.4 0 6.9-.8 10.2-2.4L311.2 374c25-12.2 46.4-32.6 59.6-59.6 15.4-31.5 16.7-66.2 6.5-97.1 11.8 4.1 23.9 6.6 36.4 6.6 34.7 0 67-15.9 90.9-44.7 9.9-11.7 9.9-28.9 0-40.7zm-162.5 162c-9.6 19.7-25.2 35.3-44.9 44.9l-124.8 60.9c-.4-.5-.6-1.1-1.1-1.6l-32-32c-6.2-6.2-16.4-6.2-22.6 0-6.2 6.2-6.2 16.4 0 22.6l25.6 25.6-100.2 49L154 240.6l26.7 26.7c3.1 3.1 7.2 4.7 11.3 4.7s8.2-1.6 11.3-4.7c6.2-6.2 6.2-16.4 0-22.6l-32-32c-.7-.7-1.7-1.1-2.5-1.7 17.1-31.5 49.4-51 85.6-51 14.9 0 29.2 3.3 42.7 9.9 23.4 11.4 41 31.3 49.5 56s6.9 51.1-4.5 74.6zM413.8 192c-21.5 0-43.1-8.9-60.6-26.5l-6.7-6.7c-37.2-37.1-35.4-92 6.6-126.8 33.2 27.5 41.5 67.6 25.3 101.6 11.2-5.3 23-8 34.9-8 24.1 0 48.3 11.1 66.7 33.3-18.3 22.1-42.3 33.1-66.2 33.1z" />
+    </svg>
+  );
+}
+
+function LeafIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 576 512" fill="currentColor" aria-hidden="true">
+      {/* Font Awesome Pro 5.15.4 - fa-leaf (light) */}
+      <path d="M546.2 9.7c-2.9-6.5-8.6-9.7-14.3-9.7-5.3 0-10.7 2.8-14 8.5C486.9 62.4 431.4 96 368 96h-80C182 96 96 182 96 288c0 20.9 3.4 40.9 9.6 59.7C29.3 413 1.4 489.4.9 490.7c-2.9 8.3 1.5 17.5 9.8 20.4 7.9 2.8 17.4-1.1 20.4-9.8.4-1.2 23.9-65.1 87.6-122.7C151.1 438.9 214.7 480 288 480c6.9 0 13.7-.4 20.4-1.1C465.5 467.5 576 326.8 576 154.3c0-50.2-10.8-102.2-29.8-144.6zM305 447.1c-5.9.6-11.6.9-17 .9-63.3 0-117.6-37.2-143.5-90.6C196.3 319 268.6 288 368 288c8.8 0 16-7.2 16-16s-7.2-16-16-16c-102.8 0-179 31-234.8 70.4-3.1-12.4-5.2-25.1-5.2-38.4 0-88.2 71.8-160 160-160h80c63.3 0 121-28.4 159.7-77.2 10.5 32.3 16.3 68.7 16.3 103.5 0 159.6-100.1 282.7-239 292.8z" />
     </svg>
   );
 }

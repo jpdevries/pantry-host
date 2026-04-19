@@ -36,6 +36,12 @@
     --color-ring-offset: #ffffff;
     --color-danger: #dc2626;
     --color-warning: #b45309;        /* amber-700 — AA on white */
+    /* Featured-tag accent for the `vegan` diet flag. Uses
+       `light-dark()` so the same token works under any palette
+       without per-palette duplication. New convention going
+       forward; existing featured tags (gluten-free, vegetarian,
+       etc.) still use hardcoded Tailwind classes. */
+    --color-diet-vegan: light-dark(#65a30d, #a3e635);  /* lime-600 / lime-400 */
   }
 
   /* ── Default dark (system preference — no JS needed) ── */

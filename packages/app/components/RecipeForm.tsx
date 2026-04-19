@@ -8,6 +8,7 @@ import IngredientEditor, { resolveIngredients, type IngredientRow } from '@pantr
 import { extractCooklang, hasCooklangSyntax, updateCooklangIngredient, parseCooklangMetadata } from '@pantry-host/shared/cooklang-parser';
 import { gql } from '@/lib/gql';
 import { apiUrl } from '@/lib/apiUrl';
+import { downscaleIfLarge } from '@/lib/downscaleImage';
 import { enqueue } from '@/lib/offlineQueue';
 
 interface RecipeIngredient {
@@ -288,8 +289,11 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
     setUploadingPhoto(true);
     setPhotoError(null);
     try {
+      // Rex 0.20.0 rejects bodies over ~2 MB. Downscale phone-camera
+      // photos before POST; small files pass through untouched.
+      const prepared = await downscaleIfLarge(file);
       const fd = new FormData();
-      fd.append('file', file);
+      fd.append('file', prepared);
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
       // /api/upload may return plaintext (e.g. Rex's default 413 page) on
       // failure, so read as text first and only parse if it looks like JSON.
@@ -330,8 +334,10 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
   async function handleStepPhotoUpload(idx: number, file: File) {
     setUploadingStepIdx(idx);
     try {
+      // Rex 0.20.0 rejects bodies over ~2 MB. See downscaleIfLarge.
+      const prepared = await downscaleIfLarge(file);
       const fd = new FormData();
-      fd.append('file', file);
+      fd.append('file', prepared);
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
       const data = await res.json() as { url?: string; error?: string };
       if (data.url) {

@@ -235,6 +235,20 @@ Use this instead of asking the user for a public upload URL — the upload endpo
         if (fnExt) ext = `.${fnExt === 'jpeg' ? 'jpg' : fnExt}`;
       }
 
+      // Rex 0.20.0 enforces ~2 MB on request bodies. When the fetched
+      // image is larger, downscale to max-dimension 1500 px / JPEG q85
+      // so the responsive pipeline can still do its work downstream.
+      if (bytes.byteLength > 1_800_000) {
+        const sharp = (await import('sharp')).default;
+        const out = await sharp(bytes)
+          .resize({ width: 1500, height: 1500, fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 85 })
+          .toBuffer();
+        bytes = new Uint8Array(out);
+        ext = '.jpg';
+        contentType = 'image/jpeg';
+      }
+
       // POST to APP_URL/api/upload as multipart/form-data
       const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
       const form = new FormData();

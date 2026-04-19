@@ -742,7 +742,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
                     <span className="text-xs text-[var(--color-text-secondary)]">Click or drag</span>
                     <input
                       type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      accept="image/*"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) handleStepPhotoUpload(i, file);
@@ -865,7 +865,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
             <input
               ref={photoInputRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
+              accept="image/*"
               onChange={handlePhotoUpload}
               className="sr-only"
               id="recipe-photo-file"

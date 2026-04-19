@@ -32,6 +32,12 @@ export default function Document() {
         <meta property="og:image" content="https://pantryhost.app/icon-512.png" />
         <meta name="build-hash" content={buildHash} />
         {process.env.DEFAULT_THEME && <meta name="default-palette" content={process.env.DEFAULT_THEME} />}
+        {/* Optional override for the GraphQL API origin. Set when the
+            frontend and API aren't co-located at the same origin — e.g.
+            Tailscale-serve setups where port 443 forwards to Rex but
+            GraphQL lives on a dedicated port (:4443). `apiUrl()` reads
+            this meta before falling back to its heuristic. */}
+        {process.env.PUBLIC_API_ORIGIN && <meta name="api-origin" content={process.env.PUBLIC_API_ORIGIN} />}
         {/* SHOW_COCKTAILDB no longer injected here — RecipeImportPage fetches
             it from /api/settings-read so /settings overrides take effect
             without a server restart. */}

@@ -886,7 +886,10 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
           {photoUrl && (
             <div className="mt-2">
               <img
-                src={photoUrl.startsWith('/uploads/') ? photoUrl.replace(/\.\w+$/, '-400.jpg') : photoUrl}
+                // Use the original here (not the -400 variant) because sharp
+                // generates variants in the background — right after upload
+                // the -400.jpg doesn't exist yet and the preview 404s.
+                src={photoUrl}
                 alt="Recipe preview"
                 className="h-32 w-auto object-cover border border-[var(--color-border-card)]"
                 width={227}

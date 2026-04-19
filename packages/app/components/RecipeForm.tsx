@@ -234,11 +234,17 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
         title?: string; description?: string; instructions?: string; servings?: number;
         prepTime?: number; cookTime?: number; tags?: string[]; requiredCookware?: string[]; photoUrl?: string;
         ingredients?: { ingredientName: string; quantity: number | null; unit: string | null }[];
+        sourceUrl?: string;
         error?: string;
       };
 
       if (!res.ok || data.error) throw new Error(data.error ?? 'Unknown error');
 
+      // Preserve provenance: the URL we imported from becomes the
+      // recipe's sourceUrl at save time (line ~440 reads importUrl
+      // state). If the server returned a canonical URL after a
+      // redirect, prefer that over whatever the user typed.
+      if (data.sourceUrl && data.sourceUrl !== importUrl) setImportUrl(data.sourceUrl);
       if (data.title) setTitle(data.title);
       if (data.description) setDescription(data.description);
       if (data.instructions) setInstructions(data.instructions);

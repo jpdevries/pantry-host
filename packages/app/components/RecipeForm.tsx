@@ -7,6 +7,7 @@ const COUNT_UNITS: readonly string[] = UNIT_GROUPS.find((g) => g.label === 'Coun
 import IngredientEditor, { resolveIngredients, type IngredientRow } from '@pantry-host/shared/components/IngredientEditor';
 import { extractCooklang, hasCooklangSyntax, updateCooklangIngredient, parseCooklangMetadata } from '@pantry-host/shared/cooklang-parser';
 import { gql } from '@/lib/gql';
+import { apiUrl } from '@/lib/apiUrl';
 import { enqueue } from '@/lib/offlineQueue';
 
 interface RecipeIngredient {
@@ -224,9 +225,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
     setImporting(true);
     setImportError(null);
     try {
-      const proto = window.location.protocol === 'https:' ? 'https' : 'http';
-      const port = proto === 'https' ? 4443 : 4001;
-      const res = await fetch(`${proto}://${window.location.hostname}:${port}/fetch-recipe`, {
+      const res = await fetch(apiUrl('/fetch-recipe'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: importUrl.trim() }),

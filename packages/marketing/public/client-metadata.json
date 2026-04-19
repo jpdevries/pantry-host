@@ -1,0 +1,18 @@
+{
+  "client_id": "https://pantryhost.app/client-metadata.json",
+  "client_name": "Pantry Host",
+  "client_uri": "https://pantryhost.app",
+  "logo_uri": "https://pantryhost.app/icon-512.png",
+  "tos_uri": "https://pantryhost.app",
+  "policy_uri": "https://pantryhost.app",
+  "redirect_uris": [
+    "https://my.pantryhost.app/oauth/bluesky/callback",
+    "https://pantryhost.app/oauth/bluesky/callback"
+  ],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "scope": "atproto",
+  "token_endpoint_auth_method": "none",
+  "application_type": "web",
+  "dpop_bound_access_tokens": true
+}

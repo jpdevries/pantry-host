@@ -8,6 +8,7 @@ import Footer from '@pantry-host/shared/components/Footer';
 import { flush } from '@/lib/offlineQueue';
 import { registerFlush } from '@/lib/apiStatus';
 import { initTheme } from '@pantry-host/shared/theme';
+import { BlueskyAuthProvider } from '@pantry-host/shared/contexts/BlueskyAuth';
 import '../styles/globals.css';
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -120,10 +121,12 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <PreferBrowserChromeProvider userPref={preferBrowserChrome}>{/* tri-state: 'on' | 'off' | undefined */}
       <KitchenProvider>
-        <Nav />
-        <OfflineBanner />
-        <Component {...pageProps} />
-        <Footer />
+        <BlueskyAuthProvider callbackPath="/oauth/bluesky/callback">
+          <Nav />
+          <OfflineBanner />
+          <Component {...pageProps} />
+          <Footer />
+        </BlueskyAuthProvider>
       </KitchenProvider>
     </PreferBrowserChromeProvider>
   );

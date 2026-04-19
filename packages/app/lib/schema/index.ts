@@ -757,7 +757,11 @@ builder.mutationField('updateRecipe', (t) =>
           prep_time = COALESCE(${args.prepTime ?? null}, prep_time),
           cook_time = COALESCE(${args.cookTime ?? null}, cook_time),
           tags = COALESCE(${args.tags ? sql.array(args.tags) : null}, tags),
-          photo_url = COALESCE(${args.photoUrl ?? null}, photo_url),
+          photo_url = CASE
+            WHEN ${args.photoUrl ?? null}::text IS NULL THEN photo_url
+            WHEN ${args.photoUrl ?? null}::text = '' THEN NULL
+            ELSE ${args.photoUrl ?? null}::text
+          END,
           step_photos = COALESCE(${args.stepPhotos ? sql.array(args.stepPhotos) : null}, step_photos)
         WHERE id = ${args.id}
         RETURNING *

@@ -206,6 +206,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
   }
 
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const ingredientListRef = useRef<HTMLUListElement>(null);
   const [focusNewRecipeSelect, setFocusNewRecipeSelect] = useState(false);
 
@@ -285,14 +286,22 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingPhoto(true);
+    setPhotoError(null);
     try {
       const fd = new FormData();
       fd.append('file', file);
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
       const data = await res.json() as { url?: string; error?: string };
-      if (data.url) setPhotoUrl(data.url);
-    } catch {
-      // ignore upload error — user can still paste URL
+      if (!res.ok || !data.url) {
+        // Surface upload failures so the user doesn't think a re-upload
+        // succeeded when the existing (possibly bad) photoUrl is what
+        // ends up persisted on Save.
+        setPhotoError(data.error ?? `Upload failed (${res.status})`);
+        return;
+      }
+      setPhotoUrl(data.url);
+    } catch (err) {
+      setPhotoError((err as Error).message ?? 'Upload failed');
     } finally {
       setUploadingPhoto(false);
     }
@@ -419,7 +428,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
         cookTime: cookTime ? parseInt(cookTime) : null,
         tags,
         requiredCookwareIds,
-        photoUrl: photoUrl || null,
+        photoUrl: photoUrl ?? null,
         stepPhotos: stepPhotos.some((s) => s) ? stepPhotos : null,
         ingredients,
       };
@@ -439,7 +448,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
         cookTime: cookTime ? parseInt(cookTime) : null,
         tags,
         requiredCookwareIds,
-        photoUrl: photoUrl || null,
+        photoUrl: photoUrl ?? null,
         stepPhotos: stepPhotos.some((s) => s) ? stepPhotos : null,
         sourceUrl: importUrl.trim() || null,
         ingredients,
@@ -863,6 +872,9 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
               {uploadingPhoto ? 'Uploading…' : 'Upload from device'}
             </button>
           </div>
+          {photoError && (
+            <p role="alert" className="text-sm text-red-600 dark:text-red-400">{photoError}</p>
+          )}
           {photoUrl && (
             <div className="mt-2">
               <img

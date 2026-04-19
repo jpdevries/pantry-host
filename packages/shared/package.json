@@ -60,7 +60,8 @@
     "./components/BlueskyCallback": "./src/components/BlueskyCallback.tsx",
     "./components/BlueskySignInModal": "./src/components/BlueskySignInModal.tsx",
     "./components/PublishPreviewModal": "./src/components/PublishPreviewModal.tsx",
-    "./components/PublishToBlueskyButton": "./src/components/PublishToBlueskyButton.tsx"
+    "./components/PublishToBlueskyButton": "./src/components/PublishToBlueskyButton.tsx",
+    "./components/BlueskyAccountStatus": "./src/components/BlueskyAccountStatus.tsx"
   },
   "peerDependencies": {
     "@phosphor-icons/react": "^2.1.10",

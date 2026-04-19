@@ -8,6 +8,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Info, Eye, EyeSlash, MapPin, SpinnerGap } from '@phosphor-icons/react';
+import BlueskyAccountStatus from './BlueskyAccountStatus';
 import {
   SETTINGS_SCHEMA,
   type SettingKey,
@@ -261,6 +262,13 @@ export default function SettingsPage({ adapter }: { adapter: SettingsAdapter }) 
           </div>
         </form>
       )}
+
+      {/* AT Protocol auth status — lives under the form because it
+          touches browser-local state (IndexedDB session + localStorage
+          receipts), which doesn't go through the settings adapter. */}
+      <div className="mt-8">
+        <BlueskyAccountStatus />
+      </div>
     </div>
   );
 }

@@ -203,6 +203,30 @@ export function BlueskyAuthProvider({
 
         if (result?.session) {
           const s = result.session;
+          // When the result carries a `state` key, init() processed a
+          // fresh OAuth callback (not a session restore) — at this
+          // point the library has already rewritten the URL to strip
+          // the `?code=...&state=...` params. This is our window to
+          // send the user back to wherever they clicked Share-to-
+          // Bluesky from, since the loopback OAuth flow always lands
+          // on `/` regardless of the original route. We use
+          // `location.replace` so the browser gets a fresh mount on
+          // the target route and the restore-path populates the
+          // session state cleanly — avoids double-setting state
+          // while the current Provider is still mid-init.
+          if ('state' in result) {
+            let returnTo: string | null = null;
+            try {
+              returnTo = sessionStorage.getItem('bsky-return-to');
+              if (returnTo) sessionStorage.removeItem('bsky-return-to');
+            } catch {
+              /* ignore */
+            }
+            if (returnTo && returnTo !== window.location.pathname + window.location.search + window.location.hash) {
+              window.location.replace(returnTo);
+              return;
+            }
+          }
           setSession(s);
           setDid(s.did);
           // Resolve the handle for display. Best-effort — the session

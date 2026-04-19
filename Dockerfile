@@ -1,8 +1,11 @@
 # Stage 1: Build
 FROM node:22-trixie-slim AS build
 
-# Target architecture (amd64|arm64) — populated automatically by buildx.
-ARG TARGETARCH
+# Target architecture (amd64|arm64). Populated automatically by BuildKit
+# for `docker buildx build`. Plain `docker build` without BuildKit leaves
+# it empty, so default to amd64 — matches the historical behavior where
+# the lockfile's npm binaries were x64.
+ARG TARGETARCH=amd64
 
 RUN apt-get update && apt-get install -y libssl3t64 && rm -rf /var/lib/apt/lists/*
 
@@ -31,9 +34,14 @@ RUN cd packages/app && mkdir -p node_modules && \
 # (e.g. building linux/amd64 on an arm64 Mac under qemu) because it
 # inspects the host lockfile / environment rather than the target. Force
 # the correct linux binary for the buildx target arch before building.
-RUN REX_PKG="@limlabs/rex-linux-$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) echo "$TARGETARCH" ;; esac)" && \
-    npm install "$REX_PKG" && \
-    npm install --os=linux --cpu="$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) echo "$TARGETARCH" ;; esac)" sharp
+#
+# The Rex native binary is pinned to the version npm ci already resolved
+# for @limlabs/rex in the root lockfile — a JS-loader / native-binary
+# version mismatch fails at runtime rather than build time.
+RUN ARCH="$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) echo "$TARGETARCH" ;; esac)" && \
+    REX_VERSION="$(node -p "require('./node_modules/@limlabs/rex/package.json').version")" && \
+    npm install "@limlabs/rex-linux-${ARCH}@${REX_VERSION}" && \
+    npm install --os=linux --cpu="${ARCH}" sharp
 
 # Build Rex for production
 RUN npx @limlabs/rex build --root packages/app

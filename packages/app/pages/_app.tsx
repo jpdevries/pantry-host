@@ -29,7 +29,15 @@ export default function App({ Component, pageProps }: AppProps) {
 
     if ('serviceWorker' in navigator) {
       const buildHash = document.querySelector<HTMLMetaElement>('meta[name="build-hash"]')?.content || 'dev';
-      navigator.serviceWorker.register(`/sw.js?v=${buildHash}`).catch(console.error);
+      // `updateViaCache: 'none'` bypasses the browser HTTP cache when
+      // checking for SW updates — so a newly-deployed sw.js is always
+      // fetched fresh rather than served from the HTTP cache. Without
+      // this, Rex's unset Cache-Control lets browsers heuristically
+      // cache /sw.js for hours, preventing the SW from noticing that
+      // the build hash changed on the server.
+      navigator.serviceWorker
+        .register(`/sw.js?v=${buildHash}`, { updateViaCache: 'none' })
+        .catch(console.error);
 
       // When a new SW activates after a deploy, it posts a 'SW_UPDATED'
       // message. Reload so the page picks up the new HTML + JS bundles.

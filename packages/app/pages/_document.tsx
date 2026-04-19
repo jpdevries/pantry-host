@@ -17,6 +17,19 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
+        {/* Force browsers (especially Safari) to revalidate cached HTML
+            instead of serving a stale document that carries a stale
+            <meta name="build-hash"> — which would otherwise keep the
+            SW pinned to the previous deploy's registration URL. This
+            is a weak polyfill for a real response-level
+            `Cache-Control: no-cache` header; see
+            https://github.com/limlabs/rex/issues/242 for the follow-up
+            request that Rex send it server-side. Note: `no-cache` ≠
+            `no-store` — browsers still cache the HTML, they just
+            revalidate (conditional GET) before using it. Offline mode
+            is unaffected; the SW owns that path and doesn't read
+            Cache-Control. */}
+        <meta httpEquiv="Cache-Control" content="no-cache, must-revalidate" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/favicon.ico" sizes="32x32" />
         <meta name="theme-color" content="#f4f4f5" media="(prefers-color-scheme: light)" />

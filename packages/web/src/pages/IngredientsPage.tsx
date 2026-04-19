@@ -112,7 +112,11 @@ export default function IngredientsPage() {
     return ingredients.filter((i) =>
       i.name.toLowerCase().includes(q) ||
       i.category?.toLowerCase().includes(q) ||
-      i.tags.some((t) => t.toLowerCase().includes(q))
+      i.tags.some((t) => t.toLowerCase().includes(q)) ||
+      // Barcode match: lets users jump to a row by typing the printed
+      // UPC/EAN digits (or a prefix). Barcodes are digit-only so case
+      // is irrelevant; the raw stored value is what the user scanned.
+      i.barcode?.includes(q)
     );
   }, [ingredients, filter]);
 

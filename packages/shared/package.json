@@ -53,10 +53,22 @@
     "./components/AtRecipeDetail": "./src/components/AtRecipeDetail.tsx",
     "./components/AtMenuDetail": "./src/components/AtMenuDetail.tsx",
     "./components/UrlRecipeDetail": "./src/components/UrlRecipeDetail.tsx",
-    "./components/QRCodeModal": "./src/components/QRCodeModal.tsx"
+    "./components/QRCodeModal": "./src/components/QRCodeModal.tsx",
+    "./atproto-publish": "./src/atproto-publish.ts",
+    "./pds-published": "./src/pds-published.ts",
+    "./contexts/BlueskyAuth": "./src/contexts/BlueskyAuth.tsx",
+    "./components/BlueskyCallback": "./src/components/BlueskyCallback.tsx",
+    "./components/BlueskySignInModal": "./src/components/BlueskySignInModal.tsx",
+    "./components/PublishPreviewModal": "./src/components/PublishPreviewModal.tsx",
+    "./components/PublishToBlueskyButton": "./src/components/PublishToBlueskyButton.tsx"
   },
   "peerDependencies": {
     "@phosphor-icons/react": "^2.1.10",
     "react": "^19.2.4"
+  },
+  "dependencies": {
+    "@atproto/api": "^0.19.9",
+    "@atproto/oauth-client-browser": "^0.3.41",
+    "@atproto/oauth-types": "^0.6.3"
   }
 }

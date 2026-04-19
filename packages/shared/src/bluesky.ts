@@ -52,6 +52,13 @@ export interface BlueskyRecipeRecord {
   attribution?: {
     $type: string;
     license?: string;
+    /** Present on `#adaptedFrom` — the upstream Bluesky record this
+     *  recipe was forked from. Preserved so importers can render a
+     *  provenance chain. */
+    originalUri?: string;
+    /** Present on `#adaptedFrom` when the source is a non-Bluesky
+     *  URL (e.g. cooking.nytimes.com). */
+    sourceUrl?: string;
   };
   embed?: {
     $type: string;

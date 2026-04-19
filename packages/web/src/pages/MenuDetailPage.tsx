@@ -6,18 +6,29 @@ import { Trash, ArrowsOut, ArrowsIn } from '@phosphor-icons/react';
 import { classifyRecipeCourse, COURSE_LABELS } from '@pantry-host/shared/constants';
 import PixabayImage from '@pantry-host/shared/components/PixabayImage';
 import { clearPixabayCache } from '@pantry-host/shared/pixabay';
+import PublishToBlueskyButton from '@pantry-host/shared/components/PublishToBlueskyButton';
 
 interface Recipe {
   id: string;
   slug: string | null;
   title: string;
   description: string | null;
+  instructions: string;
   cookTime: number | null;
   prepTime: number | null;
   servings: number | null;
   tags: string[];
   photoUrl: string | null;
+  sourceUrl: string | null;
+  createdAt: string | null;
   queued: boolean;
+  groceryIngredients: Array<{
+    ingredientName: string;
+    quantity: number | null;
+    unit: string | null;
+    itemSize: number | null;
+    itemSizeUnit: string | null;
+  }>;
 }
 
 interface MenuRecipe {
@@ -42,7 +53,11 @@ const MENU_QUERY = `query($id: String!) {
     id slug title description active category
     recipes {
       id course sortOrder
-      recipe { id slug title description cookTime prepTime servings tags photoUrl queued }
+      recipe {
+        id slug title description instructions cookTime prepTime servings tags
+        photoUrl sourceUrl createdAt queued
+        groceryIngredients { ingredientName quantity unit itemSize itemSizeUnit }
+      }
     }
   }
 }`;
@@ -266,6 +281,33 @@ export default function MenuDetailPage() {
           </div>
         </>
       )}
+
+      {/* Publish to AT Protocol — requires auth, honors dry-run. */}
+      <div className="no-print mt-16 pt-8 border-t border-[var(--color-border-card)] flex justify-center">
+        <PublishToBlueskyButton
+          kind="menu"
+          menu={{
+            id: menu.id,
+            title: menu.title,
+            description: menu.description,
+            createdAt: null,
+            recipes: menu.recipes.map((mr) => ({
+              id: mr.recipe.id,
+              title: mr.recipe.title,
+              description: mr.recipe.description,
+              instructions: mr.recipe.instructions,
+              servings: mr.recipe.servings,
+              prepTime: mr.recipe.prepTime,
+              cookTime: mr.recipe.cookTime,
+              tags: mr.recipe.tags,
+              sourceUrl: mr.recipe.sourceUrl,
+              photoUrl: mr.recipe.photoUrl,
+              createdAt: mr.recipe.createdAt,
+              groceryIngredients: mr.recipe.groceryIngredients,
+            })),
+          }}
+        />
+      </div>
       </div>
     </div>
   );

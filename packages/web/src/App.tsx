@@ -21,6 +21,8 @@ import AccessibilityPage from './pages/AccessibilityPage';
 import SettingsPage from './pages/SettingsPage';
 import AtImportPage from './pages/AtImportPage';
 import UrlImportPage from './pages/UrlImportPage';
+import BlueskyCallbackPage from './pages/BlueskyCallbackPage';
+import { BlueskyAuthProvider } from '@pantry-host/shared/contexts/BlueskyAuth';
 
 /**
  * Kitchen-scoped routes — rendered at both top level (home kitchen)
@@ -48,25 +50,28 @@ const KITCHEN_ROUTES = [
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<HomePage />} />
-          {/* Top-level = home kitchen */}
-          {KITCHEN_ROUTES.map((r) => (
-            <Route key={r.path} path={`/${r.path}`} element={r.element} />
-          ))}
-          {/* Kitchen-scoped */}
-          <Route path="/kitchens" element={<KitchensPage />} />
-          {KITCHEN_ROUTES.map((r) => (
-            <Route key={`k-${r.path}`} path={`/kitchens/:kitchen/${r.path}`} element={r.element} />
-          ))}
-          <Route path="/at/*" element={<AtImportPage />} />
-          <Route path="/http/*" element={<UrlImportPage scheme="http" />} />
-          <Route path="/https/*" element={<UrlImportPage scheme="https" />} />
-          <Route path="/accessibility" element={<AccessibilityPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Route>
-      </Routes>
+      <BlueskyAuthProvider callbackPath="/oauth/bluesky/callback">
+        <Routes>
+          <Route path="/oauth/bluesky/callback" element={<BlueskyCallbackPage />} />
+          <Route element={<Layout />}>
+            <Route path="/" element={<HomePage />} />
+            {/* Top-level = home kitchen */}
+            {KITCHEN_ROUTES.map((r) => (
+              <Route key={r.path} path={`/${r.path}`} element={r.element} />
+            ))}
+            {/* Kitchen-scoped */}
+            <Route path="/kitchens" element={<KitchensPage />} />
+            {KITCHEN_ROUTES.map((r) => (
+              <Route key={`k-${r.path}`} path={`/kitchens/:kitchen/${r.path}`} element={r.element} />
+            ))}
+            <Route path="/at/*" element={<AtImportPage />} />
+            <Route path="/http/*" element={<UrlImportPage scheme="http" />} />
+            <Route path="/https/*" element={<UrlImportPage scheme="https" />} />
+            <Route path="/accessibility" element={<AccessibilityPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Route>
+        </Routes>
+      </BlueskyAuthProvider>
     </BrowserRouter>
   );
 }

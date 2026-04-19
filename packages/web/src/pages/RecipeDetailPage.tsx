@@ -7,6 +7,7 @@ import { hasCooklangSyntax, extractCooklang } from '@pantry-host/shared/cooklang
 import PixabayImage from '@pantry-host/shared/components/PixabayImage';
 import { NutritionSource } from '@pantry-host/shared/components/NutritionSource';
 import { readFavorites, toggleFavorite } from '@pantry-host/shared/favorites';
+import PublishToBlueskyButton from '@pantry-host/shared/components/PublishToBlueskyButton';
 import { AllergensLine } from '@pantry-host/shared/components/AllergensLine';
 import { getAllergenIcon } from '@pantry-host/shared/components/allergen-icons';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
@@ -776,6 +777,28 @@ export default function RecipeDetailPage() {
             <Code size={18} aria-hidden />
             Export .cook
           </button>
+        </div>
+        {/* Share to Bluesky — distinct from the flat export row because
+            it requires auth, renders state-aware (signed-in / dry-run /
+            published / dropdown), and writes to a third-party PDS. */}
+        <div className="mt-6 flex justify-center">
+          <PublishToBlueskyButton
+            kind="recipe"
+            recipe={{
+              id: recipe.id,
+              title: recipe.title,
+              description: recipe.description,
+              instructions: recipe.instructions,
+              servings: recipe.servings,
+              prepTime: recipe.prepTime,
+              cookTime: recipe.cookTime,
+              tags: recipe.tags,
+              sourceUrl: recipe.sourceUrl,
+              photoUrl: recipe.photoUrl,
+              createdAt: recipe.createdAt,
+              groceryIngredients: recipe.groceryIngredients,
+            }}
+          />
         </div>
       </div>
       </article>

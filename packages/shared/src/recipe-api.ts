@@ -301,6 +301,27 @@ export function parseIsoDurationMinutes(iso: string | null | undefined): number 
 }
 
 /**
+ * Inverse of `parseIsoDurationMinutes`. Turns a minute count into a
+ * compact ISO 8601 duration — hours only when >=60, minutes only
+ * when <60, both when mixed.
+ *   0 → null (so callers can omit the field)
+ *   15 → "PT15M"
+ *   60 → "PT1H"
+ *   90 → "PT1H30M"
+ * Used by the AT Protocol publish flow to fill the lexicon's
+ * `prepTime` / `cookTime` fields (`exchange.recipe.recipe` expects
+ * ISO durations).
+ */
+export function minutesToIsoDuration(minutes: number | null | undefined): string | null {
+  if (!minutes || minutes <= 0 || !Number.isFinite(minutes)) return null;
+  const h = Math.floor(minutes / 60);
+  const m = Math.floor(minutes % 60);
+  if (h && m) return `PT${h}H${m}M`;
+  if (h) return `PT${h}H`;
+  return `PT${m}M`;
+}
+
+/**
  * Render an ISO 8601 duration as a short human string.
  *   "P4D" → "4 days"
  *   "P3M" → "3 months"

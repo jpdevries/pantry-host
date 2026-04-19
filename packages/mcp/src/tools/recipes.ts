@@ -75,7 +75,7 @@ export function registerRecipeTools(server: McpServer) {
   );
 
   const recipeIngredientInput = z.object({
-    ingredientName: z.string().describe('Ingredient name'),
+    ingredientName: z.string().describe('Plain-text ingredient name (e.g. "ground beef", "olive oil"). NOT a pantry ingredient ID — recipe ingredients are freeform strings; pantry matching happens by name at render time.'),
     quantity: z.number().optional().describe('Quantity (count scales with servings)'),
     unit: z.string().optional().describe('Unit (e.g. cup, tbsp, whole, jar)'),
     itemSize: z.number().optional().describe('Per-item size — e.g. 16 for "2 16oz steaks" (quantity=2, unit="whole", itemSize=16, itemSizeUnit="oz"). Preserved when scaling servings.'),
@@ -85,11 +85,15 @@ export function registerRecipeTools(server: McpServer) {
 
   server.tool(
     'create_recipe',
-    'Create a new recipe with ingredients. Accepts at:// AT Protocol URIs in sourceUrl; tag with "bluesky" for federated imports. Tag with `contains-*` (e.g. `contains-peanuts`, `contains-tree-nuts`, `contains-milk`) when the recipe contains a known allergen — the FDA Top 9 are recognized and render as amber warning chips on the recipe detail page.',
+    `Create a new recipe with ingredients in a SINGLE call. Always pass the complete ingredients array on creation — do not create the recipe first and try to attach ingredients in a follow-up update_recipe call.
+
+IMPORTANT: Recipe ingredients are plain-text strings, NOT references to pantry ingredient IDs. Even when the user says "use my ground beef on hand," just include \`{ ingredientName: "ground beef", quantity: 0.5, unit: "lb" }\` in the array — pantry-side matching (have / need / running low) is computed at render time by name. Do NOT call search_pantry first to look up an ID; there is no ID linkage to populate.
+
+Accepts at:// AT Protocol URIs in sourceUrl; tag with "bluesky" for federated imports. Tag with \`contains-*\` (e.g. \`contains-peanuts\`, \`contains-tree-nuts\`, \`contains-milk\`) when the recipe contains a known allergen — the FDA Top 9 are recognized and render as amber warning chips on the recipe detail page.`,
     {
       title: z.string().describe('Recipe title'),
       instructions: z.string().describe('Cooking instructions (full text)'),
-      ingredients: z.array(recipeIngredientInput).describe('Recipe ingredients'),
+      ingredients: z.array(recipeIngredientInput).describe('Recipe ingredients (plain-text names, freeform). Pass the FULL list — every ingredient mentioned in the conversation. Empty array means the recipe will have no ingredients.'),
       description: z.string().optional().describe('Short description'),
       servings: z.number().int().optional().describe('Number of servings (default: 2)'),
       prepTime: z.number().int().optional().describe('Prep time in minutes'),
@@ -134,7 +138,7 @@ export function registerRecipeTools(server: McpServer) {
       tags: z.array(z.string()).optional(),
       requiredCookware: z.array(z.string()).optional(),
       photoUrl: z.string().optional(),
-      ingredients: z.array(recipeIngredientInput).optional().describe('Full replacement ingredient list'),
+      ingredients: z.array(recipeIngredientInput).optional().describe('FULL replacement ingredient list (plain-text names, freeform — NOT pantry IDs). When provided, ALL existing recipe_ingredients rows are deleted and re-inserted from this array. Pass every ingredient you want on the recipe; omit the field entirely to leave the existing list untouched.'),
     },
     async (args) => {
       const requiredCookwareIds = args.requiredCookware ? await resolveCookwareIds(args.requiredCookware) : undefined;

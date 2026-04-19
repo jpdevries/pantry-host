@@ -5,6 +5,14 @@ import { computeRecipeAllergens } from './allergens.js';
 
 const RECIPE_SUMMARY = `id slug title description tags requiredCookware { name } servings prepTime cookTime source sourceUrl photoUrl queued lastMadeAt`;
 
+function extFromContentType(ct: string): string {
+  const lc = ct.toLowerCase();
+  if (lc.includes('png')) return '.png';
+  if (lc.includes('webp')) return '.webp';
+  if (lc.includes('gif')) return '.gif';
+  return '.jpg';
+}
+
 async function resolveCookwareIds(names: string[]): Promise<string[]> {
   if (!names.length) return [];
   const data = await gql<{ cookware: { id: string; name: string }[] }>(`{ cookware { id name } }`);
@@ -180,6 +188,72 @@ Accepts at:// AT Protocol URIs in sourceUrl; tag with "bluesky" for federated im
         { id },
       );
       return { content: [{ type: 'text' as const, text: `Marked "${data.completeRecipe.title}" as cooked at ${data.completeRecipe.lastMadeAt}` }] };
+    },
+  );
+
+  server.tool(
+    'set_recipe_photo',
+    `Attach a photo to a recipe. Pass EITHER \`imageUrl\` (https URL — the server will fetch the bytes) OR \`imageBase64\` (raw base64-encoded image bytes; data: URLs are accepted, the prefix is stripped). The image is uploaded to the self-hosted app's /api/upload endpoint, which saves it under public/uploads/{uuid}.{ext} and triggers sharp processing into 9 responsive variants (3 widths × WebP+JPEG+grayscale). The recipe's photoUrl is then updated to the local /uploads/... path so the SW caches it offline and <picture> srcset renders responsive images.
+
+Use this instead of asking the user for a public upload URL — the upload endpoint lives at APP_URL (default http://localhost:3000) and is reachable from this MCP server. Returns the new photoUrl.`,
+    {
+      recipeId: z.string().describe('Recipe ID (UUID) to attach the photo to.'),
+      imageUrl: z.string().optional().describe('HTTPS URL of the image. Server-side fetched; no need for the client to download first.'),
+      imageBase64: z.string().optional().describe('Base64-encoded image bytes. Accepts raw base64 or a `data:image/...;base64,...` URL — the prefix is stripped automatically.'),
+      filename: z.string().optional().describe('Optional original filename hint (used to pick the extension; defaults to .jpg).'),
+    },
+    async ({ recipeId, imageUrl, imageBase64, filename }) => {
+      if (!imageUrl && !imageBase64) {
+        throw new Error('Provide either imageUrl or imageBase64.');
+      }
+      if (imageUrl && imageBase64) {
+        throw new Error('Provide only one of imageUrl or imageBase64, not both.');
+      }
+
+      // Resolve bytes + extension
+      let bytes: Uint8Array;
+      let ext = '.jpg';
+      let contentType = 'image/jpeg';
+      if (imageUrl) {
+        const res = await fetch(imageUrl);
+        if (!res.ok) throw new Error(`Failed to fetch image: ${res.status} ${res.statusText}`);
+        const buf = await res.arrayBuffer();
+        bytes = new Uint8Array(buf);
+        contentType = res.headers.get('content-type')?.split(';')[0]?.trim() || 'image/jpeg';
+        const urlExt = imageUrl.match(/\.(jpe?g|png|webp|gif)(?:\?|#|$)/i)?.[1]?.toLowerCase();
+        ext = urlExt ? `.${urlExt === 'jpeg' ? 'jpg' : urlExt}` : extFromContentType(contentType);
+      } else {
+        const stripped = imageBase64!.replace(/^data:([^;]+);base64,/, (_, ct) => {
+          contentType = ct;
+          return '';
+        });
+        bytes = Buffer.from(stripped, 'base64');
+        ext = extFromContentType(contentType);
+      }
+      if (filename) {
+        const fnExt = filename.match(/\.(jpe?g|png|webp|gif)$/i)?.[1]?.toLowerCase();
+        if (fnExt) ext = `.${fnExt === 'jpeg' ? 'jpg' : fnExt}`;
+      }
+
+      // POST to APP_URL/api/upload as multipart/form-data
+      const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
+      const form = new FormData();
+      form.append('file', new Blob([bytes], { type: contentType }), `upload${ext}`);
+      const upRes = await fetch(`${appUrl}/api/upload`, { method: 'POST', body: form });
+      if (!upRes.ok) {
+        const txt = await upRes.text().catch(() => '');
+        throw new Error(`Upload failed: ${upRes.status} ${upRes.statusText} ${txt}`);
+      }
+      const { url: photoUrl } = (await upRes.json()) as { url: string };
+
+      // Patch the recipe
+      await gql(
+        `mutation($id: String!, $photoUrl: String) { updateRecipe(id: $id, photoUrl: $photoUrl) { id photoUrl } }`,
+        { id: recipeId, photoUrl },
+      );
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({ recipeId, photoUrl }, null, 2) }],
+      };
     },
   );
 

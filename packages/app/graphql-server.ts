@@ -2,6 +2,12 @@ import http from 'http';
 import { execute, parse, validate } from 'graphql';
 import { schema } from './lib/schema/index.js';
 import sql from './lib/db.js';
+import { IncomingForm, type File as FormidableFile } from 'formidable';
+import { promises as fs } from 'fs';
+import path from 'path';
+import { randomUUID } from 'crypto';
+import { processUploadedImage } from './lib/image-server.js';
+import { FEATURES } from './lib/features.js';
 
 const PORT = parseInt(process.env.GRAPHQL_PORT ?? '4001', 10);
 
@@ -404,6 +410,68 @@ async function handleFetchRecipe(body: string, res: http.ServerResponse) {
 
 // ── HTTP server ───────────────────────────────────────────────────────────────
 
+// ── /upload — multipart image upload ──────────────────────────────────────────
+// The Rex 0.20.0 /api/upload route is broken — Rex consumes req.body before
+// formidable can, so form.parse's callback never fires and the handler
+// promise hangs. This mirror endpoint on the graphql-server (plain Node
+// http.createServer, no V8 isolate) handles multipart reliably. Same shape
+// as the Rex route so clients can target either URL interchangeably.
+
+async function handleUpload(req: http.IncomingMessage, res: http.ServerResponse) {
+  try {
+    const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+    await fs.mkdir(uploadsDir, { recursive: true });
+
+    const form = new IncomingForm({
+      uploadDir: uploadsDir,
+      keepExtensions: true,
+      maxFileSize: 10 * 1024 * 1024,
+    });
+
+    const [, files] = await new Promise<[unknown, { file?: FormidableFile | FormidableFile[] }]>(
+      (resolve, reject) => {
+        form.parse(req, (err, fields, files) => {
+          if (err) reject(err); else resolve([fields, files as { file?: FormidableFile | FormidableFile[] }]);
+        });
+      },
+    );
+
+    const fileField = files.file;
+    const file: FormidableFile | undefined = Array.isArray(fileField) ? fileField[0] : fileField;
+    if (!file) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'No file uploaded' }));
+      return;
+    }
+
+    const ext = (path.extname(file.originalFilename ?? '.jpg').toLowerCase() || '.jpg');
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+    if (!allowed.includes(ext)) {
+      await fs.unlink(file.filepath).catch(() => {});
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid file type' }));
+      return;
+    }
+
+    const uuid = randomUUID();
+    const filename = `${uuid}${ext}`;
+    const dest = path.join(uploadsDir, filename);
+    await fs.rename(file.filepath, dest);
+
+    if (FEATURES.imageProcessing) {
+      processUploadedImage(dest, uploadsDir, uuid).catch((e) =>
+        console.error('[upload] Failed to generate image variants:', e),
+      );
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ url: `/uploads/${filename}` }));
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: `Upload failed: ${(err as Error).message}` }));
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -411,6 +479,13 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   if (req.method !== 'POST') { res.writeHead(405); res.end('Method not allowed'); return; }
+
+  // Multipart upload: parse with formidable directly off the req stream.
+  // Must not buffer the body first.
+  if (req.url === '/upload') {
+    await handleUpload(req, res);
+    return;
+  }
 
   let body = '';
   req.on('data', (chunk: string) => { body += chunk; });

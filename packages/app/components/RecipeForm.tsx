@@ -294,7 +294,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
       const prepared = await downscaleIfLarge(file);
       const fd = new FormData();
       fd.append('file', prepared);
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const res = await fetch(apiUrl('/upload'), { method: 'POST', body: fd });
       // /api/upload may return plaintext (e.g. Rex's default 413 page) on
       // failure, so read as text first and only parse if it looks like JSON.
       const text = await res.text();
@@ -338,7 +338,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
       const prepared = await downscaleIfLarge(file);
       const fd = new FormData();
       fd.append('file', prepared);
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const res = await fetch(apiUrl('/upload'), { method: 'POST', body: fd });
       const data = await res.json() as { url?: string; error?: string };
       if (data.url) {
         setStepPhotos((prev) => { const n = [...prev]; n[idx] = data.url!; return n; });

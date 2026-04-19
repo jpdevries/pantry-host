@@ -249,11 +249,13 @@ Use this instead of asking the user for a public upload URL — the upload endpo
         contentType = 'image/jpeg';
       }
 
-      // POST to APP_URL/api/upload as multipart/form-data
-      const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
+      // POST multipart to the graphql-server's /upload mirror. Rex's
+      // /api/upload route is broken; graphql-server (plain Node) works.
+      const graphqlUrl = process.env.GRAPHQL_URL ?? 'http://localhost:4001/graphql';
+      const uploadBase = graphqlUrl.replace(/\/graphql\/?$/, '');
       const form = new FormData();
       form.append('file', new Blob([bytes], { type: contentType }), `upload${ext}`);
-      const upRes = await fetch(`${appUrl}/api/upload`, { method: 'POST', body: form });
+      const upRes = await fetch(`${uploadBase}/upload`, { method: 'POST', body: form });
       if (!upRes.ok) {
         const txt = await upRes.text().catch(() => '');
         throw new Error(`Upload failed: ${upRes.status} ${upRes.statusText} ${txt}`);

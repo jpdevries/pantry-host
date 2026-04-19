@@ -7,7 +7,10 @@
 
 import { useState } from 'react';
 import { Barcode, CaretRight } from '@phosphor-icons/react';
-import { CATEGORY_GROUPS, UNIT_GROUPS, COMMON_INGREDIENTS } from '../constants';
+import { CATEGORY_GROUPS, UNIT_GROUPS, ALL_CATEGORIES } from '../constants';
+import IngredientTypeahead from './IngredientTypeahead';
+
+const CATEGORY_DROPDOWN_GROUPS = CATEGORY_GROUPS.map((g) => ({ label: g.label, items: g.categories }));
 import { IngredientMetaPanel } from './IngredientMetaPanel';
 
 /** Units from the "Count" group — the only ones where a per-item measurable size makes sense.
@@ -130,10 +133,6 @@ export default function IngredientForm({ ingredient, onSubmit, onCancel, autoFoc
       aria-label={editing ? 'Edit ingredient' : 'Add ingredient'}
       noValidate
     >
-      <datalist id="common-ingredients">
-        {COMMON_INGREDIENTS.map((i) => <option key={i} value={i} />)}
-      </datalist>
-
       <div className="mb-4">
         <label htmlFor="ing-name" className="field-label inline-flex items-center gap-1.5">
           <span>Name <span aria-hidden="true" className="text-red-500">*</span></span>
@@ -154,17 +153,13 @@ export default function IngredientForm({ ingredient, onSubmit, onCancel, autoFoc
             </a>
           )}
         </label>
-        <input
+        <IngredientTypeahead
           id="ing-name"
-          type="text"
-          list="common-ingredients"
-          required
           value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Olive oil"
-          autoComplete="off"
+          onChange={setName}
+          required
           autoFocus={autoFocus}
-          className="field-input w-full"
+          placeholder="e.g. Olive oil"
           aria-required="true"
           aria-describedby="ing-name-hint"
         />
@@ -176,19 +171,15 @@ export default function IngredientForm({ ingredient, onSubmit, onCancel, autoFoc
 
       <div className="mb-4">
         <label htmlFor="ing-category" className="field-label">Category</label>
-        <select
+        <IngredientTypeahead
           id="ing-category"
+          mode="single"
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="field-select w-full"
-        >
-          <option value="">— select —</option>
-          {CATEGORY_GROUPS.map((g) => (
-            <optgroup key={g.label} label={g.label}>
-              {g.categories.map((c) => <option key={c} value={c}>{c}</option>)}
-            </optgroup>
-          ))}
-        </select>
+          onChange={setCategory}
+          placeholder="— select —"
+          suggestions={ALL_CATEGORIES}
+          groups={CATEGORY_DROPDOWN_GROUPS}
+        />
       </div>
 
       {/* Three-way quantity mode */}

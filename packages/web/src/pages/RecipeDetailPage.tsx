@@ -12,7 +12,23 @@ import { getAllergenIcon } from '@pantry-host/shared/components/allergen-icons';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem } from '@pantry-host/shared/grocery-status';
 import { getFileURL } from '@/lib/storage-opfs';
-import { PencilSimple, Trash, Printer, CalendarPlus, Export, Code, ShareNetwork, Rows, Columns, GridNine, ArrowsOut, ArrowsIn, Heart, CheckCircle, Circle } from '@phosphor-icons/react';
+import { PencilSimple, Trash, Printer, CalendarPlus, Export, Code, ShareNetwork, Rows, Columns, GridNine, ArrowsOut, ArrowsIn, Heart, CheckCircle, Circle, Sun, Snowflake } from '@phosphor-icons/react';
+
+/**
+ * Per-season tag-chip metadata. `autumn` aliases to fall so users
+ * who tag the British way get the same visual treatment. Display
+ * label preserves whatever the user typed. `MapleLeafIcon` is inline
+ * FA SVG (defined at the bottom of this file) because Phosphor has
+ * no autumn-leaf glyph.
+ */
+const SEASON_META: Record<string, { Icon: React.ComponentType<{ size?: number; weight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone'; 'aria-hidden'?: boolean }>; token: string }> = {
+  spring: { Icon: SeedlingIcon, token: '--color-season-spring' },
+  summer: { Icon: Sun, token: '--color-season-summer' },
+  fall: { Icon: MapleLeafIcon, token: '--color-season-fall' },
+  autumn: { Icon: MapleLeafIcon, token: '--color-season-fall' },
+  winter: { Icon: Snowflake, token: '--color-season-winter' },
+};
+const SEASON_TAGS = new Set(Object.keys(SEASON_META));
 
 /** Resolves opfs:// URLs to blob URLs for display */
 function OpfsImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
@@ -444,6 +460,16 @@ export default function RecipeDetailPage() {
               vegan
             </span>
           )}
+          {/* Seasonal chips — per-season palette + Phosphor icon. */}
+          {recipe.tags.filter((t) => SEASON_TAGS.has(t.toLowerCase())).map((t) => {
+            const { Icon, token } = SEASON_META[t.toLowerCase()];
+            return (
+              <span key={t} className="tag inline-flex items-center gap-1" style={{ color: `var(${token})` }} title={t.charAt(0).toUpperCase() + t.slice(1)}>
+                <Icon size={12} weight="bold" aria-hidden />
+                {t}
+              </span>
+            );
+          })}
           {/* Allergen warning chips — `contains-*` tags get the amber
               warning treatment via the shared --color-warning token. */}
           {recipe.tags.filter((t) => t.toLowerCase().startsWith('contains-')).map((t) => {
@@ -462,7 +488,7 @@ export default function RecipeDetailPage() {
             );
           })}
           {recipe.tags
-            .filter((t) => t.toLowerCase() !== 'vegetarian' && t.toLowerCase() !== 'vegan' && !t.toLowerCase().startsWith('contains-'))
+            .filter((t) => t.toLowerCase() !== 'vegetarian' && t.toLowerCase() !== 'vegan' && !t.toLowerCase().startsWith('contains-') && !SEASON_TAGS.has(t.toLowerCase()))
             .map((tag) => (
               <span key={tag} className="tag">{tag}</span>
             ))}
@@ -803,6 +829,24 @@ function LeafIcon() {
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 576 512" fill="currentColor" aria-hidden="true">
       {/* Font Awesome Pro 5.15.4 - fa-leaf (light) */}
       <path d="M546.2 9.7c-2.9-6.5-8.6-9.7-14.3-9.7-5.3 0-10.7 2.8-14 8.5C486.9 62.4 431.4 96 368 96h-80C182 96 96 182 96 288c0 20.9 3.4 40.9 9.6 59.7C29.3 413 1.4 489.4.9 490.7c-2.9 8.3 1.5 17.5 9.8 20.4 7.9 2.8 17.4-1.1 20.4-9.8.4-1.2 23.9-65.1 87.6-122.7C151.1 438.9 214.7 480 288 480c6.9 0 13.7-.4 20.4-1.1C465.5 467.5 576 326.8 576 154.3c0-50.2-10.8-102.2-29.8-144.6zM305 447.1c-5.9.6-11.6.9-17 .9-63.3 0-117.6-37.2-143.5-90.6C196.3 319 268.6 288 368 288c8.8 0 16-7.2 16-16s-7.2-16-16-16c-102.8 0-179 31-234.8 70.4-3.1-12.4-5.2-25.1-5.2-38.4 0-88.2 71.8-160 160-160h80c63.3 0 121-28.4 159.7-77.2 10.5 32.3 16.3 68.7 16.3 103.5 0 159.6-100.1 282.7-239 292.8z" />
+    </svg>
+  );
+}
+
+function SeedlingIcon({ size = 12 }: { size?: number; weight?: string; 'aria-hidden'?: boolean }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
+      {/* Font Awesome Pro 5.15.4 - fa-seedling (light) */}
+      <path d="M442.7 32c-95.9 0-176.4 79.4-197.2 185.7C210.5 145.1 144.8 96 69.3 96H0v16c0 132.3 90.9 240 202.7 240H240v120c0 4.4 3.6 8 8 8h16c4.4 0 8-3.6 8-8V288h37.3C421.1 288 512 180.3 512 48V32h-69.3zm-240 288C113 320 39.2 235.2 32.5 128h36.8c89.7 0 163.4 84.8 170.2 192h-36.8zm106.6-64h-36.8C279.2 148.8 353 64 442.7 64h36.8c-6.7 107.2-80.5 192-170.2 192z" />
+    </svg>
+  );
+}
+
+function MapleLeafIcon({ size = 12 }: { size?: number; weight?: string; 'aria-hidden'?: boolean }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
+      {/* Font Awesome Pro 5.15.4 - fa-leaf-maple (light) */}
+      <path d="M496.06 163.47l-27.34-16.41 8.44-75.97c2.14-19.5-13.61-38.41-36.25-36.27l-75.97 8.45-16.41-27.34C342.62 6.11 332.28.16 320.81 0c-10.59-.02-21.97 5.53-28.12 15.2l-42.91 67.45c-8.33-22.52-32.9-24.41-42.53-19.2l-13.81 7.41-35.09-39.72c-6.17-7.71-15.42-12.31-25.62-12.31-10.03 0-19.37 4.47-25.16 11.7L72 70.86l-13.81-7.41c-18.48-9.99-50.1 8.62-43.72 37.31l29.41 142.69-24 10.3c-26.45 11.34-26.45 49 0 60.34l108.79 46.62L4.69 484.69c-6.25 6.25-6.25 16.38 0 22.62C7.81 510.44 11.91 512 16 512s8.19-1.56 11.31-4.69l123.98-123.98 46.62 108.74c5.19 12.18 17.11 19.92 30.19 19.92 13.12 0 24.97-7.8 30.19-19.91l10.25-23.98L411 497.5c23.83 5.29 47.82-17.22 38.97-40l-8.84-17.5 39.75-35.09c16.65-13.35 16.07-38.02.34-50.97l-40.09-35.38 7.41-13.8c6.34-11.73 1.1-35.19-19.22-42.52l67.5-42.94c20.67-13.17 20.05-43.34-.76-55.83zM342.94 279.28c-15.25 9.71-5.02 33.47 12.56 29l62.78-14.8-17.34 32.3 60.43 53.51-60.43 53.49 17.78 33.12-169.32-34.42-22.06 48.02-51.68-120.54L331.3 203.32c6.25-6.25 6.25-16.38 0-22.62-6.25-6.25-16.37-6.25-22.62 0L153.16 336.21 32.5 283.16l48-20.58L46.87 93.69l32.31 17.36 54.66-59.33 52.41 59.33 33.41-17.95.16.47-16.09 62.94c-4.45 17.53 19.18 27.83 29 12.56L321.1 32.41l26.97 44.94 97.28-9.78-10.69 96.37 44.97 28.38-136.69 86.96z" />
     </svg>
   );
 }

@@ -42,6 +42,13 @@
        forward; existing featured tags (gluten-free, vegetarian,
        etc.) still use hardcoded Tailwind classes. */
     --color-diet-vegan: light-dark(#65a30d, #a3e635);  /* lime-600 / lime-400 */
+    /* Per-season tag-chip palette. WCAG AA-verified against the
+       body bg (chip inherits body bg). Defined once via
+       `light-dark()` so it works under any palette. */
+    --color-season-spring: light-dark(#15803d, #86efac);  /* green-700 / green-300 */
+    --color-season-summer: light-dark(#854d0e, #fbbf24);  /* yellow-800 / amber-400 — golden, AAA both modes */
+    --color-season-fall:   light-dark(#92400e, #fdba74);  /* amber-800 / orange-300 */
+    --color-season-winter: light-dark(#1e40af, #93c5fd);  /* blue-800 / blue-300 */
   }
 
   /* ── Default dark (system preference — no JS needed) ── */

@@ -15,6 +15,7 @@
 import express from 'express';
 import Database from 'better-sqlite3';
 import { Firehose } from '@atproto/sync';
+import { lookupPluByName, lookupPluByCode, isPluCode } from './plu';
 
 const PORT = parseInt(process.env.PORT || '3002', 10);
 const DB_PATH = process.env.DB_PATH || './data/registry.db';
@@ -366,6 +367,49 @@ app.get('/api/handles', (_req, res) => {
   const rows = listHandles.all();
   res.setHeader('Cache-Control', 'public, max-age=60');
   res.json(rows);
+});
+
+// ── PLU lookup ───────────────────────────────────────────────────
+// Static IFPS dataset bundled in the container (plu-codes.json).
+// Resolves produce names to PLU candidates. Supports repeated
+// `name` query params for batching. Response shape is stable so
+// the self-hosted Rex route at `:3000/api/plu` returns the same
+// JSON — clients can swap the base URL.
+
+app.get('/api/plu', (req, res) => {
+  // Accept ?name=banana&name=apple, ?name=banana alone, or ?code=4011.
+  const rawNames = req.query.name;
+  const rawCode = typeof req.query.code === 'string' ? req.query.code : undefined;
+
+  if (rawCode) {
+    if (!isPluCode(rawCode)) {
+      return res.status(400).json({ error: 'code must be a 4- or 5-digit PLU' });
+    }
+    const hit = lookupPluByCode(rawCode);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.json({ code: rawCode, record: hit?.record ?? null, organic: hit?.organic ?? false });
+  }
+
+  // Accept both repeated `?name=a&name=b` (Express array form) and
+  // `?name=a,b,c` (comma-delimited fallback). Matches the app route.
+  const collected = Array.isArray(rawNames)
+    ? rawNames.filter((n): n is string => typeof n === 'string')
+    : typeof rawNames === 'string'
+    ? [rawNames]
+    : [];
+  const names = collected
+    .flatMap((v) => v.split(','))
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (!names.length) {
+    return res.status(400).json({ error: 'name or code query param required' });
+  }
+  const results = names.map((query) => ({ query, candidates: lookupPluByName(query) }));
+  // Data is effectively static (annual refresh at most). A day of
+  // edge/browser cache is fine; clients that want fresh bytes can
+  // busting with a version query param.
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.json({ results });
 });
 
 // ── Aggregated recipes feed ────────────────────────────────────

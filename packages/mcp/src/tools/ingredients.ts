@@ -7,7 +7,7 @@ const INGREDIENT_FIELDS = `id name aliases category quantity unit itemSize itemS
 export function registerIngredientTools(server: McpServer) {
   server.tool(
     'search_pantry',
-    'Search pantry ingredients. Returns rows including `aliases` (alternative names that participate in recipe matching), `barcode`, and `productMeta` (a JSON-encoded blob of allowlisted Open Food Facts data — nutrients per 100g, allergens_tags, Nutri-Score, NOVA group, etc.). The barcode + productMeta fields are populated only for rows scanned with STORE_BARCODE_META on (off by default).',
+    'Search pantry ingredients. Returns rows including `aliases` (alternative names that participate in recipe matching), `barcode`, and `productMeta` (a JSON-encoded blob of allowlisted metadata). IMPORTANT: the `barcode` field is **overloaded** — it stores any printed product identifier, which may be a UPC/EAN (8/12/13-digit, packaged goods, backed by Open Food Facts) OR a PLU (4-digit for conventional produce, 5-digit starting with 9 for organic; backed by the IFPS dataset). Detect the type from length. `productMeta` has `plu_source: "ifps"` set on PLU-sourced rows and different fields (`commodity`, `variety`, `size`, `organic`, `category`) than OFF-sourced rows (`nutriments`, `nutriscore_grade`, etc.). The barcode + productMeta fields are populated only for rows scanned with STORE_BARCODE_META on (off by default).',
     {
       name: z.string().optional().describe('Search by ingredient name (partial match, case-insensitive)'),
       tags: z.array(z.string()).optional().describe('Filter by ingredient tags (AND match)'),
@@ -37,8 +37,8 @@ export function registerIngredientTools(server: McpServer) {
       alwaysOnHand: z.boolean().optional().describe('If true, never track quantity'),
       tags: z.array(z.string()).optional().describe('Tags'),
       aliases: z.array(z.string()).optional().describe('Alternative names for matching. Recipe ingredient names that match any alias resolve to this pantry row. Useful when a canonical pantry name (e.g. "Dark Roasted Peanut Butter") differs from how recipes refer to the ingredient (e.g. "peanut butter").'),
-      barcode: z.string().optional().describe('EAN-13 / UPC-A barcode string. Typically written by the scanner; agents can pass one when sourcing data from elsewhere.'),
-      productMeta: z.string().optional().describe('JSON-encoded allowlisted Open Food Facts metadata (nutriments per 100g / per serving, allergens_tags, ingredients_text, nutriscore_grade, nova_group, labels_tags, etc). Persisted as JSONB.'),
+      barcode: z.string().optional().describe('Printed product identifier. Length discriminates type: 8/12/13 digits = UPC-A/EAN-8/EAN-13 (packaged goods); 4 digits in 3000–4999 = PLU (conventional produce); 5 digits starting with 9 = PLU (organic produce). Typically written by the scanner; agents can pass one when sourcing data from elsewhere.'),
+      productMeta: z.string().optional().describe('JSON-encoded allowlisted metadata. Two provenance shapes: OFF-sourced (nutriments, nutriscore_grade, nova_group, labels_tags, allergens_tags, ingredients_text, etc.) and IFPS-sourced (plu_source: "ifps", commodity, variety, size, organic, category). Persisted as JSONB.'),
       kitchenSlug: z.string().optional().describe('Kitchen slug (default: home)'),
     },
     async (args) => {
@@ -96,7 +96,7 @@ export function registerIngredientTools(server: McpServer) {
       alwaysOnHand: z.boolean().optional().describe('Mark as always on hand'),
       tags: z.array(z.string()).optional().describe('New tags (e.g. harvest location tags like costco, farmers-market)'),
       aliases: z.array(z.string()).optional().describe('New aliases — alternative names for matching against recipe ingredients. Replaces the existing list.'),
-      barcode: z.string().optional().describe('Barcode string (EAN-13/UPC-A).'),
+      barcode: z.string().optional().describe('Printed product identifier. UPC/EAN (8/12/13 digits) or PLU (4 digits for conventional produce, 5-digit 9XXXX for organic). Overloaded by design — one column, discriminated by length.'),
       productMeta: z.string().optional().describe('JSON-encoded allowlisted OFF metadata.'),
     },
     async (args) => {

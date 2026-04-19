@@ -255,8 +255,23 @@ A thin AT Protocol firehose indexer that powers the Bluesky feed pages in both w
 - `GET /api/handles` — all publishers that have ever appeared in the firehose
 - `GET /api/recipe-url?url=…` — cross-origin URL proxy for the browser PWA (bypasses CORS for sites that don't set `access-control-allow-origin: *`)
 - `GET /api/markets?lat=&lng=` — OSM Overpass proxy for nearby farmers' markets and farms
-- No auth on reads; cache-control: 30s on `/api/recipes`
+- `GET /api/plu?name=banana` (or `&name=…` repeated, or `?code=4011`) — IFPS PLU lookup. Returns produce-code candidates backed by the bundled `plu-codes.json` (~1,500 rows). Self-hosted mirror at `:3000/api/plu` has identical shape.
+- No auth on reads; cache-control: 30s on `/api/recipes`; 86400s on `/api/plu` (static data).
 - Data is always re-fetched live from each author's PDS at render time. The indexer only tells us records exist — values in the response are the most recent seen, but the detail page re-fetches to guarantee freshness.
+
+## Pantry identifiers (barcode + PLU)
+
+**`ingredients.barcode` is overloaded**: it stores any printed product identifier, UPC/EAN *and* PLU. Discriminate by length:
+
+| Length, content | Type | Metadata source |
+|---|---|---|
+| 8, 12, or 13 digits | UPC-A / EAN-8 / EAN-13 (packaged) | Open Food Facts → `product_meta` populated with `nutriments`, `nutriscore_grade`, `nova_group`, `labels_tags`, `allergens_tags`, etc. |
+| 4 digits in 3000–4999 | Conventional PLU (produce) | IFPS → `product_meta.plu_source: "ifps"` with `commodity`, `variety`, `size`, `organic: false`, `category` |
+| 5 digits starting with 9 | Organic PLU variant | Same IFPS record as the 4-digit base, with `organic: true` |
+
+`shared/src/plu.ts` exports `isPluCode(code)` as the canonical check — anything matching goes down the PLU path; otherwise treat as barcode. `buildPluMeta(rec, organic)` constructs the IFPS-flavored `ProductMeta`. Callers (pantry filter, `IngredientMetaPanel`, MCP tools) should branch on `plu_source === 'ifps'` and/or `isPluCode(barcode)` to render correctly — PLU rows don't have nutrition, OFF rows don't have commodity/variety.
+
+The pantry filter's `i.barcode?.includes(q)` predicate matches both — typing `4011` finds the banana row, typing `011863118764` finds the cheese row.
 
 ## Conventions
 

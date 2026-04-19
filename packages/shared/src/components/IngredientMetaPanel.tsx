@@ -11,6 +11,7 @@
  */
 import { ArrowSquareOut } from '@phosphor-icons/react';
 import { safeParseMeta } from '../product-meta';
+import { isPluCode } from '../plu';
 import { offToNutritionPer100g } from '../nutrition-aggregate';
 import { emptyNutrition } from '../types/nutrition';
 import { NutritionGrid } from './NutritionGrid';
@@ -42,7 +43,17 @@ export function IngredientMetaPanel({ barcode, productMeta }: Props) {
   const meta = safeParseMeta(productMeta);
   if (!barcode && !meta) return null;
 
-  const offUrl = barcode
+  // `barcode` is the catch-all identifier column — it holds UPC/EAN
+  // (packaged goods) OR PLU (produce). Branch by length so rendering
+  // and external links make sense. IFPS-sourced metadata sets
+  // `plu_source: 'ifps'`; we double-gate on both so a pantry row
+  // manually set to a 4-digit code without metadata is still
+  // recognized as a PLU.
+  const isPlu = !!barcode && isPluCode(barcode);
+  const isIfps = isPlu || meta?.plu_source === 'ifps';
+  const codeLabel = isPlu ? 'PLU' : 'Barcode';
+
+  const offUrl = barcode && !isPlu
     ? `https://world.openfoodfacts.org/product/${encodeURIComponent(barcode)}`
     : null;
 
@@ -66,15 +77,23 @@ export function IngredientMetaPanel({ barcode, productMeta }: Props) {
     <div className="mt-3">
       <dl>
         {barcode && (
-          <Row label="Barcode">
+          <Row label={codeLabel}>
             <code className="text-xs">{barcode}</code>
           </Row>
         )}
+        {/* PLU-sourced rows surface produce-specific fields from
+            IFPS: commodity, variety, size, organic flag. OFF rows
+            leave these null so the rows just don't render. */}
+        {isIfps && meta?.commodity && <Row label="Commodity">{meta.commodity}</Row>}
+        {isIfps && meta?.variety && <Row label="Variety">{meta.variety}</Row>}
+        {isIfps && meta?.size && <Row label="Size">{meta.size}</Row>}
+        {isIfps && meta?.organic && <Row label="Organic">Yes</Row>}
         {meta?.brands && <Row label="Brand">{meta.brands}</Row>}
         {scoreParts.length > 0 && <Row label="Scores">{scoreParts.join(' · ')}</Row>}
         {meta?.serving_size && <Row label="Serving">{meta.serving_size}</Row>}
         {labels.length > 0 && <Row label="Labels">{labels.join(', ')}</Row>}
-        {categories.length > 0 && <Row label="Categories">{categories.join(', ')}</Row>}
+        {categories.length > 0 && !isIfps && <Row label="Categories">{categories.join(', ')}</Row>}
+        {isIfps && meta?.category && <Row label="Category">{meta.category}</Row>}
         {meta?.ingredients_text && (
           <Row label="Ingredients">
             <span className="italic">{meta.ingredients_text}</span>

@@ -46,6 +46,28 @@ export interface ProductMeta {
    *  "unknown" on a given scan — the shape stays consistent. */
   pnns_groups_1?: string;
   pnns_groups_2?: string;
+  /** Provenance flag: where did this meta come from? Absent = OFF
+   *  (the implicit default for historical rows). `"ifps"` = the
+   *  International Federation for Produce Standards PLU database,
+   *  which populates a different subset of fields (commodity,
+   *  variety, size, organic, category) and leaves nutriments /
+   *  nutriscore / labels_tags null. Branch on this key when
+   *  rendering the meta panel — PLU rows don't have nutrition. */
+  plu_source?: 'ifps';
+  /** IFPS commodity name ("Bananas", "Apples"). Populated on PLU
+   *  rows only. */
+  commodity?: string;
+  /** IFPS produce category ("Fruits" | "Vegetables" | "Herbs" |
+   *  "Nuts" | "Dried Fruits" | "Retailer Assigned Numbers"). */
+  category?: string;
+  /** IFPS cultivar/variety ("Hass", "Yellow (includes Cavendish)"). */
+  variety?: string;
+  /** IFPS size descriptor ("All Sizes", "Small", "Large",
+   *  "60 size and smaller", etc.). */
+  size?: string;
+  /** True when the stored `code` is the 5-digit organic variant
+   *  (e.g. `94011` for organic banana). Applies only to PLU rows. */
+  organic?: boolean;
 }
 
 /** OFF keys worth fetching in addition to the existing

@@ -63,7 +63,7 @@ export default function BlueskySignInModal({ open, onClose }: BlueskySignInModal
               type="text"
               autoComplete="username"
               autoFocus
-              placeholder="jpdevries.bsky.social"
+              placeholder="*.bsky.social"
               value={handle}
               onChange={(e) => setHandle(e.target.value)}
               disabled={submitting || !isReady}

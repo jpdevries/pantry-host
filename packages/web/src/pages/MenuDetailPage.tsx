@@ -32,6 +32,7 @@ interface Menu {
   slug: string | null;
   title: string;
   description: string | null;
+  sourceUrl: string | null;
   active: boolean;
   category: string | null;
   recipes: MenuRecipe[];
@@ -39,7 +40,7 @@ interface Menu {
 
 const MENU_QUERY = `query($id: String!) {
   menu(id: $id) {
-    id slug title description active category
+    id slug title description sourceUrl active category
     recipes {
       id course sortOrder
       recipe { id slug title description cookTime prepTime servings tags photoUrl queued }
@@ -96,6 +97,7 @@ export default function MenuDetailPage() {
   const [menu, setMenu] = useState<Menu | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [copiedUri, setCopiedUri] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [supportsFullscreen, setSupportsFullscreen] = useState(false);
   const articleRef = useRef<HTMLDivElement>(null);
@@ -182,6 +184,19 @@ export default function MenuDetailPage() {
       <h1 className="text-3xl font-bold">{menu.title}</h1>
       {menu.description && (
         <p className="text-[var(--color-text-secondary)] mt-1 mb-6 legible pretty">{menu.description}</p>
+      )}
+      {menu.sourceUrl && (
+        <p className="mt-4 mb-6 text-xs text-[var(--color-text-secondary)] overflow-hidden">
+          {menu.sourceUrl.startsWith('at://') ? (
+            <span className="flex items-baseline gap-2 max-w-full overflow-hidden">
+              <span className="shrink-0">Source:</span>
+              <button type="button" onClick={() => { navigator.clipboard.writeText(menu.sourceUrl!); setCopiedUri(true); setTimeout(() => setCopiedUri(false), 2000); }} title="Copy AT URI" className="font-mono text-[10px] min-w-0 truncate hover:underline cursor-copy">{menu.sourceUrl}</button>
+              <span aria-live="polite" className="shrink-0 text-[10px]">{copiedUri ? '✓ Copied' : ''}</span>
+            </span>
+          ) : (
+            <>Source: <a href={menu.sourceUrl} className="underline" rel="noopener noreferrer" target="_blank">{(() => { try { return new URL(menu.sourceUrl!).hostname; } catch { return menu.sourceUrl; } })()}</a></>
+          )}
+        </p>
       )}
       <div className="flex gap-2 mb-8">
         {menu.category && <span className="tag">{menu.category}</span>}

@@ -589,6 +589,11 @@ async function runMigrations() {
   // v0.5.1: Pantry-row aliases — alternative names that participate in
   // recipe-ingredient matching.
   await sql`ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS aliases TEXT[]`;
+
+  // v0.6.0: source_url on menus — mirrors recipes.source_url so imported
+  // menus (e.g. from a Bluesky AT Protocol collection) can surface their
+  // provenance on the detail page with the same click-to-copy treatment.
+  await sql`ALTER TABLE menus ADD COLUMN IF NOT EXISTS source_url TEXT`;
 }
 
 // Keep the server alive on unexpected errors

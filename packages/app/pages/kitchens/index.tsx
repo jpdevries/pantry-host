@@ -117,7 +117,7 @@ export default function KitchensPage() {
         </div>
 
         {showForm && (
-          <section aria-label="Add kitchen" className="mb-8 p-6 border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
+          <section aria-label="Add kitchen" className="mb-8 p-6 card rounded-xl">
             <h2 className="text-lg font-bold mb-4">Add Kitchen</h2>
             <form onSubmit={handleCreate} noValidate>
               <div className="mb-4">
@@ -135,7 +135,7 @@ export default function KitchensPage() {
               </div>
               <div className="mb-5">
                 <label htmlFor="kitchen-slug" className="field-label">
-                  Slug <span className="font-normal text-zinc-500">(URL-friendly, lowercase)</span>
+                  Slug <span className="font-normal text-[var(--color-text-secondary)]">(URL-friendly, lowercase)</span>
                 </label>
                 <input
                   id="kitchen-slug"
@@ -149,7 +149,7 @@ export default function KitchensPage() {
                   aria-required="true"
                   aria-describedby="slug-hint"
                 />
-                <p id="slug-hint" className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                <p id="slug-hint" className="mt-1 text-xs text-[var(--color-text-secondary)]">
                   Used in URLs like <code>/kitchens/{slug || 'grandmas'}/recipes</code>
                 </p>
               </div>
@@ -164,7 +164,7 @@ export default function KitchensPage() {
           </section>
         )}
 
-        <ul role="list" className="divide-y divide-zinc-200 dark:divide-zinc-800">
+        <ul role="list" className="divide-y divide-[var(--color-border-card)]">
           {kitchens.map((k) => {
             const isHome = k.slug === 'home';
             const base = isHome ? '' : `/kitchens/${k.slug}`;
@@ -193,23 +193,23 @@ export default function KitchensPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-lg">{k.name}</span>
                       {isHome && <span className="text-xs font-medium text-accent">default</span>}
-                      <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500">/{k.slug}</span>
+                      <span className="font-mono text-xs text-[var(--color-text-secondary)]">/{k.slug}</span>
                     </div>
                   )}
 
                   {!isHome && !isEditing && (
                     <div className="flex gap-2 shrink-0">
-                      <button type="button" onClick={() => startEdit(k)} className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 text-sm p-1" aria-label={`Rename ${k.name}`}>
+                      <button type="button" onClick={() => startEdit(k)} className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-sm p-1" aria-label={`Rename ${k.name}`}>
                         Rename
                       </button>
                       {deleteConfirm === k.id ? (
                         <div className="flex gap-1 items-center">
-                          <span className="text-xs text-zinc-500">Delete?</span>
+                          <span className="text-xs text-[var(--color-text-secondary)]">Delete?</span>
                           <button type="button" onClick={() => handleDelete(k.id)} disabled={deleting} className="btn-danger text-xs px-2 py-1">Yes</button>
                           <button type="button" onClick={() => setDeleteConfirm(null)} className="btn-secondary text-xs px-2 py-1">No</button>
                         </div>
                       ) : (
-                        <button type="button" onClick={() => setDeleteConfirm(k.id)} className="text-zinc-400 hover:text-red-500 text-sm p-1" aria-label={`Delete ${k.name}`}>
+                        <button type="button" onClick={() => setDeleteConfirm(k.id)} className="text-[var(--color-text-secondary)] hover:text-red-500 text-sm p-1" aria-label={`Delete ${k.name}`}>
                           Delete
                         </button>
                       )}

@@ -29,13 +29,14 @@ interface Menu {
   slug: string | null;
   title: string;
   description: string | null;
+  sourceUrl: string | null;
   active: boolean;
   recipes: MenuRecipe[];
 }
 
 const MENU_QUERY = `query Menu($id: String!) {
   menu(id: $id) {
-    id slug title description active
+    id slug title description sourceUrl active
     recipes {
       id course sortOrder
       recipe { id slug title description cookTime prepTime servings source tags photoUrl queued }
@@ -76,6 +77,7 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
   const [owner, setOwner] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [copiedUri, setCopiedUri] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [supportsFullscreen, setSupportsFullscreen] = useState(false);
@@ -271,6 +273,19 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
       <h1 className="text-3xl font-bold mb-2">{menu.title}</h1>
       {menu.description && (
         <p className="legible text-[var(--color-text-secondary)] mb-6 pretty">{menu.description}</p>
+      )}
+      {menu.sourceUrl && (
+        <p className="mt-4 mb-6 text-xs text-[var(--color-text-secondary)] overflow-hidden">
+          {menu.sourceUrl.startsWith('at://') ? (
+            <span className="flex items-baseline gap-2 max-w-full overflow-hidden">
+              <span className="shrink-0">Source:</span>
+              <button type="button" onClick={() => { navigator.clipboard.writeText(menu.sourceUrl!); setCopiedUri(true); setTimeout(() => setCopiedUri(false), 2000); }} title="Copy AT URI" className="font-mono text-[10px] min-w-0 truncate hover:underline cursor-copy">{menu.sourceUrl}</button>
+              <span aria-live="polite" className="shrink-0 text-[10px]">{copiedUri ? '✓ Copied' : ''}</span>
+            </span>
+          ) : (
+            <>Source: <a href={menu.sourceUrl} target={`_${menu.slug ?? menu.id}`} rel="noopener noreferrer" className="underline">{(() => { try { return new URL(menu.sourceUrl!).hostname; } catch { return menu.sourceUrl; } })()}</a></>
+          )}
+        </p>
       )}
 
       {availableFilters.length > 0 && (

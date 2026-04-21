@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS menus (
   description TEXT,
   active      BOOLEAN DEFAULT TRUE,
   category    VARCHAR(50),
+  source_url  TEXT,
   kitchen_id  TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE,
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
@@ -126,6 +127,11 @@ ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS barcode       VARCHAR(64);
 ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS product_meta  JSONB;
 CREATE INDEX IF NOT EXISTS idx_ingredients_barcode
   ON ingredients(barcode) WHERE barcode IS NOT NULL;
+
+-- v0.6.0: source_url on menus — mirrors recipes.source_url so imported
+-- menus (e.g. from a Bluesky AT Protocol collection) can surface their
+-- provenance on the detail page with the same click-to-copy treatment.
+ALTER TABLE menus ADD COLUMN IF NOT EXISTS source_url TEXT;
 
 -- v0.5.1: Pantry-row aliases — alternative names that participate in
 -- recipe-ingredient matching. Lets a single canonical pantry row

@@ -2,10 +2,10 @@ import Head from 'next/head';
 import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
 import RecipeForm from '@/components/RecipeForm';
+import { useKitchen } from '@/lib/kitchen-context';
 
-interface Props { kitchen: string; }
-
-export default function RecipeNewPage({ kitchen }: Props) {
+export default function RecipeNewPage() {
+  const kitchen = useKitchen();
   const [existingRecipes, setExistingRecipes] = useState<{ id: string; slug?: string; title: string; source: string }[]>([]);
   const [cookwareItems, setCookwareItems] = useState<{ id: string; name: string; tags: string[] }[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);

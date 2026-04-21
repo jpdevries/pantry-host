@@ -5,6 +5,7 @@ import { gql } from '@/lib/gql';
 import { enqueue } from '@/lib/offlineQueue';
 import { PencilSimple, Trash } from '@phosphor-icons/react';
 import { isOwner } from '@/lib/isTrustedNetwork';
+import { useKitchen } from '@/lib/kitchen-context';
 
 interface Cookware {
   id: string;
@@ -19,13 +20,12 @@ const ADD_COOKWARE = `mutation AddCookware($name: String!, $brand: String, $tags
 const UPDATE_COOKWARE = `mutation UpdateCookware($id: String!, $name: String, $brand: String, $tags: [String!], $notes: String) { updateCookware(id: $id, name: $name, brand: $brand, tags: $tags, notes: $notes) { id } }`;
 const DELETE_COOKWARE = `mutation DeleteCookware($id: String!) { deleteCookware(id: $id) }`;
 
-interface Props { kitchen: string; }
-
 function cookwareDetailHref(kitchen: string, id: string) {
   return `/kitchens/${kitchen}/cookware/${id}#stage`;
 }
 
-export default function CookwarePage({ kitchen }: Props) {
+export default function CookwarePage() {
+  const kitchen = useKitchen();
   const [cookware, setCookware] = useState<Cookware[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);

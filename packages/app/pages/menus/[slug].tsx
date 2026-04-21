@@ -58,7 +58,7 @@ export default function MenuPage({ ogTitle, ogDescription, ogImage }: Props) {
         {ogImage && <meta property="og:image" content={ogImage} />}
         <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
       </Head>
-      <MenuDetailPage kitchen="home" menuId={(slug as string) || fallback} />
+      <MenuDetailPage menuId={(slug as string) || fallback} />
     </>
   );
 }

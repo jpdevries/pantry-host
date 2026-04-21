@@ -6,6 +6,7 @@ import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
 import { readFavorites } from '@pantry-host/shared/favorites';
 import { Heart } from '@phosphor-icons/react';
 import { isOwner } from '@/lib/isTrustedNetwork';
+import { useKitchen } from '@/lib/kitchen-context';
 
 interface Recipe {
   id: string;
@@ -27,11 +28,10 @@ const RECIPES_QUERY = `
   }
 `;
 
-interface Props { kitchen: string; }
-
 const ADULT_TAGS = ['420', 'cannabis', 'adult-only'];
 
-export default function RecipesIndexPage({ kitchen }: Props) {
+export default function RecipesIndexPage() {
+  const kitchen = useKitchen();
   const cacheKey = `cache:recipes:${kitchen}`;
   const [recipes, setRecipes] = useState<Recipe[]>(() => cacheGet<Recipe[]>(cacheKey) ?? []);
   const [owner, setOwner] = useState(false);

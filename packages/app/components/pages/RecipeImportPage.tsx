@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { gql } from '@/lib/gql';
 import { isApiOnline, API_STATUS_EVENT } from '@/lib/apiStatus';
 import { apiUrl } from '@/lib/apiUrl';
+import { useKitchen } from '@/lib/kitchen-context';
 import {
   searchFederationRecipes,
   getFederationRecipe,
@@ -191,9 +192,8 @@ const CREATE_RECIPE = `
   }
 `;
 
-interface Props { kitchen: string; }
-
-export default function RecipeImportPage({ kitchen }: Props) {
+export default function RecipeImportPage() {
+  const kitchen = useKitchen();
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const recipesBase = `/kitchens/${kitchen}/recipes`;

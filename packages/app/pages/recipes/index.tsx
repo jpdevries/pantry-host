@@ -11,7 +11,7 @@ export default function RecipesPage() {
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary" />
       </Head>
-      <RecipesIndexPage kitchen="home" />
+      <RecipesIndexPage />
     </>
   );
 }

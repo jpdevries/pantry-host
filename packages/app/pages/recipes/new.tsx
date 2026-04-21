@@ -1,2 +1,2 @@
 import RecipeNewPage from '@/components/pages/RecipeNewPage';
-export default function NewRecipePage() { return <RecipeNewPage kitchen="home" />; }
+export default function NewRecipePage() { return <RecipeNewPage />; }

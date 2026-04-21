@@ -12,5 +12,5 @@ export default function AtTopLevelRoute() {
     setWildcard(match ? match[1] : '');
   }, []);
   if (wildcard === null) return null;
-  return <AtImportPage wildcard={wildcard} kitchen="home" />;
+  return <AtImportPage wildcard={wildcard} />;
 }

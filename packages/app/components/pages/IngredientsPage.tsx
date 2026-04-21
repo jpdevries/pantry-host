@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import IngredientForm from '@/components/IngredientForm';
 import BatchScanSession from '@/components/BatchScanSession';
 import { gql } from '@/lib/gql';
+import { useKitchen } from '@/lib/kitchen-context';
 import {
   Camera, PencilSimple, Trash, Barcode,
   Leaf, Bone, Egg, Package, Snowflake, DotsThree,
@@ -75,9 +76,8 @@ const DELETE_INGREDIENT = `
   }
 `;
 
-interface Props { kitchen: string; }
-
-export default function IngredientsPage({ kitchen }: Props) {
+export default function IngredientsPage() {
+  const kitchen = useKitchen();
   const cacheKey = `cache:ingredients:${kitchen}`;
   const cached = cacheGet<Ingredient[]>(cacheKey);
 

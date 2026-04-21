@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
 import { enqueue } from '@/lib/offlineQueue';
+import { useKitchen } from '@/lib/kitchen-context';
 import { MENU_CATEGORIES } from '@pantry-host/shared/constants';
 
 interface RecipeOption {
@@ -50,11 +51,8 @@ function classifyRecipe(recipe: RecipeOption): string {
   return 'other';
 }
 
-interface Props {
-  kitchen: string;
-}
-
-export default function MenuNewPage({ kitchen }: Props) {
+export default function MenuNewPage() {
+  const kitchen = useKitchen();
   const [recipes, setRecipes] = useState<RecipeOption[]>([]);
   const [selected, setSelected] = useState<SelectedRecipe[]>([]);
   const [title, setTitle] = useState('');

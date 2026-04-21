@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type { AppProps } from 'next/app';
 import Nav from '@/components/Nav';
 import OfflineBanner from '@/components/OfflineBanner';
+import { KitchenProvider } from '@/lib/kitchen-context';
 import Footer from '@pantry-host/shared/components/Footer';
 import { flush } from '@/lib/offlineQueue';
 import { registerFlush } from '@/lib/apiStatus';
@@ -93,11 +94,11 @@ export default function App({ Component, pageProps }: AppProps) {
   }, []);
 
   return (
-    <>
+    <KitchenProvider>
       <Nav />
       <OfflineBanner />
       <Component {...pageProps} />
       <Footer />
-    </>
+    </KitchenProvider>
   );
 }

@@ -5,6 +5,7 @@ import { gql } from '@/lib/gql';
 import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
 import { ArrowsOut, ArrowsIn, Trash, Heart, Printer, Circle, CheckCircle, CalendarPlus, LinkSimple, ForkKnife, ShareNetwork, Code, Rows, Columns, GridNine, Sun, Snowflake } from '@phosphor-icons/react';
 import { enqueue } from '@/lib/offlineQueue';
+import { useKitchen } from '@/lib/kitchen-context';
 import RecipeCard from '@/components/RecipeCard';
 import { Leaf } from '@phosphor-icons/react';
 import { HIDDEN_TAGS, classifyRecipeCourse } from '@pantry-host/shared/constants';
@@ -89,7 +90,7 @@ const UPDATE_INGREDIENT = `mutation UpdateIngredient($id: String!, $quantity: Fl
 
 interface PantryItem { id: string; name: string; aliases: string[] | null; quantity: number | null; unit: string | null; itemSize: number | null; itemSizeUnit: string | null; alwaysOnHand: boolean; barcode: string | null; productMeta: string | null; }
 
-interface Props { kitchen: string; recipeId: string; }
+interface Props { recipeId: string; }
 
 /**
  * Per-season tag-chip metadata. `autumn` is mapped as a synonym
@@ -177,7 +178,8 @@ function StepPhotos({ steps, sourceUrl, dbStepPhotos }: { steps: string[]; sourc
   );
 }
 
-export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
+export default function RecipeDetailPage({ recipeId }: Props) {
+  const kitchen = useKitchen();
   const router = useRouter();
   const recipesBase = `/kitchens/${kitchen}/recipes`;
 

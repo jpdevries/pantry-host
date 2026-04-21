@@ -59,7 +59,7 @@ export default function RecipePage({ ogTitle, ogDescription, ogImage }: Props) {
         {ogImage && <meta property="og:image" content={ogImage} />}
         <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
       </Head>
-      <RecipeDetailPage kitchen="home" recipeId={(slug as string) || fallback} />
+      <RecipeDetailPage recipeId={(slug as string) || fallback} />
     </>
   );
 }

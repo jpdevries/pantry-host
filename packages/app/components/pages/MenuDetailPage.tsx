@@ -4,6 +4,7 @@ import { cacheGet, cacheSet } from '@pantry-host/shared/cache';
 import RecipeCard from '@/components/RecipeCard';
 import { Robot, Leaf, ArrowsOut, ArrowsIn } from '@phosphor-icons/react';
 import { isOwner } from '@/lib/isTrustedNetwork';
+import { useKitchen } from '@/lib/kitchen-context';
 
 interface MenuRecipe {
   id: string;
@@ -67,11 +68,11 @@ function courseLabel(course: string, menuTitle: string): string {
 const COURSE_ORDER = ['baby', 'appetizer', 'breakfast', 'main-course', 'side', 'beverage', 'dessert', 'other'];
 
 interface Props {
-  kitchen: string;
   menuId: string;
 }
 
-export default function MenuDetailPage({ kitchen, menuId }: Props) {
+export default function MenuDetailPage({ menuId }: Props) {
+  const kitchen = useKitchen();
   const [menu, setMenu] = useState<Menu | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [owner, setOwner] = useState(false);

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
 import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
 import { enqueue } from '@/lib/offlineQueue';
+import { useKitchen } from '@/lib/kitchen-context';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem, normalizeIngredientName, type GroceryStatus, type PantryLookup } from '@pantry-host/shared/grocery-status';
 import { ShoppingCart, Basket, MapPin } from '@phosphor-icons/react';
@@ -114,9 +115,8 @@ function fmtItem(item: PerRecipeItem): string {
   return fmtQty(item.quantity, item.unit);
 }
 
-interface Props { kitchen: string; }
-
-export default function GroceryListPage({ kitchen }: Props) {
+export default function GroceryListPage() {
+  const kitchen = useKitchen();
   const [recipes, setRecipes] = useState<QueuedRecipe[]>([]);
   const [pantry, setPantry] = useState<PantryItem[]>([]);
   const [loading, setLoading] = useState(true);

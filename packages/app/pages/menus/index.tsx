@@ -11,7 +11,7 @@ export default function MenusPage() {
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary" />
       </Head>
-      <MenusIndexPage kitchen="home" />
+      <MenusIndexPage />
     </>
   );
 }

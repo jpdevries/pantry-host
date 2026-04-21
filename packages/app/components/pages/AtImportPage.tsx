@@ -11,6 +11,7 @@ import AtRecipeDetail from '@pantry-host/shared/components/AtRecipeDetail';
 import AtMenuDetail from '@pantry-host/shared/components/AtMenuDetail';
 import type { ParsedRecipe } from '@pantry-host/shared/bluesky';
 import { gql } from '@/lib/gql';
+import { useKitchen } from '@/lib/kitchen-context';
 
 const LEXICON_RECIPE = 'exchange.recipe.recipe';
 const LEXICON_COLLECTION = 'exchange.recipe.collection';
@@ -63,13 +64,10 @@ interface Props {
    *  e.g. `did:plc:xyz/exchange.recipe.recipe/abc123`). Coming from the
    *  caller because Rex's useRouter().query is unreliable in prod. */
   wildcard: string;
-  /** Kitchen slug the imported record should land in. `'home'` when the
-   *  user is at the top-level `/at/*` alias; otherwise the slug from
-   *  `/kitchens/{slug}/at/*`. */
-  kitchen: string;
 }
 
-export default function AtImportPage({ wildcard, kitchen }: Props) {
+export default function AtImportPage({ wildcard }: Props) {
+  const kitchen = useKitchen();
   if (!wildcard) {
     return (
       <>

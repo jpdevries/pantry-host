@@ -11,7 +11,7 @@ export default function CookwarePage() {
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary" />
       </Head>
-      <CookwarePageComponent kitchen="home" />
+      <CookwarePageComponent />
     </>
   );
 }

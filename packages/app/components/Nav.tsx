@@ -2,6 +2,7 @@ import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
 import { getDailyQuote } from '@pantry-host/shared/dailyQuote';
 import { isTrustedNetwork } from '@/lib/isTrustedNetwork';
+import { useKitchen } from '@/lib/kitchen-context';
 
 function PantryHostLogo({ size = 24 }: { size?: number }) {
   return (
@@ -26,15 +27,9 @@ export default function Nav() {
   const router = useRouter();
   const chevronRef = useRef<HTMLAnchorElement>(null);
 
-  const [kitchenSlug, setKitchenSlug] = useState('home');
-  const [isKitchenRoute, setIsKitchenRoute] = useState(false);
+  const kitchenSlug = useKitchen();
+  const isKitchenRoute = kitchenSlug !== 'home';
   const [isSecure, setIsSecure] = useState(true);
-
-  useEffect(() => {
-    const match = router.asPath.match(/^\/kitchens\/([^/?#]+)/);
-    setIsKitchenRoute(!!match);
-    setKitchenSlug(match?.[1] ?? 'home');
-  }, [router.asPath]);
 
   function kitchenHref(path: string): string {
     return isKitchenRoute ? `/kitchens/${kitchenSlug}${path}` : path;

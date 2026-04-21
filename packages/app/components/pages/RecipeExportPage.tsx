@@ -1,6 +1,7 @@
 import Head from 'next/head';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { gql } from '@/lib/gql';
+import { useKitchen } from '@/lib/kitchen-context';
 import { recipeBookToDataURI, imageToDataURI } from '@pantry-host/shared/export-recipe';
 import type { ExportableRecipe } from '@pantry-host/shared/export-recipe';
 
@@ -40,11 +41,8 @@ const DETAIL_QUERY = `query Recipe($id: String!) {
   }
 }`;
 
-interface Props {
-  kitchen: string;
-}
-
-export default function RecipeExportPage({ kitchen }: Props) {
+export default function RecipeExportPage() {
+  const kitchen = useKitchen();
   const recipesBase = `/kitchens/${kitchen}/recipes`;
   const kitchenSlug = kitchen;
 

@@ -3,6 +3,7 @@ import { gql } from '@/lib/gql';
 import { cacheGet, cacheSet } from '@pantry-host/shared/cache';
 import { MENU_CATEGORIES, MENU_CATEGORY_ORDER } from '@pantry-host/shared/constants';
 import { isOwner } from '@/lib/isTrustedNetwork';
+import { useKitchen } from '@/lib/kitchen-context';
 import MenuCard from '@/components/MenuCard';
 
 interface MenuSummary {
@@ -17,10 +18,6 @@ interface MenuSummary {
 
 const MENUS_QUERY = `query Menus($kitchenSlug: String) { menus(kitchenSlug: $kitchenSlug) { id slug title description active category recipes { id recipe { title tags } } } }`;
 
-interface Props {
-  kitchen: string;
-}
-
 /** Sort order for menus within the Daily category */
 const DAILY_ORDER: Record<string, number> = { 'breakfast': 0, 'lunch': 1, 'dinner': 2 };
 
@@ -28,7 +25,8 @@ function categoryLabel(cat: string): string {
   return MENU_CATEGORIES.find((c) => c.value === cat)?.label ?? cat;
 }
 
-export default function MenusIndexPage({ kitchen }: Props) {
+export default function MenusIndexPage() {
+  const kitchen = useKitchen();
   const [menus, setMenus] = useState<MenuSummary[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);

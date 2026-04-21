@@ -44,7 +44,7 @@ export async function getServerSideProps({ params }: { params: { slug: string } 
 }
 
 export default function KitchenMenuPage({ ogTitle, ogDescription, ogImage }: Props) {
-  const { kitchen, slug } = useRouter().query;
+  const { slug } = useRouter().query;
   const segments = typeof window !== 'undefined' ? window.location.pathname.split('/').filter(Boolean) : []; // /kitchens/[kitchen]/menus/[slug]
   const title = ogTitle ? `${ogTitle} — Pantry Host` : 'Menus — Pantry Host';
   return (
@@ -58,7 +58,7 @@ export default function KitchenMenuPage({ ogTitle, ogDescription, ogImage }: Pro
         {ogImage && <meta property="og:image" content={ogImage} />}
         <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
       </Head>
-      <MenuDetailPage kitchen={(kitchen as string) || segments[1] || ''} menuId={(slug as string) || segments[3] || ''} />
+      <MenuDetailPage menuId={(slug as string) || segments[3] || ''} />
     </>
   );
 }

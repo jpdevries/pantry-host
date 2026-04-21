@@ -139,7 +139,7 @@ export default function GroceryListPage({ kitchen }: Props) {
 
   const [harvestLocations, setHarvestLocations] = useState<string[]>([]);
 
-  const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
+  const recipesBase = `/kitchens/${kitchen}/recipes`;
 
   const cacheKey = `cache:groceryList:${kitchen}`;
 

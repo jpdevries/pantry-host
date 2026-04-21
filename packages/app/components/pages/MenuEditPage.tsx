@@ -50,8 +50,8 @@ export default function MenuEditPage({ kitchen, menuId }: Props) {
   const [error, setError] = useState('');
   const [menuDbId, setMenuDbId] = useState('');
   const [loading, setLoading] = useState(true);
-  const menusBase = kitchen === 'home' ? '/menus' : `/kitchens/${kitchen}/menus`;
-  const slug = kitchen === 'home' ? undefined : kitchen;
+  const menusBase = `/kitchens/${kitchen}/menus`;
+  const slug = kitchen;
 
   useEffect(() => {
     Promise.all([

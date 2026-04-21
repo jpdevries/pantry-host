@@ -42,7 +42,7 @@ interface Props { kitchen: string; recipeId: string; }
 
 export default function RecipeEditPage({ kitchen, recipeId }: Props) {
   const router = useRouter();
-  const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
+  const recipesBase = `/kitchens/${kitchen}/recipes`;
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [existingRecipes, setExistingRecipes] = useState<{ id: string; slug?: string; title: string; source: string }[]>([]);
   const [cookwareItems, setCookwareItems] = useState<{ id: string; name: string; tags: string[] }[]>([]);

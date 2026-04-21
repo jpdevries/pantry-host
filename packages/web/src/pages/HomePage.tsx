@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { gql } from '@/lib/gql';
 import { BookOpen, Wine, ForkKnife, CookingPot, Leaf, Flask, Heart } from '@phosphor-icons/react';
 import { readFavorites } from '@pantry-host/shared/favorites';
@@ -49,7 +49,7 @@ const STATS_QUERY = `
 /** Lightweight favorite-card for the home-page grid. Full-featured
  *  cards with queue + Pixabay fallback live in RecipesPage; the home
  *  surface is view-only so we keep this compact. */
-function FavoriteCard({ recipe }: { recipe: HomeRecipe }) {
+function FavoriteCard({ recipe, base }: { recipe: HomeRecipe; base: string }) {
   const [photoSrc, setPhotoSrc] = useState<string | null>(null);
   useEffect(() => {
     if (!recipe.photoUrl) return;
@@ -62,7 +62,7 @@ function FavoriteCard({ recipe }: { recipe: HomeRecipe }) {
   const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0);
   return (
     <Link
-      to={`/recipes/${recipe.slug || recipe.id}#stage`}
+      to={`${base}/recipes/${recipe.slug || recipe.id}#stage`}
       className="card rounded-xl overflow-hidden flex flex-col hover:border-[var(--color-accent)] transition-colors"
     >
       {photoSrc ? (
@@ -88,14 +88,11 @@ function FavoriteCard({ recipe }: { recipe: HomeRecipe }) {
 }
 
 export default function HomePage() {
-  const { kitchen: kitchenParam } = useParams<{ kitchen?: string }>();
-  const kitchen = kitchenParam ?? 'home';
-  const navigate = useNavigate();
-  // Collapse /kitchens/home to its canonical /, so the switcher has one
-  // URL to highlight and bookmarks don't fork. Runs once on mount.
-  useEffect(() => {
-    if (kitchenParam === 'home') navigate('/#stage', { replace: true });
-  }, [kitchenParam, navigate]);
+  // Top-level `/` renders this component with no `:kitchen` param; the
+  // friendly-alias default is 'home'. `/kitchens/home` also works and
+  // renders the same content — no redirect. Home is a kitchen like any
+  // other (it just has a bonus root alias).
+  const kitchen = useParams<{ kitchen?: string }>().kitchen ?? 'home';
 
   const [stats, setStats] = useState<Stats | null>(null);
   const [favoritesLimit, setFavoritesLimit] = useState(3);
@@ -106,10 +103,10 @@ export default function HomePage() {
     setFavoriteIds(readFavorites());
   }, [kitchen]);
 
-  // Path prefix for every internal link. Home kitchen keeps bare paths;
-  // named kitchens get `/kitchens/{slug}/…`.
-  const base = kitchen === 'home' ? '' : `/kitchens/${kitchen}`;
-  const isHomeKitchen = kitchen === 'home';
+  // Every internal link is kitchen-scoped. No structural special case
+  // for home — if you're on `/`, `kitchen` is `'home'` and links read
+  // `/kitchens/home/…`, which is a valid, canonical URL.
+  const base = `/kitchens/${kitchen}`;
   const kitchenName = stats?.kitchens.find((k) => k.slug === kitchen)?.name ?? kitchen;
 
   const cards = [
@@ -130,7 +127,7 @@ export default function HomePage() {
       <h1
         className="text-3xl font-bold mb-8"
       >
-        {isHomeKitchen ? 'Your Kitchen' : kitchenName}
+        {kitchenName}
       </h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -161,7 +158,7 @@ export default function HomePage() {
           </div>
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {favoriteRecipes.map((r) => (
-              <FavoriteCard key={r.id} recipe={r} />
+              <FavoriteCard key={r.id} recipe={r} base={base} />
             ))}
           </div>
           {hasMoreFavorites && (
@@ -191,7 +188,7 @@ export default function HomePage() {
           <ul className="flex flex-wrap gap-3" role="list">
             {stats.kitchens.map((k) => {
               const active = k.slug === kitchen;
-              const to = k.slug === 'home' ? '/#stage' : `/kitchens/${k.slug}#stage`;
+              const to = `/kitchens/${k.slug}#stage`;
               return (
                 <li key={k.id}>
                   <Link

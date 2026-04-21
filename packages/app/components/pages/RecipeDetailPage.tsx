@@ -179,7 +179,7 @@ function StepPhotos({ steps, sourceUrl, dbStepPhotos }: { steps: string[]; sourc
 
 export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
   const router = useRouter();
-  const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
+  const recipesBase = `/kitchens/${kitchen}/recipes`;
 
   const cacheKey = `cache:recipe:${recipeId}`;
   const cachedRecipe = typeof window !== 'undefined' ? cacheGet<Recipe>(cacheKey) : null;
@@ -813,7 +813,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                 <p className="font-semibold text-xs uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">Cookware</p>
                 <div className="flex flex-wrap gap-2">
                   {recipe.requiredCookware.map((cw) => (
-                    <a key={cw.id} href={kitchen === 'home' ? `/cookware/${cw.id}#stage` : `/kitchens/${kitchen}/cookware/${cw.id}#stage`} className="tag hover:underline">
+                    <a key={cw.id} href={`/kitchens/${kitchen}/cookware/${cw.id}#stage`} className="tag hover:underline">
                       {cw.name}{cw.brand && cw.brand !== cw.name && <em className="font-normal"> by {cw.brand}</em>}
                     </a>
                   ))}

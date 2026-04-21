@@ -196,7 +196,7 @@ interface Props { kitchen: string; }
 export default function RecipeImportPage({ kitchen }: Props) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
-  const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
+  const recipesBase = `/kitchens/${kitchen}/recipes`;
 
   const [step, setStep] = useState<Step>('input');
   // Pre-populate from ?url= query param so /https/*'s error-fallback CTA can

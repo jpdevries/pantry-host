@@ -33,8 +33,8 @@ export default function MenusIndexPage({ kitchen }: Props) {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [owner, setOwner] = useState(false);
-  const menusBase = kitchen === 'home' ? '/menus' : `/kitchens/${kitchen}/menus`;
-  const slug = kitchen === 'home' ? undefined : kitchen;
+  const menusBase = `/kitchens/${kitchen}/menus`;
+  const slug = kitchen;
   const cacheKey = `cache:menus:${kitchen}`;
 
   useEffect(() => {

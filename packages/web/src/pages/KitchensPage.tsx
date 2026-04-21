@@ -152,7 +152,7 @@ export default function KitchensPage() {
       <ul role="list" className="space-y-4">
         {kitchens.map((k) => {
           const isHome = k.slug === 'home';
-          const base = isHome ? '' : `/kitchens/${k.slug}`;
+          const base = `/kitchens/${k.slug}`;
           const isEditing = editingId === k.id;
 
           return (

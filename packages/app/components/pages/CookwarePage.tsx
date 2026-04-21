@@ -22,7 +22,7 @@ const DELETE_COOKWARE = `mutation DeleteCookware($id: String!) { deleteCookware(
 interface Props { kitchen: string; }
 
 function cookwareDetailHref(kitchen: string, id: string) {
-  return kitchen === 'home' ? `/cookware/${id}#stage` : `/kitchens/${kitchen}/cookware/${id}#stage`;
+  return `/kitchens/${kitchen}/cookware/${id}#stage`;
 }
 
 export default function CookwarePage({ kitchen }: Props) {

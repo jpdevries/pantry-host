@@ -45,8 +45,8 @@ interface Props {
 }
 
 export default function RecipeExportPage({ kitchen }: Props) {
-  const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
-  const kitchenSlug = kitchen === 'home' ? undefined : kitchen;
+  const recipesBase = `/kitchens/${kitchen}/recipes`;
+  const kitchenSlug = kitchen;
 
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());

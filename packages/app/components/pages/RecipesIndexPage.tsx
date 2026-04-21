@@ -79,7 +79,7 @@ export default function RecipesIndexPage({ kitchen }: Props) {
     if (typeof window !== 'undefined') localStorage.setItem('recipes-grid-keyboard-mode', keyboardMode);
   }, [keyboardMode]);
 
-  const base = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
+  const base = `/kitchens/${kitchen}/recipes`;
 
   const placeholder = useMemo(() => {
     if (!recipes.length) return '';

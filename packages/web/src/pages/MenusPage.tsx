@@ -27,7 +27,7 @@ const QUERY = `
 
 export default function MenusPage() {
   const kitchen = useParams<{ kitchen?: string }>().kitchen ?? 'home';
-  const base = kitchen === 'home' ? '' : `/kitchens/${kitchen}`;
+  const base = `/kitchens/${kitchen}`;
   const [menus, setMenus] = useState<Menu[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);

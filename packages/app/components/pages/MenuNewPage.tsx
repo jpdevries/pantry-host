@@ -63,8 +63,8 @@ export default function MenuNewPage({ kitchen }: Props) {
   const [category, setCategory] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const menusBase = kitchen === 'home' ? '/menus' : `/kitchens/${kitchen}/menus`;
-  const slug = kitchen === 'home' ? undefined : kitchen;
+  const menusBase = `/kitchens/${kitchen}/menus`;
+  const slug = kitchen;
 
   useEffect(() => {
     gql<{ recipes: RecipeOption[] }>(RECIPES_QUERY, { kitchenSlug: slug })

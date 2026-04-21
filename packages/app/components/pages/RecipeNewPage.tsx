@@ -9,7 +9,7 @@ export default function RecipeNewPage({ kitchen }: Props) {
   const [existingRecipes, setExistingRecipes] = useState<{ id: string; slug?: string; title: string; source: string }[]>([]);
   const [cookwareItems, setCookwareItems] = useState<{ id: string; name: string; tags: string[] }[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
-  const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
+  const recipesBase = `/kitchens/${kitchen}/recipes`;
 
   useEffect(() => {
     const slug = kitchen || 'home';

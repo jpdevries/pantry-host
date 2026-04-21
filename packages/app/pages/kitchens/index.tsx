@@ -167,7 +167,7 @@ export default function KitchensPage() {
         <ul role="list" className="divide-y divide-[var(--color-border-card)]">
           {kitchens.map((k) => {
             const isHome = k.slug === 'home';
-            const base = isHome ? '' : `/kitchens/${k.slug}`;
+            const base = `/kitchens/${k.slug}`;
             const isEditing = editingId === k.id;
 
             return (

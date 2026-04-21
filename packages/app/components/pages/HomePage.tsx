@@ -71,13 +71,12 @@ export default function HomePage({ kitchen = 'home' }: Props) {
   const hasMore = allRecipes.length > recipeLimit;
   const kitchens = data?.kitchens ?? [];
 
-  // Path prefix for every internal link on this dashboard. Home kitchen
-  // keeps the bare `/recipes`, `/ingredients`, etc.; named kitchens get
-  // `/kitchens/{slug}/recipes`, `/kitchens/{slug}/ingredients`, etc.
-  const base = kitchen === 'home' ? '' : `/kitchens/${kitchen}`;
+  // Every internal link is kitchen-scoped. No structural special case
+  // for home — if you're on `/`, `kitchen` is `'home'` and links read
+  // `/kitchens/home/…`, which is a valid, canonical URL.
+  const base = `/kitchens/${kitchen}`;
   const kitchenName = kitchens.find((k) => k.slug === kitchen)?.name ?? kitchen;
-  const isHomeKitchen = kitchen === 'home';
-  const pageTitle = isHomeKitchen ? 'Pantry Host' : `${kitchenName} · Pantry Host`;
+  const pageTitle = `${kitchenName} · Pantry Host`;
 
   const season = currentSeason();
   const seasonalAll = allRecipes.filter((r) => r.tags.some((t) => t.toLowerCase() === season));
@@ -126,7 +125,7 @@ export default function HomePage({ kitchen = 'home' }: Props) {
         {/* Hero */}
         <section aria-labelledby="hero-heading" className="mb-8">
           <h1 id="hero-heading" className="text-4xl font-bold mb-3">
-            {isHomeKitchen ? "What's in your kitchen?" : kitchenName}
+            {kitchenName}
           </h1>
           <p className="text-lg text-[var(--color-text-secondary)] max-w-prose">
             Manage your pantry and cookware, then let AI suggest recipes tailored to what you have on hand.
@@ -148,7 +147,7 @@ export default function HomePage({ kitchen = 'home' }: Props) {
                 return (
                 <li key={k.id}>
                   <a
-                    href={k.slug === 'home' ? '/#stage' : `/kitchens/${k.slug}#stage`}
+                    href={`/kitchens/${k.slug}#stage`}
                     aria-current={active ? 'true' : undefined}
                     className={[
                       'card block px-4 py-3 transition-colors',

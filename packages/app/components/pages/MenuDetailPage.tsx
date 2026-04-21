@@ -82,8 +82,8 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [supportsFullscreen, setSupportsFullscreen] = useState(false);
   const articleRef = useRef<HTMLElement>(null);
-  const menusBase = kitchen === 'home' ? '/menus' : `/kitchens/${kitchen}/menus`;
-  const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
+  const menusBase = `/kitchens/${kitchen}/menus`;
+  const recipesBase = `/kitchens/${kitchen}/recipes`;
 
   useEffect(() => {
     setOwner(isOwner());

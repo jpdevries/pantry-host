@@ -208,7 +208,7 @@ const RECIPE_FILTERS: { key: string; label: string; tags: string[] }[] = [
 export default function RecipesPage() {
   const kitchen = useParams<{ kitchen?: string }>().kitchen ?? 'home';
   // Path prefix for internal links so they stay on the active kitchen.
-  const base = kitchen === 'home' ? '' : `/kitchens/${kitchen}`;
+  const base = `/kitchens/${kitchen}`;
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);

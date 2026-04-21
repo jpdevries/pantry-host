@@ -47,8 +47,8 @@ export default function CookwareDetailPage({ id, kitchen }: Props) {
   const [notFound, setNotFound] = useState(false);
   const [editing, setEditing] = useState(false);
 
-  const cookwareBase = kitchen === 'home' ? '/cookware' : `/kitchens/${kitchen}/cookware`;
-  const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
+  const cookwareBase = `/kitchens/${kitchen}/cookware`;
+  const recipesBase = `/kitchens/${kitchen}/recipes`;
 
   function load() {
     if (!id) return;

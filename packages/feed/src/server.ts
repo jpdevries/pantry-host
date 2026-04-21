@@ -112,25 +112,66 @@ function savedCursor(): number | undefined {
   return row?.seq;
 }
 
-// ── Handle resolution ────────────────────────────────────────
+// ── DID → PDS + handle resolution ────────────────────────────
+//
+// Every XRPC call must land on the author's authoritative PDS, not
+// bsky.social. The firehose indexer duplicates the resolver from
+// packages/shared/src/atproto-pds.ts (different workspace; different
+// bundling target — we avoid the cross-package import).
 
-const handleCache = new Map<string, string>();
+const TTL_MS = 60 * 60 * 1000;
+interface IdentityCacheEntry { pds: string; handle: string; expires: number; }
+const identityCache = new Map<string, IdentityCacheEntry>();
+
+const FALLBACK_PDS = 'https://bsky.social';
+
+async function fetchDidDocument(did: string): Promise<{ service?: Array<{ id: string; type: string; serviceEndpoint: string }> } | null> {
+  try {
+    if (did.startsWith('did:plc:')) {
+      const res = await fetch(`https://plc.directory/${encodeURIComponent(did)}`);
+      if (!res.ok) return null;
+      return await res.json();
+    }
+    if (did.startsWith('did:web:')) {
+      const rest = did.slice('did:web:'.length);
+      const parts = rest.split(':').map(decodeURIComponent);
+      const host = parts[0];
+      const path = parts.slice(1).join('/');
+      const url = path ? `https://${host}/${path}/did.json` : `https://${host}/.well-known/did.json`;
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      return await res.json();
+    }
+    return null;
+  } catch { return null; }
+}
+
+async function resolveIdentity(did: string): Promise<IdentityCacheEntry> {
+  const now = Date.now();
+  const cached = identityCache.get(did);
+  if (cached && cached.expires > now) return cached;
+
+  const doc = await fetchDidDocument(did);
+  const svc = doc?.service?.find((s) => s.id === '#atproto_pds' || s.id.endsWith('#atproto_pds'));
+  const pds = (svc?.type === 'AtprotoPersonalDataServer' ? svc.serviceEndpoint.replace(/\/$/, '') : null) || FALLBACK_PDS;
+
+  let handle = did;
+  try {
+    const res = await fetch(`${pds}/xrpc/com.atproto.repo.describeRepo?repo=${encodeURIComponent(did)}`);
+    if (res.ok) handle = ((await res.json()) as { handle?: string }).handle || did;
+  } catch {}
+
+  const entry: IdentityCacheEntry = { pds, handle, expires: now + TTL_MS };
+  identityCache.set(did, entry);
+  return entry;
+}
 
 async function resolveHandle(did: string): Promise<string> {
-  const cached = handleCache.get(did);
-  if (cached) return cached;
-  try {
-    const res = await fetch(
-      `https://bsky.social/xrpc/com.atproto.repo.describeRepo?repo=${encodeURIComponent(did)}`
-    );
-    if (res.ok) {
-      const body = (await res.json()) as { handle?: string };
-      const handle = body.handle || did;
-      handleCache.set(did, handle);
-      return handle;
-    }
-  } catch {}
-  return did;
+  return (await resolveIdentity(did)).handle;
+}
+
+async function resolvePds(did: string): Promise<string> {
+  return (await resolveIdentity(did)).pds;
 }
 
 // ── Firehose subscription ────────────────────────────────────
@@ -264,9 +305,8 @@ const listPublisherDidsStmt = db.prepare(
   `SELECT did FROM recipe_publishers WHERE inactive = 0 OR inactive IS NULL`,
 );
 
-const XRPC_BASE = 'https://bsky.social/xrpc';
-
 async function backfillRecordsForDid(did: string, collection: string) {
+  const pds = await resolvePds(did);
   let cursor: string | undefined;
   let fetched = 0;
   do {
@@ -276,7 +316,7 @@ async function backfillRecordsForDid(did: string, collection: string) {
       limit: '100',
     });
     if (cursor) params.set('cursor', cursor);
-    const url = `${XRPC_BASE}/com.atproto.repo.listRecords?${params}`;
+    const url = `${pds}/xrpc/com.atproto.repo.listRecords?${params}`;
     const res = await fetch(url);
     if (!res.ok) {
       console.warn(`[backfill] listRecords failed for ${did}/${collection}: ${res.status}`);

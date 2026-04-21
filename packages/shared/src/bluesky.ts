@@ -5,19 +5,26 @@
  * Protocol network. Uses the `exchange.recipe.recipe` and
  * `exchange.recipe.collection` lexicons from recipe.exchange.
  *
- * All reads go through `bsky.social/xrpc/` which serves
- * `access-control-allow-origin: *` — works directly from the browser
- * in both the self-hosted app and the PGlite PWA. No proxy needed.
+ * Every record read is federated: the DID is resolved to its
+ * authoritative PDS via `./atproto-pds` and the XRPC call goes there
+ * directly. Previous versions hardcoded `bsky.social` and silently
+ * 404'd for every non-bsky-hosted author.
  *
  * The write/export path (publishing to a user's PDS) requires
  * authentication and is weekend hackathon scope — not in this module.
  */
 
 import { parseIsoDurationMinutes } from './recipe-api';
+import { xrpcBaseFor } from './atproto-pds';
 
 // ── Constants ────────────────────────────────────────────────────────────
 
-const XRPC_BASE = 'https://bsky.social/xrpc';
+/** Handle-resolution has no DID yet (the handle IS the identity), so
+ *  we need a starting point. AT Protocol lets any PDS or relay resolve
+ *  handles; `bsky.social` is the safest default for reach. Every OTHER
+ *  XRPC call goes through `xrpcBaseFor(did)` so it lands on the
+ *  author's authoritative PDS. */
+const HANDLE_RESOLVER_BASE = 'https://bsky.social/xrpc';
 
 const LEXICON_RECIPE = 'exchange.recipe.recipe';
 const LEXICON_COLLECTION = 'exchange.recipe.collection';
@@ -102,7 +109,8 @@ export async function getRecord<T>(
   collection: string,
   rkey: string,
 ): Promise<AtProtoRecord<T>> {
-  const url = `${XRPC_BASE}/com.atproto.repo.getRecord?repo=${encodeURIComponent(repo)}&collection=${encodeURIComponent(collection)}&rkey=${encodeURIComponent(rkey)}`;
+  const base = await xrpcBaseFor(repo);
+  const url = `${base}/com.atproto.repo.getRecord?repo=${encodeURIComponent(repo)}&collection=${encodeURIComponent(collection)}&rkey=${encodeURIComponent(rkey)}`;
   const res = await fetch(url);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -116,9 +124,10 @@ export async function listRecords<T>(
   collection: string,
   limit = 100,
 ): Promise<AtProtoRecord<T>[]> {
+  const base = await xrpcBaseFor(repo);
   const records: AtProtoRecord<T>[] = [];
   let cursor: string | undefined;
-  // Paginate — bsky.social caps at 100 per page
+  // Paginate — PDS implementations generally cap at 100 per page
   do {
     const params = new URLSearchParams({
       repo,
@@ -126,7 +135,7 @@ export async function listRecords<T>(
       limit: String(Math.min(limit - records.length, 100)),
     });
     if (cursor) params.set('cursor', cursor);
-    const url = `${XRPC_BASE}/com.atproto.repo.listRecords?${params}`;
+    const url = `${base}/com.atproto.repo.listRecords?${params}`;
     const res = await fetch(url);
     if (!res.ok) break;
     const body = await res.json();
@@ -139,7 +148,10 @@ export async function listRecords<T>(
 
 export async function resolveHandle(handle: string): Promise<string> {
   const clean = handle.replace(/^@/, '');
-  const url = `${XRPC_BASE}/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(clean)}`;
+  // Handle → DID resolution has no DID to key off of, so we use a
+  // well-known public resolver. bsky.social serves this endpoint for
+  // every handle on the network.
+  const url = `${HANDLE_RESOLVER_BASE}/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(clean)}`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Could not resolve handle @${clean}`);
@@ -351,9 +363,10 @@ export async function fetchBlueskyRecipe(atUri: string): Promise<ParsedRecipe> {
   // Try to resolve DID → handle for attribution
   let handle: string | undefined;
   try {
-    // If repo is a DID, resolve to handle
+    // If repo is a DID, resolve to handle via the author's own PDS
     if (parsed.repo.startsWith('did:')) {
-      const url = `${XRPC_BASE}/com.atproto.repo.describeRepo?repo=${encodeURIComponent(parsed.repo)}`;
+      const base = await xrpcBaseFor(parsed.repo);
+      const url = `${base}/com.atproto.repo.describeRepo?repo=${encodeURIComponent(parsed.repo)}`;
       const res = await fetch(url);
       if (res.ok) {
         const body = await res.json();
@@ -384,7 +397,8 @@ export async function fetchBlueskyCollection(atUri: string): Promise<{
   let handle: string | undefined;
   try {
     if (parsed.repo.startsWith('did:')) {
-      const url = `${XRPC_BASE}/com.atproto.repo.describeRepo?repo=${encodeURIComponent(parsed.repo)}`;
+      const base = await xrpcBaseFor(parsed.repo);
+      const url = `${base}/com.atproto.repo.describeRepo?repo=${encodeURIComponent(parsed.repo)}`;
       const res = await fetch(url);
       if (res.ok) handle = (await res.json()).handle;
     } else {
@@ -416,7 +430,8 @@ export async function listBlueskyCollections(handleOrDid: string): Promise<{
     handle = handleOrDid.replace(/^@/, '');
   } else {
     try {
-      const url = `${XRPC_BASE}/com.atproto.repo.describeRepo?repo=${encodeURIComponent(did)}`;
+      const base = await xrpcBaseFor(did);
+      const url = `${base}/com.atproto.repo.describeRepo?repo=${encodeURIComponent(did)}`;
       const res = await fetch(url);
       if (res.ok) handle = (await res.json()).handle;
     } catch { /* best-effort */ }
@@ -448,7 +463,8 @@ export async function listBlueskyRecipes(handleOrDid: string): Promise<{
     handle = handleOrDid.replace(/^@/, '');
   } else {
     try {
-      const url = `${XRPC_BASE}/com.atproto.repo.describeRepo?repo=${encodeURIComponent(did)}`;
+      const base = await xrpcBaseFor(did);
+      const url = `${base}/com.atproto.repo.describeRepo?repo=${encodeURIComponent(did)}`;
       const res = await fetch(url);
       if (res.ok) handle = (await res.json()).handle;
     } catch { /* best-effort */ }

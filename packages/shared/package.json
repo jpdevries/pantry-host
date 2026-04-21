@@ -34,6 +34,7 @@
     "./wikibooks": "./src/wikibooks.ts",
     "./cocktaildb": "./src/cocktaildb.ts",
     "./recipe-api": "./src/recipe-api.ts",
+    "./atproto-pds": "./src/atproto-pds.ts",
     "./bluesky": "./src/bluesky.ts",
     "./bluesky-import": "./src/bluesky-import.ts",
     "./pixabay": "./src/pixabay.ts",

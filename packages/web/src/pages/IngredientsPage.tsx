@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
 import { gql } from '@/lib/gql';
 import { HIDDEN_TAGS, ALL_CATEGORIES, CATEGORY_GROUPS } from '@pantry-host/shared/constants';
 import {
@@ -45,11 +46,15 @@ const CAT_ICONS: Record<string, ReactNode> = {
 import IngredientForm, { type IngredientFormVariables, type IngredientData } from '@pantry-host/shared/components/IngredientForm';
 import BatchScanSession from '../components/BatchScanSession';
 
-const QUERY = `{ ingredients { id name aliases category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta } }`;
+const QUERY = `
+  query Ingredients($kitchenSlug: String) {
+    ingredients(kitchenSlug: $kitchenSlug) { id name aliases category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta }
+  }
+`;
 
 const ADD_MUTATION = `
-  mutation($name: String!, $aliases: [String!], $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!]) {
-    addIngredient(name: $name, aliases: $aliases, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags) { id }
+  mutation($name: String!, $aliases: [String!], $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!], $kitchenSlug: String) {
+    addIngredient(name: $name, aliases: $aliases, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags, kitchenSlug: $kitchenSlug) { id }
   }
 `;
 
@@ -60,6 +65,7 @@ const UPDATE_MUTATION = `
 `;
 
 export default function IngredientsPage() {
+  const kitchen = useParams<{ kitchen?: string }>().kitchen ?? 'home';
   const [ingredients, setIngredients] = useState<IngredientData[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -73,15 +79,15 @@ export default function IngredientsPage() {
   }, []);
 
   async function load() {
-    const { ingredients: list } = await gql<{ ingredients: IngredientData[] }>(QUERY);
+    const { ingredients: list } = await gql<{ ingredients: IngredientData[] }>(QUERY, { kitchenSlug: kitchen });
     setIngredients(list);
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { setLoading(true); load(); }, [kitchen]);
 
   async function handleAdd(vars: IngredientFormVariables) {
-    await gql(ADD_MUTATION, vars);
+    await gql(ADD_MUTATION, { ...vars, kitchenSlug: kitchen });
     setShowAddForm(false);
     load();
   }

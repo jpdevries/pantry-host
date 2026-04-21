@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { gql } from '@/lib/gql';
 import { getFileURL } from '@/lib/storage-opfs';
 import { ShoppingCart, Heart } from '@phosphor-icons/react';
@@ -24,9 +24,11 @@ interface Recipe {
   createdAt: string;
 }
 
-const RECIPES_QUERY = `{
-  recipes { id slug title description tags photoUrl sourceUrl prepTime cookTime servings queued createdAt }
-}`;
+const RECIPES_QUERY = `
+  query Recipes($kitchenSlug: String) {
+    recipes(kitchenSlug: $kitchenSlug) { id slug title description tags photoUrl sourceUrl prepTime cookTime servings queued createdAt }
+  }
+`;
 
 /**
  * Returns false for sources we know never have images (recipe-api, today).
@@ -50,12 +52,15 @@ function RecipeCard({
   pixabayKey,
   pixabayEnabled,
   keyboardMode,
+  base,
 }: {
   recipe: Recipe;
   onToggleQueue: (id: string) => void;
   pixabayKey: string | null;
   pixabayEnabled: boolean;
   keyboardMode: KeyboardMode;
+  /** Kitchen-aware path prefix: '' for home, `/kitchens/{slug}` otherwise. */
+  base: string;
 }) {
   // tabIndex={-1} only removes elements from the keyboard tab order;
   // mouse clicks and assistive-tech navigation-by-role still work.
@@ -89,7 +94,7 @@ function RecipeCard({
   return (
     <div className="card rounded-xl overflow-hidden group">
       {imageZone === 'own' && (
-        <Link to={`/recipes/${recipe.slug || recipe.id}#stage`} className="block aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]" tabIndex={-1} aria-hidden="true">
+        <Link to={`${base}/recipes/${recipe.slug || recipe.id}#stage`} className="block aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]" tabIndex={-1} aria-hidden="true">
           <img
             src={photoSrc!}
             alt={recipe.title}
@@ -99,7 +104,7 @@ function RecipeCard({
         </Link>
       )}
       {imageZone === 'pixabay' && (
-        <Link to={`/recipes/${recipe.slug || recipe.id}#stage`} className="block overflow-hidden" tabIndex={-1} aria-hidden="true">
+        <Link to={`${base}/recipes/${recipe.slug || recipe.id}#stage`} className="block overflow-hidden" tabIndex={-1} aria-hidden="true">
           <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey!} alt={recipe.title} inCard />
         </Link>
       )}
@@ -110,7 +115,7 @@ function RecipeCard({
       {/* Title + queue toggle */}
       <div className="px-4 pt-3 flex items-start justify-between gap-2">
         <Link
-          to={`/recipes/${recipe.slug || recipe.id}#stage`}
+          to={`${base}/recipes/${recipe.slug || recipe.id}#stage`}
           className="font-bold text-base leading-snug hover:underline line-clamp-2"
           tabIndex={titleTabIndex}
         >
@@ -201,6 +206,9 @@ const RECIPE_FILTERS: { key: string; label: string; tags: string[] }[] = [
 ];
 
 export default function RecipesPage() {
+  const kitchen = useParams<{ kitchen?: string }>().kitchen ?? 'home';
+  // Path prefix for internal links so they stay on the active kitchen.
+  const base = kitchen === 'home' ? '' : `/kitchens/${kitchen}`;
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -230,11 +238,12 @@ export default function RecipesPage() {
   }, [keyboardMode]);
 
   useEffect(() => {
-    gql<{ recipes: Recipe[] }>(RECIPES_QUERY)
+    setLoading(true);
+    gql<{ recipes: Recipe[] }>(RECIPES_QUERY, { kitchenSlug: kitchen })
       .then((d) => setRecipes(d.recipes))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [kitchen]);
 
   async function handleToggleQueue(id: string) {
     // Optimistic update
@@ -280,7 +289,7 @@ export default function RecipesPage() {
 
   return (
     <div>
-      <Link to="/recipes/feeds/bluesky" className="mb-6 flex items-center gap-4 card p-4 rounded-xl hover:border-[var(--color-accent)] transition-colors">
+      <Link to={`${base}/recipes/feeds/bluesky`} className="mb-6 flex items-center gap-4 card p-4 rounded-xl hover:border-[var(--color-accent)] transition-colors">
         <svg fill="currentColor" viewBox="0 0 600 530" width={32} height={28} aria-hidden="true" className="shrink-0 opacity-60" xmlns="http://www.w3.org/2000/svg">
           <path d="M135.72 44.03C202.216 93.951 273.74 195.17 299.91 249.49c26.17-54.32 97.694-155.539 164.19-205.46C512.18 8.005 590 -19.728 590 69.04c0 17.726-10.155 148.928-16.111 170.208-20.703 73.984-96.144 92.854-163.25 81.433 117.262 19.96 147.131 86.084 82.654 152.208-122.385 125.621-175.86-31.511-189.563-71.807-2.512-7.387-3.687-10.832-3.69-7.905-.003-2.927-1.179.518-3.69 7.905-13.704 40.296-67.18 197.428-189.563 71.807-64.477-66.124-34.61-132.251 82.65-152.208-67.105 11.421-142.548-7.45-163.25-81.433C20.232 217.968 10.077 86.766 10.077 69.04c0-88.768 77.82-61.035 125.9-25.01z" />
         </svg>
@@ -293,8 +302,8 @@ export default function RecipesPage() {
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="text-3xl font-bold">Your Recipes</h1>
         <div className="flex gap-2">
-          <Link to="/recipes/import#stage" className="btn-secondary">Import</Link>
-          <Link to="/recipes/new#stage" className="btn-primary">New recipe</Link>
+          <Link to={`${base}/recipes/import#stage`} className="btn-secondary">Import</Link>
+          <Link to={`${base}/recipes/new#stage`} className="btn-primary">New recipe</Link>
         </div>
       </div>
 
@@ -416,6 +425,7 @@ export default function RecipesPage() {
                 pixabayKey={pixabay.key}
                 pixabayEnabled={pixabay.enabled}
                 keyboardMode={keyboardMode}
+                base={base}
               />
             ))}
           </div>

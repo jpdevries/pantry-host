@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { PencilSimple, Trash } from '@phosphor-icons/react';
 import { gql } from '@/lib/gql';
 
@@ -11,12 +11,13 @@ interface CookwareItem {
   notes: string | null;
 }
 
-const QUERY = `{ cookware { id name brand tags notes } }`;
-const ADD_MUTATION = `mutation($name: String!, $brand: String, $tags: [String!], $notes: String) { addCookware(name: $name, brand: $brand, tags: $tags, notes: $notes) { id } }`;
+const QUERY = `query Cookware($kitchenSlug: String) { cookware(kitchenSlug: $kitchenSlug) { id name brand tags notes } }`;
+const ADD_MUTATION = `mutation($name: String!, $brand: String, $tags: [String!], $notes: String, $kitchenSlug: String) { addCookware(name: $name, brand: $brand, tags: $tags, notes: $notes, kitchenSlug: $kitchenSlug) { id } }`;
 const UPDATE_MUTATION = `mutation($id: String!, $name: String, $brand: String, $tags: [String!], $notes: String) { updateCookware(id: $id, name: $name, brand: $brand, tags: $tags, notes: $notes) { id } }`;
 const DELETE_MUTATION = `mutation($id: String!) { deleteCookware(id: $id) }`;
 
 export default function CookwarePage() {
+  const kitchen = useParams<{ kitchen?: string }>().kitchen ?? 'home';
   const [items, setItems] = useState<CookwareItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -24,12 +25,12 @@ export default function CookwarePage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   async function load() {
-    const { cookware } = await gql<{ cookware: CookwareItem[] }>(QUERY);
+    const { cookware } = await gql<{ cookware: CookwareItem[] }>(QUERY, { kitchenSlug: kitchen });
     setItems(cookware);
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { setLoading(true); load(); }, [kitchen]);
 
   async function handleDelete(id: string) {
     await gql(DELETE_MUTATION, { id });
@@ -54,6 +55,7 @@ export default function CookwarePage() {
         <div className="mb-8 p-5 rounded-xl border border-[var(--color-border-card)] bg-[var(--color-bg-card)]">
           <h2 className="text-lg font-bold mb-4">Add Cookware</h2>
           <CookwareForm
+            kitchen={kitchen}
             onSave={() => { setShowForm(false); load(); }}
             onCancel={() => setShowForm(false)}
           />
@@ -78,6 +80,7 @@ export default function CookwarePage() {
               {editingId === item.id ? (
                 <div className="py-4">
                   <CookwareForm
+                    kitchen={kitchen}
                     cookware={item}
                     onSave={() => { setEditingId(null); load(); }}
                     onCancel={() => setEditingId(null)}
@@ -129,12 +132,15 @@ export default function CookwarePage() {
 
 interface FormProps {
   cookware?: CookwareItem;
+  /** Kitchen slug to own newly-added cookware. Updates don't need it
+   *  (the row already has kitchen_id). */
+  kitchen: string;
   onSave: () => void;
   onCancel?: () => void;
   autoFocus?: boolean;
 }
 
-function CookwareForm({ cookware, onSave, onCancel, autoFocus }: FormProps) {
+function CookwareForm({ cookware, kitchen, onSave, onCancel, autoFocus }: FormProps) {
   const editing = Boolean(cookware);
   const [name, setName] = useState(cookware?.name ?? '');
   const [brand, setBrand] = useState(cookware?.brand ?? '');
@@ -150,7 +156,7 @@ function CookwareForm({ cookware, onSave, onCancel, autoFocus }: FormProps) {
     const mutation = editing && cookware ? UPDATE_MUTATION : ADD_MUTATION;
     const variables = editing && cookware
       ? { id: cookware.id, name: name.trim(), brand: brand || null, tags, notes: notes || null }
-      : { name: name.trim(), brand: brand || null, tags, notes: notes || null };
+      : { name: name.trim(), brand: brand || null, tags, notes: notes || null, kitchenSlug: kitchen };
     try {
       await gql(mutation, variables);
     } catch (err) {

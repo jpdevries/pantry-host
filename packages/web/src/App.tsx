@@ -61,7 +61,10 @@ export default function App() {
           {KITCHEN_ROUTES.map((r) => (
             <Route key={`k-${r.path}`} path={`/kitchens/:kitchen/${r.path}`} element={r.element} />
           ))}
+          {/* /at/... is the top-level alias (defaults to home kitchen);
+              /kitchens/:kitchen/at/... scopes the import to that kitchen. */}
           <Route path="/at/*" element={<AtImportPage />} />
+          <Route path="/kitchens/:kitchen/at/*" element={<AtImportPage />} />
           <Route path="/http/*" element={<UrlImportPage scheme="http" />} />
           <Route path="/https/*" element={<UrlImportPage scheme="https" />} />
           <Route path="/accessibility" element={<AccessibilityPage />} />

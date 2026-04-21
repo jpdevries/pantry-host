@@ -1,12 +1,12 @@
 /**
- * AT Protocol import page — web package (PGlite).
- *
- * Handles /at/* routes. Parses the AT URI from the URL path, detects
- * whether the record is a recipe or a collection (menu), and dispatches
- * to the appropriate shared detail component.
+ * AT Protocol import page — shared body used by both top-level `/at/*`
+ * and kitchen-scoped `/kitchens/[kitchen]/at/*` routes. The wrapper
+ * page files (`packages/app/pages/at/[...path].tsx` and
+ * `packages/app/pages/kitchens/[kitchen]/at/[...path].tsx`) each just
+ * extract the right slug from the URL and delegate here.
  */
 import { useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import Head from 'next/head';
 import AtRecipeDetail from '@pantry-host/shared/components/AtRecipeDetail';
 import AtMenuDetail from '@pantry-host/shared/components/AtMenuDetail';
 import type { ParsedRecipe } from '@pantry-host/shared/bluesky';
@@ -22,15 +22,10 @@ function decodeSegments(path: string): string {
   }).join('/');
 }
 
-/** Reconstruct the AT URI from the wildcard path segments. */
 function buildAtUri(wildcard: string): string {
   return `at://${decodeSegments(wildcard)}`;
 }
 
-/**
- * Validate the AT URI components. Returns either the collection type
- * (as a string) on success, or an error message on failure.
- */
 function parseAtPath(path: string): { ok: true; collection: string } | { ok: false; error: string } {
   const parts = decodeSegments(path).split('/');
   if (parts.length < 3) return { ok: false, error: 'Incomplete AT URI — expected did/collection/rkey' };
@@ -60,43 +55,62 @@ const CREATE_RECIPE = `
   }
 `;
 
-const RECIPES_QUERY = `{ recipes { id slug sourceUrl } }`;
-const MENUS_QUERY = `{ menus { id slug } }`;
+const RECIPES_QUERY = `query($kitchenSlug:String){ recipes(kitchenSlug:$kitchenSlug){ id slug sourceUrl } }`;
+const MENUS_QUERY = `query($kitchenSlug:String){ menus(kitchenSlug:$kitchenSlug){ id slug } }`;
 
-export default function AtImportPage() {
-  // Same component renders at two routes:
-  //   /at/*                       → kitchen defaults to 'home' (alias)
-  //   /kitchens/:kitchen/at/*     → kitchen from the URL slug
-  const { '*': wildcard, kitchen: kitchenParam } = useParams<{ '*': string; kitchen?: string }>();
-  const kitchen = kitchenParam ?? 'home';
+interface Props {
+  /** Raw wildcard path from the route (everything after the `/at/` prefix,
+   *  e.g. `did:plc:xyz/exchange.recipe.recipe/abc123`). Coming from the
+   *  caller because Rex's useRouter().query is unreliable in prod. */
+  wildcard: string;
+  /** Kitchen slug the imported record should land in. `'home'` when the
+   *  user is at the top-level `/at/*` alias; otherwise the slug from
+   *  `/kitchens/{slug}/at/*`. */
+  kitchen: string;
+}
 
+export default function AtImportPage({ wildcard, kitchen }: Props) {
   if (!wildcard) {
     return (
-      <div className="max-w-3xl mx-auto py-12 px-4">
-        <p className="text-[var(--color-text-secondary)]">No AT URI provided.</p>
-      </div>
+      <>
+        <Head><title>Importing from AT Protocol | Pantry Host</title></Head>
+        <div className="max-w-3xl mx-auto py-12 px-4">
+          <p className="text-[var(--color-text-secondary)]">No AT URI provided.</p>
+        </div>
+      </>
     );
   }
 
   const parsed = parseAtPath(wildcard);
   if (!parsed.ok) {
     return (
-      <div className="max-w-3xl mx-auto py-12 px-4">
-        <div className="card p-6">
-          <p className="font-semibold mb-1">Invalid AT URI</p>
-          <p className="text-sm text-[var(--color-text-secondary)]">{parsed.error}</p>
+      <>
+        <Head><title>Invalid AT URI | Pantry Host</title></Head>
+        <div className="max-w-3xl mx-auto py-12 px-4">
+          <div className="card p-6">
+            <p className="font-semibold mb-1">Invalid AT URI</p>
+            <p className="text-sm text-[var(--color-text-secondary)]">{parsed.error}</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   const atUri = buildAtUri(wildcard);
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const isMenu = parsed.collection === LEXICON_COLLECTION;
 
-  if (parsed.collection === LEXICON_COLLECTION) {
-    return <MenuBranch atUri={atUri} shareUrl={shareUrl} kitchen={kitchen} />;
-  }
-  return <RecipeBranch atUri={atUri} shareUrl={shareUrl} kitchen={kitchen} />;
+  return (
+    <>
+      <Head>
+        <title>{isMenu ? 'Import Menu' : 'Import Recipe'} | Pantry Host</title>
+        <meta name="description" content={isMenu ? 'Import a menu (collection) from the AT Protocol network into your Pantry Host.' : 'Import a recipe from the AT Protocol network into your Pantry Host.'} />
+      </Head>
+      {isMenu
+        ? <MenuBranch atUri={atUri} shareUrl={shareUrl} kitchen={kitchen} />
+        : <RecipeBranch atUri={atUri} shareUrl={shareUrl} kitchen={kitchen} />}
+    </>
+  );
 }
 
 // ── Recipe branch ──────────────────────────────────────────────────────
@@ -124,13 +138,13 @@ function RecipeBranch({ atUri, shareUrl, kitchen }: { atUri: string; shareUrl: s
   }, [kitchen]);
 
   const checkDuplicate = useCallback(async (sourceUrl: string) => {
-    const data = await gql<{ recipes: { id: string; slug: string; sourceUrl: string | null }[] }>(RECIPES_QUERY);
+    const data = await gql<{ recipes: { id: string; slug: string; sourceUrl: string | null }[] }>(RECIPES_QUERY, { kitchenSlug: kitchen });
     const match = data.recipes.find((r) => r.sourceUrl === sourceUrl);
     return match?.slug ?? null;
-  }, []);
+  }, [kitchen]);
 
   const renderRecipeLink = useCallback((slug: string, children: React.ReactNode) => (
-    <Link to={`/kitchens/${kitchen}/recipes/${slug}#stage`}>{children}</Link>
+    <a href={`/kitchens/${kitchen}/recipes/${slug}#stage`}>{children}</a>
   ), [kitchen]);
 
   return (
@@ -148,20 +162,15 @@ function RecipeBranch({ atUri, shareUrl, kitchen }: { atUri: string; shareUrl: s
 // ── Menu branch ────────────────────────────────────────────────────────
 
 function MenuBranch({ atUri, shareUrl, kitchen }: { atUri: string; shareUrl: string; kitchen: string }) {
-  // Duplicate check for menus is best-effort: menus don't currently have
-  // a sourceUrl column, so we can only match if a prior import stored
-  // the AT URI as the slug seed. For now we always return null — the
-  // detail page falls back to the Import CTA, and the server dedupes
-  // recipe children by sourceUrl inside importBlueskyCollection.
   const checkDuplicate = useCallback(async (_sourceUrl: string) => {
     try {
-      await gql<{ menus: { id: string; slug: string }[] }>(MENUS_QUERY);
+      await gql<{ menus: { id: string; slug: string }[] }>(MENUS_QUERY, { kitchenSlug: kitchen });
     } catch { /* noop */ }
     return null;
-  }, []);
+  }, [kitchen]);
 
   const renderMenuLink = useCallback((slug: string, children: React.ReactNode) => (
-    <Link to={`/kitchens/${kitchen}/menus/${slug}#stage`}>{children}</Link>
+    <a href={`/kitchens/${kitchen}/menus/${slug}#stage`}>{children}</a>
   ), [kitchen]);
 
   return (
@@ -177,3 +186,4 @@ function MenuBranch({ atUri, shareUrl, kitchen }: { atUri: string; shareUrl: str
     />
   );
 }
+

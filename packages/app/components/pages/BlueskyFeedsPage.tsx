@@ -37,7 +37,7 @@ const BLUESKY_PATH = 'M135.72 44.03C202.216 93.951 273.74 195.17 299.91 249.49c2
 interface Props { kitchen: string; }
 
 export default function BlueskyFeedsPage({ kitchen }: Props) {
-  const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
+  const recipesBase = `/kitchens/${kitchen}/recipes`;
   const [recipes, setRecipes] = useState<FeedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [pixabayKey, setPixabayKey] = useState<string | null>(null);
@@ -378,7 +378,7 @@ export default function BlueskyFeedsPage({ kitchen }: Props) {
               );
 
               if (mode === 'browse') {
-                const path = '/at/' + item.atUri.replace(/^at:\/\//, '') + '#stage';
+                const path = `/kitchens/${kitchen}/at/${item.atUri.replace(/^at:\/\//, '')}#stage`;
                 return (
                   <a
                     key={item.atUri}

@@ -37,6 +37,10 @@ interface AtMenuDetailProps {
   menuBasePath: string;
   recipeAtBase: string;
   gql: GqlFn;
+  /** Slug of the kitchen the imported menu should land in. Threaded
+   *  through from the caller's route params — e.g. `/kitchens/bar/at/…`
+   *  → `'bar'`. Defaults to `'home'`, which is a real kitchen slug. */
+  kitchenSlug: string;
   checkDuplicate: (sourceUrl: string) => Promise<string | null>;
   renderMenuLink: (slug: string, children: React.ReactNode) => React.ReactNode;
 }
@@ -137,6 +141,7 @@ export default function AtMenuDetail({
       const result = await importBlueskyCollection({
         atUri,
         gql,
+        kitchenSlug,
         onProgress: (progress) => {
           setState({ kind: 'importing', meta, members, progress });
         },

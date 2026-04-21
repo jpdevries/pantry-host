@@ -28,8 +28,7 @@ const BLUESKY_PATH = 'M135.72 44.03C202.216 93.951 273.74 195.17 299.91 249.49c2
 interface Props { kitchen: string; }
 
 export default function BlueskyMenuFeedsPage({ kitchen }: Props) {
-  const menusBase = kitchen === 'home' ? '/menus' : `/kitchens/${kitchen}/menus`;
-  const kitchenSlug = kitchen === 'home' ? null : kitchen;
+  const menusBase = `/kitchens/${kitchen}/menus`;
   const [collections, setCollections] = useState<FeedCollection[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -179,7 +178,7 @@ export default function BlueskyMenuFeedsPage({ kitchen }: Props) {
     let done = 0;
     for (const atUri of selected) {
       try {
-        await importBlueskyCollection({ atUri, gql, kitchenSlug });
+        await importBlueskyCollection({ atUri, gql, kitchenSlug: kitchen });
       } catch (err) {
         console.error('Collection import failed:', err);
       }
@@ -294,7 +293,7 @@ export default function BlueskyMenuFeedsPage({ kitchen }: Props) {
               );
 
               if (mode === 'browse') {
-                const path = '/at/' + item.atUri.replace(/^at:\/\//, '') + '#stage';
+                const path = `/kitchens/${kitchen}/at/${item.atUri.replace(/^at:\/\//, '')}#stage`;
                 return (
                   <a
                     key={item.atUri}

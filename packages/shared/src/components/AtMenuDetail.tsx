@@ -81,6 +81,7 @@ export default function AtMenuDetail({
   menuBasePath: _menuBasePath,
   recipeAtBase,
   gql,
+  kitchenSlug,
   checkDuplicate,
   renderMenuLink,
 }: AtMenuDetailProps) {

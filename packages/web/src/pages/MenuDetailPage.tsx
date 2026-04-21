@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { gql } from '@/lib/gql';
+import { useKitchen } from '../hooks/useKitchen';
 import { getFileURL } from '@/lib/storage-opfs';
 import { Trash, ArrowsOut, ArrowsIn } from '@phosphor-icons/react';
 import { classifyRecipeCourse, COURSE_LABELS } from '@pantry-host/shared/constants';
@@ -93,6 +94,7 @@ function usePixabaySettings(): { key: string | null; enabled: boolean } {
 
 export default function MenuDetailPage() {
   const { slug } = useParams<{ slug: string }>();
+  const kitchen = useKitchen();
   const navigate = useNavigate();
   const [menu, setMenu] = useState<Menu | null>(null);
   const [loading, setLoading] = useState(true);
@@ -122,7 +124,7 @@ export default function MenuDetailPage() {
   async function handleDelete() {
     if (!menu) return;
     await gql(`mutation($id: String!) { deleteMenu(id: $id) }`, { id: menu.id });
-    navigate('/menus#stage');
+    navigate(`/kitchens/${kitchen}/menus#stage`);
   }
 
   if (loading) return <div className="h-40 rounded-xl bg-[var(--color-bg-card)] animate-pulse" />;
@@ -147,14 +149,14 @@ export default function MenuDetailPage() {
 
   return (
     <div>
-      <Link to="/menus#stage" className="text-sm text-[var(--color-text-secondary)] hover:underline mb-4 inline-block">
+      <Link to={`/kitchens/${kitchen}/menus#stage`} className="text-sm text-[var(--color-text-secondary)] hover:underline mb-4 inline-block">
         &larr; Menus
       </Link>
 
       {/* Action bar */}
       <div className="flex items-center justify-end gap-3 flex-wrap pb-4 mb-6 border-b" style={{ borderColor: 'var(--color-border-card)' }}>
         <div className="flex items-center gap-3 flex-wrap">
-          <Link to={`/menus/${slug}/edit#stage`} className="btn-secondary text-sm">Edit</Link>
+          <Link to={`/kitchens/${kitchen}/menus/${slug}/edit#stage`} className="btn-secondary text-sm">Edit</Link>
           {deleteConfirm ? (
             <div className="flex gap-2 items-center">
               <span className="text-sm text-[var(--color-text-secondary)]">Delete?</span>
@@ -205,7 +207,7 @@ export default function MenuDetailPage() {
 
       {menu.recipes.length === 0 ? (
         <p className="text-[var(--color-text-secondary)] text-sm">
-          No recipes in this menu yet. <Link to={`/menus/${slug}/edit#stage`} className="underline">Add some.</Link>
+          No recipes in this menu yet. <Link to={`/kitchens/${kitchen}/menus/${slug}/edit#stage`} className="underline">Add some.</Link>
         </p>
       ) : (
         <>
@@ -220,7 +222,7 @@ export default function MenuDetailPage() {
                   {grouped[course].map((mr) => (
                     <li key={mr.id}>
                       <Link
-                        to={`/recipes/${mr.recipe.slug || mr.recipe.id}#stage`}
+                        to={`/kitchens/${kitchen}/recipes/${mr.recipe.slug || mr.recipe.id}#stage`}
                         className="text-xl font-serif font-semibold hover:underline"
                       >
                         {mr.recipe.title}
@@ -251,7 +253,7 @@ export default function MenuDetailPage() {
                     const r = mr.recipe;
                     const totalTime = (r.prepTime ?? 0) + (r.cookTime ?? 0);
                     return (
-                      <Link key={mr.id} to={`/recipes/${r.slug || r.id}#stage`} className="card rounded-xl overflow-hidden group">
+                      <Link key={mr.id} to={`/kitchens/${kitchen}/recipes/${r.slug || r.id}#stage`} className="card rounded-xl overflow-hidden group">
                         {r.photoUrl ? (
                           <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
                             <RecipePhoto src={r.photoUrl} alt={r.title} className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform" />

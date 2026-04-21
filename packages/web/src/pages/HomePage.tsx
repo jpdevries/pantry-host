@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { gql } from '@/lib/gql';
 import { BookOpen, Wine, ForkKnife, CookingPot, Leaf, Flask, Heart } from '@phosphor-icons/react';
 import { readFavorites } from '@pantry-host/shared/favorites';
@@ -37,12 +37,14 @@ interface Stats {
   kitchens: Kitchen[];
 }
 
-const STATS_QUERY = `{
-  recipes { id slug title tags photoUrl prepTime cookTime }
-  ingredients { id }
-  cookware { id }
-  kitchens { id slug name }
-}`;
+const STATS_QUERY = `
+  query Home($kitchenSlug: String) {
+    recipes(kitchenSlug: $kitchenSlug) { id slug title tags photoUrl prepTime cookTime }
+    ingredients(kitchenSlug: $kitchenSlug) { id }
+    cookware(kitchenSlug: $kitchenSlug) { id }
+    kitchens { id slug name }
+  }
+`;
 
 /** Lightweight favorite-card for the home-page grid. Full-featured
  *  cards with queue + Pixabay fallback live in RecipesPage; the home
@@ -86,19 +88,34 @@ function FavoriteCard({ recipe }: { recipe: HomeRecipe }) {
 }
 
 export default function HomePage() {
+  const { kitchen: kitchenParam } = useParams<{ kitchen?: string }>();
+  const kitchen = kitchenParam ?? 'home';
+  const navigate = useNavigate();
+  // Collapse /kitchens/home to its canonical /, so the switcher has one
+  // URL to highlight and bookmarks don't fork. Runs once on mount.
+  useEffect(() => {
+    if (kitchenParam === 'home') navigate('/#stage', { replace: true });
+  }, [kitchenParam, navigate]);
+
   const [stats, setStats] = useState<Stats | null>(null);
   const [favoritesLimit, setFavoritesLimit] = useState(3);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
   useEffect(() => {
-    gql<Stats>(STATS_QUERY).then(setStats).catch(console.error);
+    gql<Stats>(STATS_QUERY, { kitchenSlug: kitchen }).then(setStats).catch(console.error);
     setFavoriteIds(readFavorites());
-  }, []);
+  }, [kitchen]);
+
+  // Path prefix for every internal link. Home kitchen keeps bare paths;
+  // named kitchens get `/kitchens/{slug}/…`.
+  const base = kitchen === 'home' ? '' : `/kitchens/${kitchen}`;
+  const isHomeKitchen = kitchen === 'home';
+  const kitchenName = stats?.kitchens.find((k) => k.slug === kitchen)?.name ?? kitchen;
 
   const cards = [
-    { label: 'Recipes', count: stats?.recipes.length ?? 0, to: '/recipes' },
-    { label: 'Ingredients', count: stats?.ingredients.length ?? 0, to: '/ingredients' },
-    { label: 'Cookware', count: stats?.cookware.length ?? 0, to: '/cookware' },
+    { label: 'Recipes', count: stats?.recipes.length ?? 0, to: `${base}/recipes` },
+    { label: 'Ingredients', count: stats?.ingredients.length ?? 0, to: `${base}/ingredients` },
+    { label: 'Cookware', count: stats?.cookware.length ?? 0, to: `${base}/cookware` },
   ];
 
   // Favorites: intersect localStorage IDs with the actual recipe list
@@ -113,7 +130,7 @@ export default function HomePage() {
       <h1
         className="text-3xl font-bold mb-8"
       >
-        Your Kitchen
+        {isHomeKitchen ? 'Your Kitchen' : kitchenName}
       </h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -138,7 +155,7 @@ export default function HomePage() {
               <Heart size={18} weight="fill" aria-hidden className="opacity-70" />
               Your Favorites
             </h2>
-            <Link to="/recipes?favorites=1#stage" className="text-sm font-semibold text-[var(--color-accent)] hover:underline">
+            <Link to={`${base}/recipes?favorites=1#stage`} className="text-sm font-semibold text-[var(--color-accent)] hover:underline">
               All favorites &rarr;
             </Link>
           </div>
@@ -173,11 +190,12 @@ export default function HomePage() {
           </div>
           <ul className="flex flex-wrap gap-3" role="list">
             {stats.kitchens.map((k) => {
-              const active = k.slug === 'home';
+              const active = k.slug === kitchen;
+              const to = k.slug === 'home' ? '/#stage' : `/kitchens/${k.slug}#stage`;
               return (
                 <li key={k.id}>
                   <Link
-                    to={active ? '/#stage' : `/kitchens/${k.slug}/recipes#stage`}
+                    to={to}
                     aria-current={active ? 'true' : undefined}
                     className={`card block px-4 py-3 rounded-xl transition-colors ${active ? 'border-[var(--color-accent)] text-[var(--color-accent)]' : 'hover:text-[var(--color-accent)]'}`}
                   >
@@ -193,7 +211,7 @@ export default function HomePage() {
 
       <h2 id="whats-cooking" className="text-3xl font-bold mb-4">What&rsquo;s Cooking?</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-        <Link to="/recipes/feeds/bluesky" className="card rounded-xl p-5 flex items-center gap-4 hover:border-[var(--color-accent)] transition-colors">
+        <Link to={`${base}/recipes/feeds/bluesky`} className="card rounded-xl p-5 flex items-center gap-4 hover:border-[var(--color-accent)] transition-colors">
           <svg fill="currentColor" viewBox="0 0 600 530" width={28} height={24} aria-hidden="true" className="shrink-0 opacity-60">
             <path d="M135.72 44.03C202.216 93.951 273.74 195.17 299.91 249.49c26.17-54.32 97.694-155.539 164.19-205.46C512.18 8.005 590 -19.728 590 69.04c0 17.726-10.155 148.928-16.111 170.208-20.703 73.984-96.144 92.854-163.25 81.433 117.262 19.96 147.131 86.084 82.654 152.208-122.385 125.621-175.86-31.511-189.563-71.807-2.512-7.387-3.687-10.832-3.69-7.905-.003-2.927-1.179.518-3.69 7.905-13.704 40.296-67.18 197.428-189.563 71.807-64.477-66.124-34.61-132.251 82.65-152.208-67.105 11.421-142.548-7.45-163.25-81.433C20.232 217.968 10.077 86.766 10.077 69.04c0-88.768 77.82-61.035 125.9-25.01z" />
           </svg>
@@ -202,7 +220,7 @@ export default function HomePage() {
             <p className="text-xs text-[var(--color-text-secondary)]">Discover community recipes shared on AT Protocol</p>
           </div>
         </Link>
-        <Link to="/menus/feeds/bluesky" className="card rounded-xl p-5 flex items-center gap-4 hover:border-[var(--color-accent)] transition-colors">
+        <Link to={`${base}/menus/feeds/bluesky`} className="card rounded-xl p-5 flex items-center gap-4 hover:border-[var(--color-accent)] transition-colors">
           <div className="shrink-0 opacity-60 relative w-[28px] h-[24px]">
             <svg fill="currentColor" viewBox="0 0 600 530" width={16} height={14} aria-hidden="true" className="absolute top-0 left-0"><path d="M135.72 44.03C202.216 93.951 273.74 195.17 299.91 249.49c26.17-54.32 97.694-155.539 164.19-205.46C512.18 8.005 590 -19.728 590 69.04c0 17.726-10.155 148.928-16.111 170.208-20.703 73.984-96.144 92.854-163.25 81.433 117.262 19.96 147.131 86.084 82.654 152.208-122.385 125.621-175.86-31.511-189.563-71.807-2.512-7.387-3.687-10.832-3.69-7.905-.003-2.927-1.179.518-3.69 7.905-13.704 40.296-67.18 197.428-189.563 71.807-64.477-66.124-34.61-132.251 82.65-152.208-67.105 11.421-142.548-7.45-163.25-81.433C20.232 217.968 10.077 86.766 10.077 69.04c0-88.768 77.82-61.035 125.9-25.01z" /></svg>
             <svg fill="currentColor" viewBox="0 0 600 530" width={12} height={10} aria-hidden="true" className="absolute top-[6px] right-0"><path d="M135.72 44.03C202.216 93.951 273.74 195.17 299.91 249.49c26.17-54.32 97.694-155.539 164.19-205.46C512.18 8.005 590 -19.728 590 69.04c0 17.726-10.155 148.928-16.111 170.208-20.703 73.984-96.144 92.854-163.25 81.433 117.262 19.96 147.131 86.084 82.654 152.208-122.385 125.621-175.86-31.511-189.563-71.807-2.512-7.387-3.687-10.832-3.69-7.905-.003-2.927-1.179.518-3.69 7.905-13.704 40.296-67.18 197.428-189.563 71.807-64.477-66.124-34.61-132.251 82.65-152.208-67.105 11.421-142.548-7.45-163.25-81.433C20.232 217.968 10.077 86.766 10.077 69.04c0-88.768 77.82-61.035 125.9-25.01z" /></svg>
@@ -217,11 +235,11 @@ export default function HomePage() {
 
       <h3 className="text-xl font-bold mb-4">Community Sources</h3>
       <p className="text-sm text-[var(--color-text-secondary)] mb-4 max-w-prose pretty">
-        Import from recipe communities directly inside the app via <Link to="/recipes/import#stage" className="underline hover:text-[var(--color-accent)]">Recipes &rarr; Import</Link>.
+        Import from recipe communities directly inside the app via <Link to={`${base}/recipes/import#stage`} className="underline hover:text-[var(--color-accent)]">Recipes &rarr; Import</Link>.
       </p>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         {COMMUNITY_SOURCES.map((s) => (
-          <Link key={s.name} to={`/recipes/import?tab=${s.tab}#stage`} className="card rounded-xl p-4 flex flex-col hover:border-[var(--color-accent)] transition-colors">
+          <Link key={s.name} to={`${base}/recipes/import?tab=${s.tab}#stage`} className="card rounded-xl p-4 flex flex-col hover:border-[var(--color-accent)] transition-colors">
             <div className="flex items-center gap-2 mb-2">
               <s.icon size={18} weight="light" className="opacity-60 shrink-0" />
               <p className="font-semibold text-sm">{s.name}</p>

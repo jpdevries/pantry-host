@@ -57,6 +57,7 @@ export default function App() {
           ))}
           {/* Kitchen-scoped */}
           <Route path="/kitchens" element={<KitchensPage />} />
+          <Route path="/kitchens/:kitchen" element={<HomePage />} />
           {KITCHEN_ROUTES.map((r) => (
             <Route key={`k-${r.path}`} path={`/kitchens/:kitchen/${r.path}`} element={r.element} />
           ))}

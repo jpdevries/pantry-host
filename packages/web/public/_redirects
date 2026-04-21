@@ -1,0 +1,9 @@
+# Shorten /kitchens/home/… to /… — the home kitchen has a friendly root
+# alias, and every in-app link canonically builds /kitchens/${kitchen}/…
+# shapes. These rules flip the long form back to the short alias at the
+# Cloudflare Pages edge for external / bookmark / typed-URL traffic.
+# In-app <Link> clicks are handled client-side by a parallel React Router
+# redirect route. 301 because Cloudflare _redirects doesn't support 308;
+# 301 is close enough for the GET traffic we serve here.
+/kitchens/home        /         301
+/kitchens/home/*      /:splat   301

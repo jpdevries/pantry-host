@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './Layout';
 import HomePage from './pages/HomePage';
 import RecipesPage from './pages/RecipesPage';
@@ -27,6 +27,18 @@ import UrlImportPage from './pages/UrlImportPage';
  * and under /kitchens/:kitchen/. The :kitchen param is read by
  * useKitchen() hook; when absent (top-level), defaults to 'home'.
  */
+/** Catch in-app navigation to `/kitchens/home/…` and swap the URL to the
+ *  short alias (`/…`) before rendering. External / bookmark traffic is
+ *  handled at the Cloudflare Pages edge via `public/_redirects`; this
+ *  parallel client-side redirect catches everything that stays inside
+ *  the SPA (Link clicks, programmatic navigate, etc.). */
+function HomeRedirect() {
+  const location = useLocation();
+  const short = (location.pathname.replace(/^\/kitchens\/home/, '') || '/')
+    + location.search + location.hash;
+  return <Navigate to={short} replace />;
+}
+
 const KITCHEN_ROUTES = [
   { path: 'recipes', element: <RecipesPage /> },
   { path: 'recipes/new', element: <RecipeNewPage /> },
@@ -57,6 +69,18 @@ export default function App() {
           ))}
           {/* Kitchen-scoped */}
           <Route path="/kitchens" element={<KitchensPage />} />
+          {/* /kitchens/home/… short-circuits to the root alias so the
+              URL bar matches what Cloudflare serves for external traffic.
+              Each /kitchens/home/X route is registered with the same
+              concrete path shape as its /kitchens/:kitchen/X counterpart
+              so React Router's match-specificity scoring picks the
+              literal `home` over the `:kitchen` wildcard. A bare splat
+              route would lose to the concrete kitchen-scoped routes. */}
+          <Route path="/kitchens/home" element={<HomeRedirect />} />
+          {KITCHEN_ROUTES.map((r) => (
+            <Route key={`h-${r.path}`} path={`/kitchens/home/${r.path}`} element={<HomeRedirect />} />
+          ))}
+          <Route path="/kitchens/home/at/*" element={<HomeRedirect />} />
           <Route path="/kitchens/:kitchen" element={<HomePage />} />
           {KITCHEN_ROUTES.map((r) => (
             <Route key={`k-${r.path}`} path={`/kitchens/:kitchen/${r.path}`} element={r.element} />

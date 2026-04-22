@@ -73,7 +73,7 @@ export default function RecipePage({ initialRecipe }: Props) {
         <meta property="og:type" content="article" />
         {ogDescription && <meta property="og:description" content={ogDescription} />}
         {ogDescription && <meta name="description" content={ogDescription} />}
-        {ogImage && <meta property="og:image" content={ogImage} />}
+        {ogImage && <meta key="og:image" property="og:image" content={ogImage} />}
         <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
       </Head>
       <RecipeDetailPage recipeId={recipeId} initialRecipe={initialRecipe ?? null} />

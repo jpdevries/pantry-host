@@ -41,8 +41,7 @@ export default function Document() {
         <meta name="apple-mobile-web-app-capable" content="no" />
         <meta name="mobile-web-app-capable" content="no" />
         <meta name="apple-mobile-web-app-title" content="Pantry Host" />
-        {/* Default og:image — overridden by per-page Head when a recipe/menu photo is available */}
-        <meta property="og:image" content="https://pantryhost.app/icon-512.png" />
+        {/* og:image lives in _app.tsx Head (keyed) so page Heads can dedupe-override it — _document.tsx is outside next/head's dedup stack. */}
         <meta name="build-hash" content={buildHash} />
         {process.env.DEFAULT_THEME && <meta name="default-palette" content={process.env.DEFAULT_THEME} />}
         {/* Optional override for the GraphQL API origin. Set when the

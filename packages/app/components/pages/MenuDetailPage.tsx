@@ -25,7 +25,7 @@ interface MenuRecipe {
   };
 }
 
-interface Menu {
+export interface Menu {
   id: string;
   slug: string | null;
   title: string;
@@ -35,7 +35,7 @@ interface Menu {
   recipes: MenuRecipe[];
 }
 
-const MENU_QUERY = `query Menu($id: String!) {
+export const MENU_QUERY = `query Menu($id: String!) {
   menu(id: $id) {
     id slug title description sourceUrl active
     recipes {
@@ -69,11 +69,14 @@ const COURSE_ORDER = ['baby', 'appetizer', 'breakfast', 'main-course', 'side', '
 
 interface Props {
   menuId: string;
+  initialMenu?: Menu | null;
 }
 
-export default function MenuDetailPage({ menuId }: Props) {
+export default function MenuDetailPage({ menuId, initialMenu }: Props) {
   const kitchen = useKitchen();
-  const [menu, setMenu] = useState<Menu | null>(null);
+  const cacheKey = `cache:menu:${menuId}`;
+  const cachedMenu = typeof window !== 'undefined' ? cacheGet<Menu>(cacheKey) : null;
+  const [menu, setMenu] = useState<Menu | null>(initialMenu ?? cachedMenu);
   const [notFound, setNotFound] = useState(false);
   const [owner, setOwner] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -123,7 +126,6 @@ export default function MenuDetailPage({ menuId }: Props) {
   useEffect(() => {
     console.log('[MenuDetailPage] menuId:', JSON.stringify(menuId));
     if (!menuId) return;
-    const cacheKey = `cache:menu:${menuId}`;
     const ownr = isOwner();
     gql<{ menu: Menu | null }>(MENU_QUERY, { id: menuId })
       .then((d) => {

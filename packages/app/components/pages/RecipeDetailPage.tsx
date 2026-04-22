@@ -45,7 +45,7 @@ interface SubRecipe {
   queued: boolean;
 }
 
-interface Recipe {
+export interface Recipe {
   id: string;
   slug: string | null;
   title: string;
@@ -70,7 +70,7 @@ interface Recipe {
   usedIn: SubRecipe[];
 }
 
-const RECIPE_QUERY = `
+export const RECIPE_QUERY = `
   query Recipe($id: String!) {
     recipe(id: $id) {
       id slug title description instructions servings prepTime cookTime
@@ -90,7 +90,7 @@ const UPDATE_INGREDIENT = `mutation UpdateIngredient($id: String!, $quantity: Fl
 
 interface PantryItem { id: string; name: string; aliases: string[] | null; quantity: number | null; unit: string | null; itemSize: number | null; itemSizeUnit: string | null; alwaysOnHand: boolean; barcode: string | null; productMeta: string | null; }
 
-interface Props { recipeId: string; }
+interface Props { recipeId: string; initialRecipe?: Recipe | null; }
 
 /**
  * Per-season tag-chip metadata. `autumn` is mapped as a synonym
@@ -178,14 +178,15 @@ function StepPhotos({ steps, sourceUrl, dbStepPhotos }: { steps: string[]; sourc
   );
 }
 
-export default function RecipeDetailPage({ recipeId }: Props) {
+export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
   const kitchen = useKitchen();
   const router = useRouter();
   const recipesBase = `/kitchens/${kitchen}/recipes`;
 
   const cacheKey = `cache:recipe:${recipeId}`;
   const cachedRecipe = typeof window !== 'undefined' ? cacheGet<Recipe>(cacheKey) : null;
-  const [recipe, setRecipe] = useState<Recipe | null>(cachedRecipe);
+  const seedRecipe = initialRecipe ?? cachedRecipe;
+  const [recipe, setRecipe] = useState<Recipe | null>(seedRecipe);
   const [notFound, setNotFound] = useState(false);
   const [owner, setOwner] = useState(false);
   const [lanIP, setLanIP] = useState<string | null>(null);
@@ -231,7 +232,7 @@ export default function RecipeDetailPage({ recipeId }: Props) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [supportsFullscreen, setSupportsFullscreen] = useState(false);
   const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
-  const [servings, setServings] = useState(cachedRecipe?.servings ?? 2);
+  const [servings, setServings] = useState(seedRecipe?.servings ?? 2);
 
   // Pantry snapshot for auto-check. Fetched once on mount in parallel
   // with the recipe; the merge effect below initializes checkboxes for
@@ -245,8 +246,8 @@ export default function RecipeDetailPage({ recipeId }: Props) {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [completing, setCompleting] = useState(false);
-  const [lastMadeAt, setLastMadeAt] = useState<string | null>(cachedRecipe?.lastMadeAt ?? null);
-  const [queued, setQueued] = useState(cachedRecipe?.queued ?? false);
+  const [lastMadeAt, setLastMadeAt] = useState<string | null>(seedRecipe?.lastMadeAt ?? null);
+  const [queued, setQueued] = useState(seedRecipe?.queued ?? false);
   const [togglingQueue, setTogglingQueue] = useState(false);
   const [favorited, setFavorited] = useState(false);
   const [favoritedRecipes, setFavoritedRecipes] = useState<SubRecipe[]>([]);

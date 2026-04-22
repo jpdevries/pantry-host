@@ -2,7 +2,7 @@
  * Display-only panel for the barcode + allowlisted OFF metadata
  * stored on a pantry row. Used inside the IngredientForm edit flow,
  * collapsed under a "Meta info" disclosure. Could later slot into a
- * pantry-list "expand row" view as well.
+ * pantry list "expand row" view as well.
  *
  * Renders a vertical key/value list (barcode, brand, scores, serving,
  * labels, categories, ingredients_text, allergens) followed by the

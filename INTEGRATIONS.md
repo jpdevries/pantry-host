@@ -50,7 +50,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "pantry-host": {
       "command": "npx",
-      "args": ["tsx", "/path/to/pantry-list/packages/mcp/src/index.ts", "--stdio"],
+      "args": ["tsx", "/path/to/pantry-host/packages/mcp/src/index.ts", "--stdio"],
       "env": {
         "GRAPHQL_URL": "http://localhost:4001/graphql"
       }
@@ -68,7 +68,7 @@ Add to `.cursor/mcp.json` in your project:
   "mcpServers": {
     "pantry-host": {
       "command": "npx",
-      "args": ["tsx", "/path/to/pantry-list/packages/mcp/src/index.ts", "--stdio"],
+      "args": ["tsx", "/path/to/pantry-host/packages/mcp/src/index.ts", "--stdio"],
       "env": {
         "GRAPHQL_URL": "http://localhost:4001/graphql"
       }
@@ -86,7 +86,7 @@ Add to `.vscode/mcp.json`:
   "servers": {
     "pantry-host": {
       "command": "npx",
-      "args": ["tsx", "/path/to/pantry-list/packages/mcp/src/index.ts", "--stdio"],
+      "args": ["tsx", "/path/to/pantry-host/packages/mcp/src/index.ts", "--stdio"],
       "env": {
         "GRAPHQL_URL": "http://localhost:4001/graphql"
       }

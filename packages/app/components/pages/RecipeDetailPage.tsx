@@ -88,6 +88,19 @@ const TOGGLE_QUEUED = `mutation ToggleQueued($id: String!) { toggleRecipeQueued(
 const PANTRY_QUERY = `query Ingredients($kitchenSlug: String) { ingredients(kitchenSlug: $kitchenSlug) { id name aliases quantity unit itemSize itemSizeUnit alwaysOnHand barcode productMeta } }`;
 const UPDATE_INGREDIENT = `mutation UpdateIngredient($id: String!, $quantity: Float) { updateIngredient(id: $id, quantity: $quantity) { id quantity } }`;
 
+// Intl.DateTimeFormat's ICU pattern cache blows Rex's V8 SSR isolate heap
+// ("Fatal process out of memory: DateTimePatternGeneratorCache::CreateGenerator"),
+// which kills the Rex process and truncates the response mid-body. Format
+// dates deterministically without Intl so SSR stays within the isolate's budget.
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function formatMadeDate(iso: string, style: 'short' | 'long' = 'short'): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const months = style === 'short' ? MONTHS_SHORT : MONTHS_LONG;
+  return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
 interface PantryItem { id: string; name: string; aliases: string[] | null; quantity: number | null; unit: string | null; itemSize: number | null; itemSizeUnit: string | null; alwaysOnHand: boolean; barcode: string | null; productMeta: string | null; }
 
 interface Props { recipeId: string; initialRecipe?: Recipe | null; }
@@ -806,7 +819,7 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
               {lastMadeAt && (
                 <div>
                   <dt className="font-semibold text-xs uppercase tracking-wider text-[var(--color-text-secondary)] mb-0.5">Last Made</dt>
-                  <dd><time dateTime={lastMadeAt}>{new Date(lastMadeAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</time></dd>
+                  <dd><time dateTime={lastMadeAt}>{formatMadeDate(lastMadeAt)}</time></dd>
                 </div>
               )}
             </dl>
@@ -967,7 +980,7 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
             <p className="text-sm text-[var(--color-text-secondary)] mt-3">Mark this recipe as made to track when you last cooked it and update your pantry quantities.</p>
             {lastMadeAt && (owner || (Date.now() - new Date(lastMadeAt).getTime()) > 7 * 24 * 60 * 60 * 1000) && (
               <p className="mt-2 text-xs italic text-[var(--color-text-secondary)]">
-                Last made on {new Date(lastMadeAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+                Last made on {formatMadeDate(lastMadeAt, 'long')}
               </p>
             )}
           </section>

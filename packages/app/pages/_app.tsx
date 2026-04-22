@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import type { AppProps } from 'next/app';
-import Head from 'next/head';
 import Nav from '@/components/Nav';
 import OfflineBanner from '@/components/OfflineBanner';
 import { KitchenProvider } from '@/lib/kitchen-context';
@@ -96,13 +95,6 @@ export default function App({ Component, pageProps }: AppProps) {
 
   return (
     <KitchenProvider>
-      {/* Branding fallback for og:image. Pages with a photo (recipe / menu
-          detail) emit their own <meta key="og:image" …/> and override this via
-          next/head's key-based dedup, so the output is always exactly one
-          og:image — either the page-specific photo or the PWA icon. */}
-      <Head>
-        <meta key="og:image" property="og:image" content="https://pantryhost.app/icon-512.png" />
-      </Head>
       <Nav />
       <OfflineBanner />
       <Component {...pageProps} />

@@ -73,7 +73,7 @@ export default function MenuPage({ initialMenu }: Props) {
         <meta property="og:type" content="website" />
         {ogDescription && <meta property="og:description" content={ogDescription} />}
         {ogDescription && <meta name="description" content={ogDescription} />}
-        {ogImage && <meta key="og:image" property="og:image" content={ogImage} />}
+        {ogImage && <meta property="og:image" content={ogImage} />}
         <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
       </Head>
       <MenuDetailPage menuId={menuId} initialMenu={initialMenu ?? null} />

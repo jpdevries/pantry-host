@@ -25,6 +25,8 @@
  * browser — same practical threat model as any BYO-key flow.
  */
 
+import { isServer } from './env';
+
 const PIXABAY_SEARCH_ENDPOINT = 'https://pixabay.com/api/';
 const CACHE_KEY = 'pixabay:cache:v1';
 
@@ -74,7 +76,7 @@ export const PIXABAY_ROOT_ATTRIBUTION = withPixabayUtm('https://pixabay.com/');
 // ── localStorage-backed per-recipe cache ───────────────────────────────
 
 export function loadPixabayCache(): PixabayCache {
-  if (typeof window === 'undefined') return {};
+  if (isServer) return {};
   try {
     const raw = window.localStorage.getItem(CACHE_KEY);
     if (!raw) return {};
@@ -93,7 +95,7 @@ export function getPixabayCacheEntry(recipeId: string): PixabayCacheEntry | null
 }
 
 export function savePixabayCacheEntry(recipeId: string, entry: PixabayCacheEntry): void {
-  if (typeof window === 'undefined') return;
+  if (isServer) return;
   try {
     const cache = loadPixabayCache();
     cache[recipeId] = entry;
@@ -104,7 +106,7 @@ export function savePixabayCacheEntry(recipeId: string, entry: PixabayCacheEntry
 }
 
 export function clearPixabayCache(): void {
-  if (typeof window === 'undefined') return;
+  if (isServer) return;
   try {
     window.localStorage.removeItem(CACHE_KEY);
   } catch {

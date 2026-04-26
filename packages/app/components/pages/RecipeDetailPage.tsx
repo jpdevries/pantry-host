@@ -22,6 +22,7 @@ import { readFavorites, toggleFavorite } from '@pantry-host/shared/favorites';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem } from '@pantry-host/shared/grocery-status';
 import { isOwner } from '@/lib/isTrustedNetwork';
+import { isBrowser } from '@pantry-host/shared/env';
 
 interface RecipeIngredient {
   ingredientName: string;
@@ -197,7 +198,7 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
   const recipesBase = `/kitchens/${kitchen}/recipes`;
 
   const cacheKey = `cache:recipe:${recipeId}`;
-  const cachedRecipe = typeof window !== 'undefined' ? cacheGet<Recipe>(cacheKey) : null;
+  const cachedRecipe = isBrowser ? cacheGet<Recipe>(cacheKey) : null;
   const seedRecipe = initialRecipe ?? cachedRecipe;
   const [recipe, setRecipe] = useState<Recipe | null>(seedRecipe);
   const [notFound, setNotFound] = useState(false);
@@ -209,7 +210,7 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
   const [savingMenus, setSavingMenus] = useState(false);
   const [menuStatus, setMenuStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [ageVerified, setAgeVerified] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('age-verified') === 'true';
+    if (isBrowser) return localStorage.getItem('age-verified') === 'true';
     return false;
   });
   // recipe-api.com key for the NutritionFacts display block. Only fetched

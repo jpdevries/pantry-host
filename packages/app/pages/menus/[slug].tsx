@@ -1,6 +1,7 @@
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import MenuDetailPage, { MENU_QUERY, type Menu } from '@/components/pages/MenuDetailPage';
+import { isBrowser } from '@pantry-host/shared/env';
 
 interface Props {
   initialMenu?: Menu | null;
@@ -57,7 +58,7 @@ export async function getServerSideProps({ params }: { params: { slug: string } 
 
 export default function MenuPage({ initialMenu }: Props) {
   const { slug } = useRouter().query;
-  const fallback = typeof window !== 'undefined' ? window.location.pathname.split('/').filter(Boolean).pop() || '' : '';
+  const fallback = isBrowser ? window.location.pathname.split('/').filter(Boolean).pop() || '' : '';
   const menuId = (slug as string) || initialMenu?.slug || initialMenu?.id || fallback;
 
   const ogTitle = initialMenu?.title;

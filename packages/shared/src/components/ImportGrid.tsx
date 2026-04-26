@@ -24,6 +24,7 @@
  * so the rAF + manual .focus() restores it on the next paint.
  */
 import { CircleNotch } from '@phosphor-icons/react';
+import { isServer } from '../env';
 
 /**
  * Snapshot the currently focused element so we can restore it after the
@@ -31,7 +32,7 @@ import { CircleNotch } from '@phosphor-icons/react';
  * `importing` to true.
  */
 export function captureActiveElement(): HTMLElement | null {
-  if (typeof document === 'undefined') return null;
+  if (isServer) return null;
   return (document.activeElement as HTMLElement | null) ?? null;
 }
 

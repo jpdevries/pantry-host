@@ -12,6 +12,7 @@ import AtMenuDetail from '@pantry-host/shared/components/AtMenuDetail';
 import type { ParsedRecipe } from '@pantry-host/shared/bluesky';
 import { gql } from '@/lib/gql';
 import { useKitchen } from '@/lib/kitchen-context';
+import { isBrowser } from '@pantry-host/shared/env';
 
 const LEXICON_RECIPE = 'exchange.recipe.recipe';
 const LEXICON_COLLECTION = 'exchange.recipe.collection';
@@ -95,7 +96,7 @@ export default function AtImportPage({ wildcard }: Props) {
   }
 
   const atUri = buildAtUri(wildcard);
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const shareUrl = isBrowser ? window.location.href : '';
   const isMenu = parsed.collection === LEXICON_COLLECTION;
 
   return (

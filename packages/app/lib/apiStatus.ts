@@ -5,6 +5,7 @@
  */
 
 import { apiUrl } from './apiUrl';
+import { isBrowser } from '@pantry-host/shared/env';
 
 export const API_STATUS_EVENT = 'api-status-change';
 
@@ -23,7 +24,7 @@ export function isApiOnline(): boolean {
 export function setApiOnline(online: boolean): void {
   if (online === _online) return;
   _online = online;
-  if (typeof window !== 'undefined') {
+  if (isBrowser) {
     window.dispatchEvent(new CustomEvent(API_STATUS_EVENT, { detail: { online } }));
   }
   if (!online) {

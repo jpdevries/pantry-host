@@ -4,6 +4,7 @@ import { useKitchen } from '@/lib/kitchen-context';
 import { listBlueskyRecipes, blueskyToRecipe, type ParsedRecipe, type BlueskyRecipeRecord } from '@pantry-host/shared/bluesky';
 import ImportGrid, { captureActiveElement } from '@pantry-host/shared/components/ImportGrid';
 import PixabayImage from '@pantry-host/shared/components/PixabayImage';
+import { isBrowser, isServer } from '@pantry-host/shared/env';
 
 const FEED_API = 'https://feed.pantryhost.app/api/handles';
 const FEED_RECIPES_API = 'https://feed.pantryhost.app/api/recipes';
@@ -58,11 +59,11 @@ export default function BlueskyFeedsPage() {
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
   const [mode, setMode] = useState<'bulk' | 'browse'>(() => {
-    if (typeof window === 'undefined') return 'browse';
+    if (isServer) return 'browse';
     return (localStorage.getItem('bsky-feeds-mode') as 'bulk' | 'browse') || 'browse';
   });
   useEffect(() => {
-    if (typeof window !== 'undefined') localStorage.setItem('bsky-feeds-mode', mode);
+    if (isBrowser) localStorage.setItem('bsky-feeds-mode', mode);
   }, [mode]);
 
   // Server-side feed (preferred) → falls back to per-handle XRPC fan-out.

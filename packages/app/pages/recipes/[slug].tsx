@@ -1,6 +1,7 @@
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import RecipeDetailPage, { RECIPE_QUERY, type Recipe } from '@/components/pages/RecipeDetailPage';
+import { isBrowser } from '@pantry-host/shared/env';
 
 interface Props {
   initialRecipe?: Recipe | null;
@@ -57,7 +58,7 @@ export async function getServerSideProps({ params }: { params: { slug: string } 
 
 export default function RecipePage({ initialRecipe }: Props) {
   const { slug } = useRouter().query;
-  const fallback = typeof window !== 'undefined' ? window.location.pathname.split('/').filter(Boolean).pop() || '' : '';
+  const fallback = isBrowser ? window.location.pathname.split('/').filter(Boolean).pop() || '' : '';
   const recipeId = (slug as string) || initialRecipe?.slug || initialRecipe?.id || fallback;
 
   const ogTitle = initialRecipe?.title;

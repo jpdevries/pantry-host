@@ -7,6 +7,7 @@ import { useKitchen } from '@/lib/kitchen-context';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem, normalizeIngredientName, type GroceryStatus, type PantryLookup } from '@pantry-host/shared/grocery-status';
 import { ShoppingCart, Basket, MapPin } from '@phosphor-icons/react';
+import { isServer } from '@pantry-host/shared/env';
 
 /** Convert a kebab-case tag to Title Case display: "farmers-market" → "Farmers Market" */
 function tagToTitle(tag: string): string {
@@ -123,14 +124,14 @@ export default function GroceryListPage() {
   const [addingCommon, setAddingCommon] = useState(false);
   const [hasCommon, setHasCommon] = useState(false);
   const [commonItems, setCommonItems] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return [];
+    if (isServer) return [];
     try {
       const raw = localStorage.getItem('groceryCommonItems');
       return raw ? (JSON.parse(raw) as string[]) : [];
     } catch { return []; }
   });
   const [checked, setChecked] = useState<Set<string>>(() => {
-    if (typeof window === 'undefined') return new Set();
+    if (isServer) return new Set();
     try {
       const raw = localStorage.getItem('groceryChecked');
       return raw ? new Set<string>(JSON.parse(raw) as string[]) : new Set();

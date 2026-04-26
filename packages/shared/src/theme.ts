@@ -8,6 +8,8 @@
  * Palette (default / rose / plum) controls the color scheme.
  */
 
+import { isServer } from './env';
+
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type ThemePalette = 'default' | 'rose' | 'rebecca' | 'claude' | 'claude-v1' | 'avocado'
   | 'marrakech' | 'provencal' | 'kaiseki' | 'tuscany'
@@ -18,7 +20,7 @@ const HC_KEY = 'high-contrast';
 const PALETTE_KEY = 'theme-palette';
 
 export function getThemePreference(): ThemePreference {
-  if (typeof window === 'undefined') return 'system';
+  if (isServer) return 'system';
   return (localStorage.getItem(THEME_KEY) as ThemePreference) || 'system';
 }
 
@@ -32,7 +34,7 @@ export function setThemePreference(pref: ThemePreference) {
 }
 
 export function getHighContrast(): boolean {
-  if (typeof window === 'undefined') return false;
+  if (isServer) return false;
   // Check explicit user preference first, then OS preference
   const stored = localStorage.getItem(HC_KEY);
   if (stored !== null) return stored === 'true';
@@ -48,12 +50,12 @@ export function setHighContrast(enabled: boolean) {
 
 /** Returns the explicit user preference from localStorage, or 'default' if none set. */
 export function getExplicitPalette(): ThemePalette {
-  if (typeof window === 'undefined') return 'default';
+  if (isServer) return 'default';
   return (localStorage.getItem(PALETTE_KEY) as ThemePalette) || 'default';
 }
 
 export function getThemePalette(): ThemePalette {
-  if (typeof window === 'undefined') return 'default';
+  if (isServer) return 'default';
   const stored = localStorage.getItem(PALETTE_KEY) as ThemePalette | null;
   if (stored) return stored;
   // Fall back to server-injected default (e.g. Claude Code sets <meta name="default-palette" content="claude">)
@@ -83,7 +85,7 @@ export { CSS_VARS };
 export type ColorOverrides = Record<string, Record<string, string>>;
 
 export function getColorOverrides(): ColorOverrides {
-  if (typeof window === 'undefined') return {};
+  if (isServer) return {};
   try {
     return JSON.parse(localStorage.getItem(COLOR_OVERRIDES_KEY) || '{}');
   } catch { return {}; }
@@ -98,12 +100,12 @@ export function getCurrentMode(): 'light' | 'dark' {
   const pref = getThemePreference();
   if (pref === 'dark') return 'dark';
   if (pref === 'light') return 'light';
-  if (typeof window === 'undefined') return 'light';
+  if (isServer) return 'light';
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 function applyColorOverrides() {
-  if (typeof document === 'undefined') return;
+  if (isServer) return;
   const el = document.documentElement;
   const overrides = getColorOverrides();
   const palette = getThemePalette();
@@ -121,7 +123,7 @@ function applyColorOverrides() {
 }
 
 export function applyTheme() {
-  if (typeof document === 'undefined') return;
+  if (isServer) return;
 
   const pref = getThemePreference();
   const body = document.body;

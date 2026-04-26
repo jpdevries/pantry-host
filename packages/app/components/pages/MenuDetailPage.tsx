@@ -5,6 +5,7 @@ import RecipeCard from '@/components/RecipeCard';
 import { Robot, Leaf, ArrowsOut, ArrowsIn } from '@phosphor-icons/react';
 import { isOwner } from '@/lib/isTrustedNetwork';
 import { useKitchen } from '@/lib/kitchen-context';
+import { isBrowser } from '@pantry-host/shared/env';
 
 interface MenuRecipe {
   id: string;
@@ -75,7 +76,7 @@ interface Props {
 export default function MenuDetailPage({ menuId, initialMenu }: Props) {
   const kitchen = useKitchen();
   const cacheKey = `cache:menu:${menuId}`;
-  const cachedMenu = typeof window !== 'undefined' ? cacheGet<Menu>(cacheKey) : null;
+  const cachedMenu = isBrowser ? cacheGet<Menu>(cacheKey) : null;
   const [menu, setMenu] = useState<Menu | null>(initialMenu ?? cachedMenu);
   const [notFound, setNotFound] = useState(false);
   const [owner, setOwner] = useState(false);

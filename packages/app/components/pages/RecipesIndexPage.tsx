@@ -7,6 +7,7 @@ import { readFavorites } from '@pantry-host/shared/favorites';
 import { Heart } from '@phosphor-icons/react';
 import { isOwner } from '@/lib/isTrustedNetwork';
 import { useKitchen } from '@/lib/kitchen-context';
+import { isBrowser, isServer } from '@pantry-host/shared/env';
 
 interface Recipe {
   id: string;
@@ -36,11 +37,11 @@ export default function RecipesIndexPage() {
   const [recipes, setRecipes] = useState<Recipe[]>(() => cacheGet<Recipe[]>(cacheKey) ?? []);
   const [owner, setOwner] = useState(false);
   const [ageVerified, setAgeVerified] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('age-verified') === 'true';
+    if (isBrowser) return localStorage.getItem('age-verified') === 'true';
     return false;
   });
   const [search, setSearch] = useState(() => {
-    if (typeof window !== 'undefined') {
+    if (isBrowser) {
       return new URLSearchParams(window.location.search).get('search') ?? '';
     }
     return '';
@@ -50,7 +51,7 @@ export default function RecipesIndexPage() {
   // Off unless the URL explicitly asks. Hydrates after mount (same guard
   // as `search`) so SSR doesn't touch `window.location`.
   const [favoritesOnly, setFavoritesOnly] = useState(() => {
-    if (typeof window !== 'undefined') {
+    if (isBrowser) {
       return new URLSearchParams(window.location.search).get('favorites') === '1';
     }
     return false;
@@ -59,7 +60,7 @@ export default function RecipesIndexPage() {
   useEffect(() => { setFavoriteIds(readFavorites()); }, []);
   function clearFavoritesFilter() {
     setFavoritesOnly(false);
-    if (typeof window !== 'undefined') {
+    if (isBrowser) {
       const url = new URL(window.location.href);
       url.searchParams.delete('favorites');
       window.history.replaceState({}, '', url);
@@ -71,12 +72,12 @@ export default function RecipesIndexPage() {
   // two-tab-per-card behavior. Persisted so power users don't re-pick.
   type KeyboardMode = 'nav-and-queue' | 'nav-only' | 'queue-only';
   const [keyboardMode, setKeyboardMode] = useState<KeyboardMode>(() => {
-    if (typeof window === 'undefined') return 'nav-and-queue';
+    if (isServer) return 'nav-and-queue';
     const v = localStorage.getItem('recipes-grid-keyboard-mode');
     return (v === 'nav-only' || v === 'queue-only' || v === 'nav-and-queue') ? v : 'nav-and-queue';
   });
   useEffect(() => {
-    if (typeof window !== 'undefined') localStorage.setItem('recipes-grid-keyboard-mode', keyboardMode);
+    if (isBrowser) localStorage.setItem('recipes-grid-keyboard-mode', keyboardMode);
   }, [keyboardMode]);
 
   const base = `/kitchens/${kitchen}/recipes`;

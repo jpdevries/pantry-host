@@ -1,3 +1,5 @@
+import { isServer } from '@pantry-host/shared/env';
+
 /**
  * Checks whether the current hostname belongs to a trusted local or VPN network.
  * Used to gate owner-only features (e.g. cookware management) when not behind HTTPS.
@@ -30,7 +32,7 @@ export function isTrustedNetwork(hostname: string): boolean {
  * Guest = HTTP on a LAN IP (shareable link like http://192.168.x.x:3000).
  */
 export function isOwner(): boolean {
-  if (typeof window === 'undefined') return false;
+  if (isServer) return false;
   const h = window.location.hostname;
   return h === 'localhost' || h === '127.0.0.1' || window.location.protocol === 'https:';
 }

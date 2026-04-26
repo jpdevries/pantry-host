@@ -1,6 +1,7 @@
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import MenuDetailPage from '@/components/pages/MenuDetailPage';
+import { isBrowser } from '@pantry-host/shared/env';
 
 interface Props {
   ogTitle?: string;
@@ -45,7 +46,7 @@ export async function getServerSideProps({ params }: { params: { slug: string } 
 
 export default function KitchenMenuPage({ ogTitle, ogDescription, ogImage }: Props) {
   const { slug } = useRouter().query;
-  const segments = typeof window !== 'undefined' ? window.location.pathname.split('/').filter(Boolean) : []; // /kitchens/[kitchen]/menus/[slug]
+  const segments = isBrowser ? window.location.pathname.split('/').filter(Boolean) : []; // /kitchens/[kitchen]/menus/[slug]
   const title = ogTitle ? `${ogTitle} — Pantry Host` : 'Menus — Pantry Host';
   return (
     <>

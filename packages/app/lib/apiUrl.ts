@@ -24,14 +24,16 @@
  * add an unnecessary hop and wouldn't benefit from the same-origin
  * guarantees either way.
  */
+import { isBrowser, isServer } from '@pantry-host/shared/env';
+
 export function apiUrl(path: string): string {
-  if (typeof window === 'undefined') return `http://localhost:4001${path}`;
+  if (isServer) return `http://localhost:4001${path}`;
 
   // 1. Explicit override — authoritative when set. Resolves `path`
   //    against the origin URL, so e.g. `apiUrl('/graphql')` with an
   //    origin of `https://jmini.ts.net:4443` yields
   //    `https://jmini.ts.net:4443/graphql`.
-  if (typeof document !== 'undefined') {
+  if (isBrowser) {
     const override = document
       .querySelector<HTMLMetaElement>('meta[name="api-origin"]')
       ?.content?.trim();

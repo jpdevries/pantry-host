@@ -13,6 +13,7 @@ import {
   type FederationPagination,
   type FederationRecipe,
 } from '@pantry-host/shared/cooklang';
+import { isBrowser, isServer } from '@pantry-host/shared/env';
 import {
   searchMealDB,
   filterByCategory,
@@ -202,7 +203,7 @@ export default function RecipeImportPage() {
   // Pre-populate from ?url= query param so /https/*'s error-fallback CTA can
   // deep-link users here with the URL already in the textarea.
   const [pasteText, setPasteText] = useState(() => {
-    if (typeof window === 'undefined') return '';
+    if (isServer) return '';
     return new URLSearchParams(window.location.search).get('url') ?? '';
   });
   const [parseError, setParseError] = useState<string | null>(null);
@@ -226,7 +227,7 @@ export default function RecipeImportPage() {
   type CommunityTab = 'url' | 'cooklang' | 'mealdb' | 'cocktaildb' | 'publicdomain' | 'wikibooks' | 'recipe-api';
   const ALL_COMMUNITY_TABS: CommunityTab[] = ['url', 'cooklang', 'mealdb', 'cocktaildb', 'publicdomain', 'wikibooks', 'recipe-api'];
   const [communityTab, setCommunityTab] = useState<CommunityTab>(() => {
-    if (typeof window === 'undefined') return 'url';
+    if (isServer) return 'url';
     const urlTab = new URLSearchParams(window.location.search).get('tab');
     if (urlTab && ALL_COMMUNITY_TABS.includes(urlTab as CommunityTab)) return urlTab as CommunityTab;
     return 'url';
@@ -254,7 +255,7 @@ export default function RecipeImportPage() {
   // already on the cocktaildb tab), so the gate stayed until a tab-switch
   // forced a parent re-render.
   const [cdAgeVerified, setCdAgeVerified] = useState(() =>
-    typeof window !== 'undefined' && localStorage.getItem('age-verified') === 'true'
+    isBrowser && localStorage.getItem('age-verified') === 'true'
   );
   // Recipe API tab is ALWAYS present; the panel itself shows a keyless
   // empty-state with both an inline form and a Settings link when no key

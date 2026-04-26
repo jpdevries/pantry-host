@@ -12,6 +12,7 @@ import UrlRecipeDetail from '@pantry-host/shared/components/UrlRecipeDetail';
 import type { ParsedRecipe } from '@pantry-host/shared/bluesky';
 import { gql } from '@/lib/gql';
 import { apiUrl } from '@/lib/apiUrl';
+import { isServer } from '@pantry-host/shared/env';
 
 const CREATE_RECIPE = `
   mutation CreateRecipe(
@@ -38,7 +39,7 @@ function decodeSegments(path: string): string {
 }
 
 function getSourceUrl(scheme: 'http' | 'https'): string | null {
-  if (typeof window === 'undefined') return null;
+  if (isServer) return null;
   const prefix = `/${scheme}/`;
   const path = window.location.pathname;
   if (!path.startsWith(prefix)) return null;

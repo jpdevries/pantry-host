@@ -4,6 +4,7 @@ import { listBlueskyCollections, type BlueskyCollectionRecord } from '@pantry-ho
 import { importBlueskyCollection } from '@pantry-host/shared/bluesky-import';
 import ImportGrid, { captureActiveElement } from '@pantry-host/shared/components/ImportGrid';
 import { useKitchen } from '@/lib/kitchen-context';
+import { isBrowser, isServer } from '@pantry-host/shared/env';
 
 const FEED_API = 'https://feed.pantryhost.app/api/handles';
 const FEED_RECIPES_API = 'https://feed.pantryhost.app/api/recipes';
@@ -36,11 +37,11 @@ export default function BlueskyMenuFeedsPage() {
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
   const [mode, setMode] = useState<'bulk' | 'browse'>(() => {
-    if (typeof window === 'undefined') return 'browse';
+    if (isServer) return 'browse';
     return (localStorage.getItem('bsky-menu-feeds-mode') as 'bulk' | 'browse') || 'browse';
   });
   useEffect(() => {
-    if (typeof window !== 'undefined') localStorage.setItem('bsky-menu-feeds-mode', mode);
+    if (isBrowser) localStorage.setItem('bsky-menu-feeds-mode', mode);
   }, [mode]);
 
   const [cursor, setCursor] = useState<string | null>(null);

@@ -1299,3 +1299,21 @@
     list-style: none;
   }
 }
+
+/* Header fade — see CLAUDE.md gotcha #13 (#stage convention).
+   Browsers paint the document once before snapping scroll to a URL
+   fragment, so users on a `/<route>#stage` link see the <header>
+   for ~one frame before it scrolls off-screen. Hide it during the
+   scroll-to-fragment pass and fade back to full opacity. */
+@keyframes pantry-stage-header-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+body:has(#stage:target) header {
+  animation: pantry-stage-header-fade-in 350ms ease-out 200ms both;
+}
+/* Note: no `prefers-reduced-motion: reduce` override here. The flash this
+   covers is itself motion — letting it through for reduced-motion users
+   would defeat the rule's purpose. The fade is a single opacity property
+   (no transform / parallax / scroll-linked motion) so it's appropriate
+   to keep for reduced-motion. */

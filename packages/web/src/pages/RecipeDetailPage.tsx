@@ -5,6 +5,7 @@ import { recipeToDataURI, downloadRecipeICS, imageToDataURI } from '@pantry-host
 import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang';
 import { hasCooklangSyntax, extractCooklang } from '@pantry-host/shared/cooklang-parser';
 import PixabayImage from '@pantry-host/shared/components/PixabayImage';
+import ImageBoundary from '@pantry-host/shared/components/ImageBoundary';
 import { NutritionSource } from '@pantry-host/shared/components/NutritionSource';
 import { readFavorites, toggleFavorite } from '@pantry-host/shared/favorites';
 import { AllergensLine } from '@pantry-host/shared/components/AllergensLine';
@@ -29,6 +30,18 @@ const SEASON_META: Record<string, { Icon: React.ComponentType<{ size?: number; w
   winter: { Icon: Snowflake, token: '--color-season-winter' },
 };
 const SEASON_TAGS = new Set(Object.keys(SEASON_META));
+
+// Structural-equality check used to bail out of `setRecipe()` when the
+// post-mount GraphQL refetch returns the same payload as the prior state.
+// React skips the re-render on reference-equal updater returns, so
+// downstream `[recipe, …]` effects don't re-fire and the hero image
+// doesn't flicker through PixabayImage's loading transitions on a no-op
+// refetch. Stringify cost on a ~2 KB payload is sub-ms, runs once per load.
+function sameRecipe(a: Recipe | null, b: Recipe | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
 
 /** Resolves opfs:// URLs to blob URLs for display */
 function OpfsImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
@@ -317,7 +330,15 @@ export default function RecipeDetailPage() {
   useEffect(() => {
     if (!slug) return;
     gql<{ recipe: Recipe | null }>(RECIPE_QUERY, { id: slug })
-      .then((d) => setRecipe(d.recipe))
+      .then((d) => {
+        // Bail out at the setter level when the refetch matches the current
+        // state (or when both sides are null). React skips the re-render on
+        // reference-equal returns, so downstream `[recipe, …]` effects
+        // (sub-recipes fetch, photoUrl re-resolve, pantry auto-check) don't
+        // re-fire and the hero image doesn't flicker through PixabayImage's
+        // loading→hit transitions on a no-op refetch.
+        setRecipe((prev) => sameRecipe(prev, d.recipe) ? prev : d.recipe);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [slug]);
@@ -424,23 +445,27 @@ export default function RecipeDetailPage() {
       </button>
 
       {/* Photo */}
-      {displayPhotoUrl ? (
-        <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
-          <img
-            src={displayPhotoUrl}
-            alt={recipe.title}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      ) : (() => {
-        const pixabayKey = typeof window !== 'undefined' ? window.localStorage.getItem('pixabay-api-key') : null;
-        const pixabayEnabled = typeof window !== 'undefined' && window.localStorage.getItem('pixabay-fallback-enabled') === 'true';
-        return pixabayEnabled && pixabayKey ? (
-          <div className="mb-8">
-            <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey} alt={recipe.title} hidePlaceholder />
+      <ImageBoundary alt={recipe.title}>
+        {displayPhotoUrl ? (
+          <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
+            <img
+              src={displayPhotoUrl}
+              alt={recipe.title}
+              width={1200}
+              height={675}
+              className="w-full h-full object-cover"
+            />
           </div>
-        ) : null;
-      })()}
+        ) : (() => {
+          const pixabayKey = typeof window !== 'undefined' ? window.localStorage.getItem('pixabay-api-key') : null;
+          const pixabayEnabled = typeof window !== 'undefined' && window.localStorage.getItem('pixabay-fallback-enabled') === 'true';
+          return pixabayEnabled && pixabayKey ? (
+            <div className="mb-8">
+              <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey} alt={recipe.title} hidePlaceholder />
+            </div>
+          ) : null;
+        })()}
+      </ImageBoundary>
 
       {/* Tags above title. Vegetarian is the only featured tag with a
           visual treatment on the web package today — other featured tags

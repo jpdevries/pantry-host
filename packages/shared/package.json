@@ -57,7 +57,8 @@
     "./components/AtRecipeDetail": "./src/components/AtRecipeDetail.tsx",
     "./components/AtMenuDetail": "./src/components/AtMenuDetail.tsx",
     "./components/UrlRecipeDetail": "./src/components/UrlRecipeDetail.tsx",
-    "./components/QRCodeModal": "./src/components/QRCodeModal.tsx"
+    "./components/QRCodeModal": "./src/components/QRCodeModal.tsx",
+    "./components/ImageBoundary": "./src/components/ImageBoundary.tsx"
   },
   "peerDependencies": {
     "@phosphor-icons/react": "^2.1.10",

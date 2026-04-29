@@ -14,6 +14,7 @@ import { recipeToDataURI, imageToDataURI } from '@pantry-host/shared/export-reci
 import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang';
 import { hasCooklangSyntax, extractCooklang } from '@pantry-host/shared/cooklang-parser';
 import PixabayImage from '@pantry-host/shared/components/PixabayImage';
+import ImageBoundary from '@pantry-host/shared/components/ImageBoundary';
 import Modal from '@pantry-host/shared/components/Modal';
 import { NutritionSource } from '@pantry-host/shared/components/NutritionSource';
 import { AllergensLine } from '@pantry-host/shared/components/AllergensLine';
@@ -100,6 +101,19 @@ function formatMadeDate(iso: string, style: 'short' | 'long' = 'short'): string 
   if (Number.isNaN(d.getTime())) return '';
   const months = style === 'short' ? MONTHS_SHORT : MONTHS_LONG;
   return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
+// Structural-equality check used to bail out of `setRecipe()` when the
+// post-hydration GraphQL refetch returns the same payload as the SSR seed
+// (the common case). Without this gate the new object reference fires the
+// `[recipe, …]` useEffects (sub-recipes fetch, pantry auto-check, photoUrl
+// re-resolve, Pixabay key arrival → mount), each one a re-render and a
+// visible flicker through PixabayImage's idle→loading→hit transitions.
+// Stringify cost on a ~2 KB recipe payload is sub-ms and runs once per load.
+function sameRecipe(a: Recipe | null, b: Recipe | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 interface PantryItem { id: string; name: string; aliases: string[] | null; quantity: number | null; unit: string | null; itemSize: number | null; itemSizeUnit: string | null; alwaysOnHand: boolean; barcode: string | null; productMeta: string | null; }
@@ -366,11 +380,16 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
     gql<{ recipe: Recipe | null }>(RECIPE_QUERY, { id: recipeId })
       .then((d) => {
         if (!d.recipe) { setNotFound(true); return; }
-        setRecipe(d.recipe);
-        setServings(d.recipe.servings ?? 2);
-        setLastMadeAt(d.recipe.lastMadeAt);
-        setQueued(d.recipe.queued);
-        cacheSet(cacheKey, d.recipe);
+        const fresh = d.recipe;
+        // Bail out at the setter level when the refetch matches the seed.
+        // React skips the re-render when the updater returns reference-equal
+        // state, so downstream `[recipe, …]` effects don't re-fire.
+        setRecipe((prev) => sameRecipe(prev, fresh) ? prev : fresh);
+        const nextServings = fresh.servings ?? 2;
+        setServings((prev) => prev === nextServings ? prev : nextServings);
+        setLastMadeAt((prev) => prev === fresh.lastMadeAt ? prev : fresh.lastMadeAt);
+        setQueued((prev) => prev === fresh.queued ? prev : fresh.queued);
+        cacheSet(cacheKey, fresh);
       })
       .catch(() => {
         const cached = cacheGet<Recipe>(cacheKey);
@@ -668,21 +687,23 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
           >
             <ArrowsIn size={18} aria-hidden />
           </button>
-          {recipe.photoUrl ? (
-            <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
-              <ResponsiveImage
-                src={recipe.photoUrl}
-                alt={recipe.title}
-                className="w-full h-full object-cover"
-                loading="eager"
-                sizes="(min-width: 896px) 896px, 100vw"
-              />
-            </div>
-          ) : pixabayEnabled && pixabayKey ? (
-            <div className="mb-8">
-              <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey} alt={recipe.title} hidePlaceholder />
-            </div>
-          ) : null}
+          <ImageBoundary alt={recipe.title}>
+            {recipe.photoUrl ? (
+              <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
+                <ResponsiveImage
+                  src={recipe.photoUrl}
+                  alt={recipe.title}
+                  className="w-full h-full object-cover"
+                  loading="eager"
+                  sizes="(min-width: 896px) 896px, 100vw"
+                />
+              </div>
+            ) : pixabayEnabled && pixabayKey ? (
+              <div className="mb-8">
+                <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey} alt={recipe.title} hidePlaceholder />
+              </div>
+            ) : null}
+          </ImageBoundary>
 
           <header className="mb-8">
             <div className="flex flex-wrap gap-2 mb-3">

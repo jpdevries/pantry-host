@@ -687,6 +687,14 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
           >
             <ArrowsIn size={18} aria-hidden />
           </button>
+          {/* Hero box. Always reserved for any recipe that lacks a photoUrl — the
+              `pixabayEnabled` / `pixabayKey` settings come from a post-mount
+              /api/settings-read fetch, so gating the box on them caused it to pop
+              into existence ~150ms after hydration and shove the page down (the
+              user-reported flicker). Now the empty card-bg renders from SSR onward
+              and PixabayImage fills it in if/when the key arrives. Recipes with
+              neither a photoUrl nor an enabled Pixabay just show a stable empty
+              card — same shape as the boundary's fallback, no layout surprise. */}
           <ImageBoundary alt={recipe.title}>
             {recipe.photoUrl ? (
               <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
@@ -698,19 +706,13 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
                   sizes="(min-width: 896px) 896px, 100vw"
                 />
               </div>
-            ) : pixabayEnabled && pixabayKey ? (
-              // Reserve the same aspect-[16/9] card-bg box as the photoUrl branch so the
-              // hero area stays stable while PixabayImage cycles idle → loading → hit/miss.
-              // PixabayImage with `hidePlaceholder` returns null in idle/loading/miss, so
-              // without this wrapper the hero box collapses to 0px and snaps open when the
-              // photo arrives — a visible flash of "no image" that pushes the rest of the
-              // page down. The wrapper is also the skeleton when Pixabay returns a miss
-              // (no match / rate-limit / bad key) — empty card-bg is preferable to the
-              // page collapsing.
+            ) : (
               <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
-                <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey} alt={recipe.title} hidePlaceholder />
+                {pixabayEnabled && pixabayKey ? (
+                  <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey} alt={recipe.title} hidePlaceholder />
+                ) : null}
               </div>
-            ) : null}
+            )}
           </ImageBoundary>
 
           <header className="mb-8">

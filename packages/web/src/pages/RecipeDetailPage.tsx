@@ -445,6 +445,10 @@ export default function RecipeDetailPage() {
       </button>
 
       {/* Photo */}
+      {/* Hero box always reserved for any recipe that lacks a photoUrl. See app
+          RecipeDetailPage for the rationale — gating the wrapper on
+          pixabayEnabled/pixabayKey caused the box to pop in late and shove the
+          page down. */}
       <ImageBoundary alt={recipe.title}>
         {displayPhotoUrl ? (
           <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
@@ -459,14 +463,13 @@ export default function RecipeDetailPage() {
         ) : (() => {
           const pixabayKey = typeof window !== 'undefined' ? window.localStorage.getItem('pixabay-api-key') : null;
           const pixabayEnabled = typeof window !== 'undefined' && window.localStorage.getItem('pixabay-fallback-enabled') === 'true';
-          // Same aspect-[16/9] skeleton box as the photoUrl branch so the hero area stays
-          // stable while PixabayImage resolves (idle/loading/miss return null). See the app
-          // RecipeDetailPage for the full rationale.
-          return pixabayEnabled && pixabayKey ? (
+          return (
             <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
-              <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey} alt={recipe.title} hidePlaceholder />
+              {pixabayEnabled && pixabayKey ? (
+                <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey} alt={recipe.title} hidePlaceholder />
+              ) : null}
             </div>
-          ) : null;
+          );
         })()}
       </ImageBoundary>
 

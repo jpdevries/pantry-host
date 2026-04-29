@@ -459,8 +459,11 @@ export default function RecipeDetailPage() {
         ) : (() => {
           const pixabayKey = typeof window !== 'undefined' ? window.localStorage.getItem('pixabay-api-key') : null;
           const pixabayEnabled = typeof window !== 'undefined' && window.localStorage.getItem('pixabay-fallback-enabled') === 'true';
+          // Same aspect-[16/9] skeleton box as the photoUrl branch so the hero area stays
+          // stable while PixabayImage resolves (idle/loading/miss return null). See the app
+          // RecipeDetailPage for the full rationale.
           return pixabayEnabled && pixabayKey ? (
-            <div className="mb-8">
+            <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
               <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey} alt={recipe.title} hidePlaceholder />
             </div>
           ) : null;

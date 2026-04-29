@@ -105,10 +105,17 @@ export default function PixabayImage({ recipe, apiKey, alt, hidePlaceholder, inC
             alt={alt}
             className="w-full h-full object-cover"
             loading="lazy"
-            onError={(e) => {
-              // Upstream photo removed — hide the image; parent card
-              // still looks reasonable with just the text below.
-              (e.currentTarget as HTMLImageElement).style.display = 'none';
+            onError={() => {
+              // Upstream photo URL is dead (Pixabay rotates / removes images
+              // even when the API still returns the metadata). Transition to
+              // miss + persist the failure so we don't keep retrying — and
+              // so the rest of the component (attribution overlay) tears
+              // down. Without this the box stays mounted as "blank space
+              // with photographer credit", which looks broken. The detail-
+              // page parent reserves an aspect-[16/9] skeleton box so the
+              // tear-down doesn't shift layout.
+              savePixabayCacheEntry(recipe.id, { failed: true, at: Date.now() });
+              setState({ status: 'miss' });
             }}
           />
         </picture>

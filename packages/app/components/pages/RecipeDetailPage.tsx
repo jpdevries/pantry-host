@@ -699,7 +699,15 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
                 />
               </div>
             ) : pixabayEnabled && pixabayKey ? (
-              <div className="mb-8">
+              // Reserve the same aspect-[16/9] card-bg box as the photoUrl branch so the
+              // hero area stays stable while PixabayImage cycles idle → loading → hit/miss.
+              // PixabayImage with `hidePlaceholder` returns null in idle/loading/miss, so
+              // without this wrapper the hero box collapses to 0px and snaps open when the
+              // photo arrives — a visible flash of "no image" that pushes the rest of the
+              // page down. The wrapper is also the skeleton when Pixabay returns a miss
+              // (no match / rate-limit / bad key) — empty card-bg is preferable to the
+              // page collapsing.
+              <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
                 <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey} alt={recipe.title} hidePlaceholder />
               </div>
             ) : null}

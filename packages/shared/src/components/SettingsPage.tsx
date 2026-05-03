@@ -505,12 +505,17 @@ function BooleanField({
   descId: string;
   onChange: (value: string) => void;
 }) {
+  // PREFER_BROWSER_CHROME has a heuristic default that depends on the
+  // device (touch-first auto-flip via Provider). We want the checkbox to
+  // reflect that heuristic on first paint AND remain user-controllable —
+  // once the user has interacted (`field.dirty`), the field's own value is
+  // the source of truth so a click flips the visual immediately. Other
+  // booleans use the static defaultValue path as before.
   const effectivePref = usePreferBrowserChrome();
-  const stored = field?.value;
-  const checked =
-    def.key === 'PREFER_BROWSER_CHROME'
-      ? effectivePref
-      : (stored ?? def.defaultValue ?? 'true') !== 'false';
+  const useHeuristic = def.key === 'PREFER_BROWSER_CHROME' && !field?.dirty;
+  const checked = useHeuristic
+    ? effectivePref
+    : (field?.value ?? def.defaultValue ?? 'true') !== 'false';
   return (
     <div className="card p-5">
       <label htmlFor={id} className="flex items-start gap-3 cursor-pointer">

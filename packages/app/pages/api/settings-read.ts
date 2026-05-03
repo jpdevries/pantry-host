@@ -105,7 +105,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     PIXABAY_FALLBACK_ENABLED: process.env.PIXABAY_FALLBACK_ENABLED,
     HARVEST_LOCATIONS: process.env.HARVEST_LOCATIONS,
     STORE_BARCODE_META: process.env.STORE_BARCODE_META,
-    PREFER_BROWSER_CHROME: process.env.PREFER_BROWSER_CHROME,
+    // PREFER_BROWSER_CHROME is a per-user preference, not deployment config.
+    // Source of truth is the overrides file; an env-var fallback would make
+    // a misplaced shell export silently override the touch-first heuristic
+    // for all users on this machine.
+    PREFER_BROWSER_CHROME: undefined,
   };
   // Overrides win over .env.local-derived process.env so user edits on
   // /settings take effect immediately without a restart.

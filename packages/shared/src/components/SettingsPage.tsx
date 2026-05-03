@@ -93,11 +93,13 @@ export default function SettingsPage({ adapter }: { adapter: SettingsAdapter }) 
       const next: Record<string, FieldState> = {};
       for (const def of schemaForPackage) {
         const raw = values[def.key];
-        // For booleans, honor explicit `defaultValue`; fall back to 'true'
-        // only when defaultValue isn't set (legacy behavior).
-        const booleanDefault = def.defaultValue ?? 'true';
+        // Empty string is the "no stored value" sentinel — preserves the
+        // distinction between "user has never set this" and "user explicitly
+        // set 'true'" / "user explicitly set 'false'" for the BooleanField's
+        // heuristic-vs-stored decision below. defaultValue still flows in via
+        // the checked-state computation in BooleanField.
         next[def.key] = {
-          value: raw ?? (def.kind === 'boolean' ? booleanDefault : ''),
+          value: raw ?? '',
           masked: def.kind === 'secret' && !!maskedKeys?.has(def.key) && !!raw,
           dirty: false,
         };
@@ -505,17 +507,18 @@ function BooleanField({
   descId: string;
   onChange: (value: string) => void;
 }) {
-  // PREFER_BROWSER_CHROME has a heuristic default that depends on the
-  // device (touch-first auto-flip via Provider). We want the checkbox to
-  // reflect that heuristic on first paint AND remain user-controllable —
-  // once the user has interacted (`field.dirty`), the field's own value is
-  // the source of truth so a click flips the visual immediately. Other
-  // booleans use the static defaultValue path as before.
+  // PREFER_BROWSER_CHROME's default depends on the device (touch-first
+  // auto-flip via Provider). The checkbox tracks three states:
+  //   - User just interacted (`dirty`)         → field.value wins, click flips immediately.
+  //   - Stored value exists (e.g. 'true' / 'false') → field.value wins, no race.
+  //   - Truly unset (stored === '' AND !dirty) → fall through to the heuristic.
+  // Other booleans always use field.value with defaultValue fallback.
   const effectivePref = usePreferBrowserChrome();
-  const useHeuristic = def.key === 'PREFER_BROWSER_CHROME' && !field?.dirty;
+  const stored = field?.value ?? '';
+  const useHeuristic = def.key === 'PREFER_BROWSER_CHROME' && stored === '' && !field?.dirty;
   const checked = useHeuristic
     ? effectivePref
-    : (field?.value ?? def.defaultValue ?? 'true') !== 'false';
+    : (stored || def.defaultValue || 'true') !== 'false';
   return (
     <div className="card p-5">
       <label htmlFor={id} className="flex items-start gap-3 cursor-pointer">

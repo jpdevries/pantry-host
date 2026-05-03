@@ -111,6 +111,12 @@ const listboxStyle: React.CSSProperties = {
 };
 
 const optionBaseStyle: React.CSSProperties = {
+  // 44px min height matches Apple HIG / Material's touch-target guidance
+  // (also future-proofs us against WCAG 2.2 SC 2.5.8 AA). Flex + center
+  // keeps the highlighted-match weight change from shifting the row height.
+  minHeight: '2.75rem',
+  display: 'flex',
+  alignItems: 'center',
   padding: '0.5rem 0.75rem',
   fontSize: '0.875rem',
   cursor: 'pointer',
@@ -188,6 +194,16 @@ export default function IngredientTypeahead({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
+  // Keep the keyboard-active option in view. Without this, ArrowDown/End/Home
+  // (or just navigating past the listbox's `maxHeight: 16rem`) leaves the
+  // active option scrolled off-screen — the user navigates to a row they
+  // can't see. `block: 'nearest'` is a no-op when the row is already visible.
+  useEffect(() => {
+    if (!open || activeIdx < 0) return;
+    const el = document.getElementById(`${listboxId}-opt-${activeIdx}`);
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [activeIdx, open, listboxId]);
+
   function applySelection(choice: string) {
     if (mode === 'single') {
       onChange(choice);
@@ -214,6 +230,18 @@ export default function IngredientTypeahead({
       e.preventDefault();
       if (navList.length === 0) return;
       setActiveIdx((prev) => (prev <= 0 ? navList.length - 1 : prev - 1));
+    } else if (e.key === 'Home') {
+      // ARIA APG combobox pattern: Home jumps to first option when open.
+      if (open && navList.length > 0) {
+        e.preventDefault();
+        setActiveIdx(0);
+      }
+    } else if (e.key === 'End') {
+      // ARIA APG combobox pattern: End jumps to last option when open.
+      if (open && navList.length > 0) {
+        e.preventDefault();
+        setActiveIdx(navList.length - 1);
+      }
     } else if (e.key === 'Enter') {
       if (open && activeIdx >= 0 && navList[activeIdx]) {
         e.preventDefault();

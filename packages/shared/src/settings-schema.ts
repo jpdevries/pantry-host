@@ -123,7 +123,7 @@ export const SETTINGS_SCHEMA: SettingDef[] = [
     key: 'PREFER_BROWSER_CHROME',
     label: 'Prefer native form pickers',
     description:
-      "When on, the IngredientForm name + category fields and other typeaheads fall back to the browser's native <datalist> autocomplete and <select> dropdown — useful on mobile where the OS picker is genuinely better, or if you just prefer browser chrome over a custom combobox. Auto-detected as on for touch-first devices (iPhone, iPad-touch, Android-phone) — uncheck explicitly to opt out, even on those devices.",
+      "When enabled, the IngredientForm name + category fields and other typeaheads fall back to the browser's native <datalist> autocomplete and <select> dropdown useful on mobile or if you just prefer browser chrome over a custom combobox. Initially auto-detected as on for touch-first devices.",
     kind: 'boolean',
     packages: ['app', 'web'],
   },

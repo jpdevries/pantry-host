@@ -365,7 +365,6 @@ export default function IngredientTypeahead({
         id={id}
         value={value}
         onChange={onChange}
-        mode={mode}
         required={required}
         autoFocus={autoFocus}
         placeholder={placeholder}
@@ -378,6 +377,7 @@ export default function IngredientTypeahead({
         autoCapitalize={resolvedAutoCapitalize}
         autoCorrect={resolvedAutoCorrect}
         spellCheck={resolvedSpellCheck}
+        listOnly={listOnly}
       />
     );
   }
@@ -478,7 +478,6 @@ interface NativeFallbackProps {
   id: string;
   value: string;
   onChange: (next: string) => void;
-  mode: Mode;
   required?: boolean;
   autoFocus?: boolean;
   placeholder?: string;
@@ -491,13 +490,18 @@ interface NativeFallbackProps {
   autoCapitalize?: 'off' | 'none' | 'on' | 'sentences' | 'words' | 'characters';
   autoCorrect?: 'on' | 'off';
   spellCheck?: boolean;
+  /** When true, render as `<select>` (enforces picking from `suggestions` /
+   *  `groups`). Otherwise render as `<input list>` + `<datalist>` (free-text
+   *  with suggestions). The custom-path `mode` is irrelevant here — it only
+   *  governs how *picking a suggestion* updates the value (replace vs append),
+   *  which has no native equivalent worth differentiating. */
+  listOnly?: boolean;
 }
 
 function NativeFallback({
   id,
   value,
   onChange,
-  mode,
   required,
   autoFocus,
   placeholder,
@@ -510,9 +514,10 @@ function NativeFallback({
   autoCapitalize,
   autoCorrect,
   spellCheck,
+  listOnly,
 }: NativeFallbackProps) {
   const datalistId = useId();
-  if (mode === 'single') {
+  if (listOnly) {
     return (
       <select
         id={id}

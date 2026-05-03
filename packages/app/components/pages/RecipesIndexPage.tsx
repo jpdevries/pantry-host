@@ -190,6 +190,7 @@ export default function RecipesIndexPage() {
               suggestions={recipes.map((r) => r.title)}
               inputMode="search"
               enterKeyHint="search"
+              ariaLabel="Recipe title suggestions"
             />
           </div>
         </div>

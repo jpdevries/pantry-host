@@ -292,6 +292,7 @@ export default function IngredientEditor({ rows, onChange, error, onClearError, 
                             onChange={(v) => updateRow(idx, { ingredientName: v })}
                             placeholder="Ingredient"
                             suggestions={[...COMMON_INGREDIENTS, ...recipes.map((r) => r.title)]}
+                            ariaLabel="Ingredient name suggestions"
                           />
                         </div>
                       )}
@@ -326,6 +327,7 @@ export default function IngredientEditor({ rows, onChange, error, onClearError, 
                             value={row.unit}
                             onChange={(v) => updateRow(idx, { unit: v })}
                             suggestions={ALL_UNITS}
+                            ariaLabel="Unit suggestions"
                           />
                         </div>
                       )}

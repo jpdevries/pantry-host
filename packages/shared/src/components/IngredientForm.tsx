@@ -166,6 +166,7 @@ export default function IngredientForm({ ingredient, onSubmit, onCancel, autoFoc
           placeholder="e.g. Olive oil"
           aria-required="true"
           aria-describedby="ing-name-hint"
+          ariaLabel="Ingredient name suggestions"
         />
         <p id="ing-name-hint" className="text-xs text-[var(--color-text-secondary)] mt-1 pretty">
           Comma-separated. The first is the display name; later entries
@@ -183,6 +184,8 @@ export default function IngredientForm({ ingredient, onSubmit, onCancel, autoFoc
           placeholder="— select —"
           suggestions={ALL_CATEGORIES}
           groups={CATEGORY_DROPDOWN_GROUPS}
+          ariaLabel="Category suggestions"
+          listOnly
         />
       </div>
 

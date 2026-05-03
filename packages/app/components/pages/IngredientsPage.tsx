@@ -266,6 +266,7 @@ export default function IngredientsPage() {
               suggestions={filterSuggestions}
               inputMode="search"
               enterKeyHint="search"
+              ariaLabel="Pantry filter suggestions"
             />
             <label className="flex items-center gap-2 mt-3 text-sm cursor-pointer">
               <input

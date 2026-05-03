@@ -769,6 +769,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
           onChange={(v) => { dirtyFields.current.add('tags'); setTagInput(v); }}
           placeholder="e.g. quick, kid-friendly, vegetarian"
           suggestions={allTags}
+          ariaLabel="Tag suggestions"
         />
         <p className="text-xs text-[var(--color-text-secondary)] mt-1">Comma-separated. Type to see suggestions.</p>
         <label className="flex items-center gap-2 mt-2 cursor-pointer">
@@ -830,6 +831,8 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
           onChange={setCookwareInput}
           placeholder="e.g. Instant Pot, Cast Iron Skillet"
           suggestions={cookwareItems.map((c) => c.name)}
+          ariaLabel="Cookware suggestions"
+          autoCapitalize="words"
         />
       </div>
 

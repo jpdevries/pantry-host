@@ -61,6 +61,16 @@ interface Props {
   autoCorrect?: 'on' | 'off';
   /** Same rationale as autoCorrect — defaults to `false` in segmented mode. */
   spellCheck?: boolean;
+  // ── A11y polish ───────────────────────────────────────────────────────
+  /** Override the listbox `aria-label`. Default `'Suggestions'` is generic
+   *  for SR users hearing it on every typeahead in the page; pass something
+   *  more specific (e.g. `'Tag suggestions'`, `'Cookware suggestions'`). */
+  ariaLabel?: string;
+  /** When `true` and `mode === 'single'`, sets `aria-invalid` on the input
+   *  while the value is non-empty and not an exact match in `suggestions` /
+   *  `groups`. Lets parents enforce list-only semantics for fields like
+   *  Category that should reject free-text on submit. */
+  listOnly?: boolean;
 }
 
 const DEFAULT_MAX_RESULTS = 8;
@@ -144,6 +154,19 @@ const optionBaseStyle: React.CSSProperties = {
 const optionActiveStyle: React.CSSProperties = {
   background: 'var(--color-bg-body)',
   color: 'var(--color-text-primary)',
+  // Weight bump alongside the bg/fg color shift so the active state is
+  // perceivable without color (WCAG 1.4.1 multi-channel cue).
+  fontWeight: 500,
+};
+
+// When the input doesn't have room to drop the listbox below within the
+// visualViewport (soft-keyboard up on small screens, mostly), we flip it
+// upward. Spread on top of listboxStyle when applicable.
+const listboxDropUpStyle: React.CSSProperties = {
+  top: 'auto',
+  bottom: '100%',
+  marginTop: 0,
+  marginBottom: 4,
 };
 
 const groupHeaderStyle: React.CSSProperties = {
@@ -174,6 +197,8 @@ export default function IngredientTypeahead({
   autoCapitalize,
   autoCorrect,
   spellCheck,
+  ariaLabel = 'Suggestions',
+  listOnly,
 }: Props) {
   const preferNative = usePreferBrowserChrome();
   // Mode-based iOS keyboard defaults — segmented (tag-list) inputs almost
@@ -185,8 +210,10 @@ export default function IngredientTypeahead({
   const resolvedAutoCorrect = autoCorrect ?? (isSegmented ? 'off' : undefined);
   const resolvedSpellCheck = spellCheck ?? (isSegmented ? false : undefined);
   const listboxId = useId();
+  const liveRegionId = useId();
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
+  const [dropUp, setDropUp] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -234,6 +261,30 @@ export default function IngredientTypeahead({
     const el = document.getElementById(`${listboxId}-opt-${activeIdx}`);
     el?.scrollIntoView({ block: 'nearest' });
   }, [activeIdx, open, listboxId]);
+
+  // Flip the dropdown upward when there's not enough room below the input
+  // (soft keyboard up on mobile, or input near the bottom of the page).
+  // Recomputed on each open + on viewport resize.
+  useEffect(() => {
+    if (!open || !inputRef.current || typeof window === 'undefined') return;
+    function recompute() {
+      const rect = inputRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const vp = window.visualViewport;
+      const viewportH = vp?.height ?? window.innerHeight;
+      const dropdownH = 256; // matches listboxStyle.maxHeight (16rem)
+      const spaceBelow = viewportH - rect.bottom;
+      // Flip only when below is insufficient AND above has more room.
+      setDropUp(spaceBelow < dropdownH && rect.top > spaceBelow);
+    }
+    recompute();
+    window.visualViewport?.addEventListener('resize', recompute);
+    window.addEventListener('resize', recompute);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', recompute);
+      window.removeEventListener('resize', recompute);
+    };
+  }, [open]);
 
   function applySelection(choice: string) {
     if (mode === 'single') {
@@ -299,6 +350,15 @@ export default function IngredientTypeahead({
   // Native fallback for the PREFER_BROWSER_CHROME setting. Branched after
   // all hooks have run so toggling the setting at runtime doesn't break
   // the Rules of Hooks.
+  // List-only validation (single mode + `listOnly={true}`). aria-invalid
+  // signals to AT users that the typed value isn't one of the suggestions;
+  // parents enforce on submit (current behavior is otherwise free-text).
+  const isExactMatch =
+    !value ||
+    suggestions.some((s) => s.toLowerCase() === value.toLowerCase()) ||
+    (groups?.some((g) => g.items.some((i) => i.toLowerCase() === value.toLowerCase())) ?? false);
+  const ariaInvalid = listOnly && mode === 'single' && !isExactMatch ? true : undefined;
+
   if (preferNative) {
     return (
       <NativeFallback
@@ -361,8 +421,9 @@ export default function IngredientTypeahead({
         aria-expanded={showList}
         aria-controls={listboxId}
         aria-activedescendant={activeOptionId}
-        aria-describedby={ariaDescribedBy}
+        aria-describedby={ariaDescribedBy ? `${ariaDescribedBy} ${liveRegionId}` : liveRegionId}
         aria-required={ariaRequired}
+        aria-invalid={ariaInvalid}
         onChange={(e) => {
           onChange(e.target.value);
           setOpen(true);
@@ -373,13 +434,20 @@ export default function IngredientTypeahead({
         }}
         onKeyDown={handleKeyDown}
       />
+      {/* Polite live region announces match counts as the user types. SR
+          users hear "8 suggestions available" when results change. The
+          input's aria-describedby points here so the announcement is also
+          attributed to the field on first focus. */}
+      <div id={liveRegionId} role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {showList ? `${navList.length} suggestion${navList.length === 1 ? '' : 's'} available` : ''}
+      </div>
       {showList && (
         <ul
           id={listboxId}
           role="listbox"
-          aria-label="Suggestions"
-          onMouseDown={(e) => e.preventDefault()}
-          style={listboxStyle}
+          aria-label={ariaLabel}
+          onPointerDown={(e) => e.preventDefault()}
+          style={dropUp ? { ...listboxStyle, ...listboxDropUpStyle } : listboxStyle}
         >
           {showGroups
             ? (() => {

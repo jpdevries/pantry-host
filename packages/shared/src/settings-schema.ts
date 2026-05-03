@@ -18,7 +18,8 @@ export type SettingKey =
   | 'PIXABAY_API_KEY'
   | 'PIXABAY_FALLBACK_ENABLED'
   | 'HARVEST_LOCATIONS'
-  | 'STORE_BARCODE_META';
+  | 'STORE_BARCODE_META'
+  | 'PREFER_BROWSER_CHROME';
 
 export type SettingKind = 'text' | 'secret' | 'boolean' | 'enum';
 
@@ -114,6 +115,15 @@ export const SETTINGS_SCHEMA: SettingDef[] = [
     label: 'Store barcode + product metadata',
     description:
       "Power user: when on, the batch scanner persists each item's barcode plus a allowlisted subset of Open Food Facts data (nutrition per 100g, ingredients text, allergens, Nutri-Score, NOVA group). Lets MCP agents and nutrition-aware tools reason about your pantry. Off by default; turning this on only affects new scans. Also toggleable from the scan modal header.",
+    kind: 'boolean',
+    packages: ['app', 'web'],
+    defaultValue: 'false',
+  },
+  {
+    key: 'PREFER_BROWSER_CHROME',
+    label: 'Prefer native form pickers',
+    description:
+      "When on, the IngredientForm name + category fields and other typeahead inputs across the app fall back to the browser's native <datalist> autocomplete and <select> dropdown — useful on mobile where the OS picker is genuinely better, or if you just prefer browser chrome over a custom combobox. Off by default.",
     kind: 'boolean',
     packages: ['app', 'web'],
     defaultValue: 'false',

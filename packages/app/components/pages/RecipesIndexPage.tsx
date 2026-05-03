@@ -7,6 +7,7 @@ import { readFavorites } from '@pantry-host/shared/favorites';
 import { Heart } from '@phosphor-icons/react';
 import { isOwner } from '@/lib/isTrustedNetwork';
 import { useKitchen } from '@/lib/kitchen-context';
+import IngredientTypeahead from '@pantry-host/shared/components/IngredientTypeahead';
 import { isBrowser, isServer } from '@pantry-host/shared/env';
 
 interface Recipe {
@@ -141,10 +142,6 @@ export default function RecipesIndexPage() {
     <>
       <Head><title>Recipes — Pantry Host</title></Head>
 
-      <datalist id="recipe-titles">
-        {recipes.map((r) => <option key={r.id} value={r.title} />)}
-      </datalist>
-
       <main id="stage" className="group/stage max-sm:min-h-screen px-4 py-10 md:px-8 max-w-5xl mx-auto">
         <a href={`${base}/feeds/bluesky#stage`} className="mb-8 flex items-center gap-4 card p-4 rounded-xl hover:border-accent transition-colors">
           <svg fill="currentColor" viewBox="0 0 600 530" width={32} height={28} aria-hidden="true" className="shrink-0 opacity-60" xmlns="http://www.w3.org/2000/svg">
@@ -183,7 +180,16 @@ export default function RecipesIndexPage() {
 
         <div className="mb-4">
           <label htmlFor="recipe-search" className="field-label">Search</label>
-          <input id="recipe-search" type="search" list="recipe-titles" placeholder={placeholder} value={search} onChange={(e) => setSearch(e.target.value)} className="field-input w-full md:max-w-sm" />
+          <div className="md:max-w-sm">
+            <IngredientTypeahead
+              id="recipe-search"
+              mode="single"
+              value={search}
+              onChange={setSearch}
+              placeholder={placeholder}
+              suggestions={recipes.map((r) => r.title)}
+            />
+          </div>
         </div>
 
         {/* Skip link — visible only on keyboard focus */}

@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { AppProps } from 'next/app';
 import Nav from '@/components/Nav';
+import { PreferBrowserChromeProvider } from '@pantry-host/shared/components/prefer-browser-chrome';
 import OfflineBanner from '@/components/OfflineBanner';
 import { KitchenProvider } from '@/lib/kitchen-context';
 import Footer from '@pantry-host/shared/components/Footer';
@@ -10,6 +11,20 @@ import { initTheme } from '@pantry-host/shared/theme';
 import '../styles/globals.css';
 
 export default function App({ Component, pageProps }: AppProps) {
+  // PREFER_BROWSER_CHROME — fetched on mount from /api/settings-read.
+  // The shared SettingsPage uses formAction='/api/settings-write' which
+  // triggers a full page reload on save, so this state is always fresh
+  // after a settings change without explicit listener wiring.
+  const [preferBrowserChrome, setPreferBrowserChrome] = useState(false);
+  useEffect(() => {
+    fetch('/api/settings-read')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { values?: Record<string, string | null> } | null) => {
+        if (d?.values?.PREFER_BROWSER_CHROME === 'true') setPreferBrowserChrome(true);
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     // Normalize scheme-prefixed URL variants (at:, http:, https:) to their
     // scheme-named route so route matching works. Some edges/hosts rewrite
@@ -94,11 +109,13 @@ export default function App({ Component, pageProps }: AppProps) {
   }, []);
 
   return (
-    <KitchenProvider>
-      <Nav />
-      <OfflineBanner />
-      <Component {...pageProps} />
-      <Footer />
-    </KitchenProvider>
+    <PreferBrowserChromeProvider value={preferBrowserChrome}>
+      <KitchenProvider>
+        <Nav />
+        <OfflineBanner />
+        <Component {...pageProps} />
+        <Footer />
+      </KitchenProvider>
+    </PreferBrowserChromeProvider>
   );
 }

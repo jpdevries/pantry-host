@@ -11,6 +11,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { TextAlignLeft, Table, X, CaretDown, CaretUp } from '@phosphor-icons/react';
 import { UNIT_GROUPS, ALL_UNITS, COMMON_INGREDIENTS } from '../constants';
+import IngredientTypeahead from './IngredientTypeahead';
 
 /** Units from the "Count" group — the only ones where per-item-size makes sense.
  * "2 16oz pepper steaks" is meaningful; "2 cups × 16oz" is not. */
@@ -258,9 +259,6 @@ export default function IngredientEditor({ rows, onChange, error, onClearError, 
 
       {mode === 'matrix' && (
         <div>
-          <datalist id="form-ingredients">
-            {COMMON_INGREDIENTS.map((c) => <option key={c} value={c} />)}
-          </datalist>
           <ul className="space-y-2">
             {rows.map((row, idx) => {
               const isSizeExpanded = expandedSize.has(idx);
@@ -286,15 +284,16 @@ export default function IngredientEditor({ rows, onChange, error, onClearError, 
                           {recipes.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
                         </select>
                       ) : (
-                        <input
-                          type="text"
-                          list="form-ingredients"
-                          value={row.ingredientName}
-                          onChange={(e) => updateRow(idx, { ingredientName: e.target.value })}
-                          placeholder="Ingredient"
-                          aria-label={`Ingredient ${idx + 1} name`}
-                          className="field-input flex-1"
-                        />
+                        <div className="flex-1 min-w-0">
+                          <IngredientTypeahead
+                            id={`ing-name-${idx}`}
+                            mode="single"
+                            value={row.ingredientName}
+                            onChange={(v) => updateRow(idx, { ingredientName: v })}
+                            placeholder="Ingredient"
+                            suggestions={[...COMMON_INGREDIENTS, ...recipes.map((r) => r.title)]}
+                          />
+                        </div>
                       )}
                       <input
                         type="number"
@@ -320,19 +319,15 @@ export default function IngredientEditor({ rows, onChange, error, onClearError, 
                           ))}
                         </select>
                       ) : (
-                        <>
-                          <input
-                            type="text"
-                            list={`unit-suggestions-${idx}`}
+                        <div className="ing-unit">
+                          <IngredientTypeahead
+                            id={`ing-unit-${idx}`}
+                            mode="single"
                             value={row.unit}
-                            onChange={(e) => updateRow(idx, { unit: e.target.value })}
-                            aria-label={`Ingredient ${idx + 1} unit`}
-                            className="field-input ing-unit"
+                            onChange={(v) => updateRow(idx, { unit: v })}
+                            suggestions={ALL_UNITS}
                           />
-                          <datalist id={`unit-suggestions-${idx}`}>
-                            {ALL_UNITS.map((u) => <option key={u} value={u} />)}
-                          </datalist>
-                        </>
+                        </div>
                       )}
                     </div>
                     {/* Per-item size disclosure — only for Count-unit rows

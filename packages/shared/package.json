@@ -18,6 +18,8 @@
     "./components/Modal": "./src/components/Modal.tsx",
     "./components/IngredientEditor": "./src/components/IngredientEditor.tsx",
     "./components/IngredientForm": "./src/components/IngredientForm.tsx",
+    "./components/IngredientTypeahead": "./src/components/IngredientTypeahead.tsx",
+    "./components/prefer-browser-chrome": "./src/components/prefer-browser-chrome.tsx",
     "./components/FeaturedTags": "./src/components/FeaturedTags.tsx",
     "./components/NutritionFacts": "./src/components/NutritionFacts.tsx",
     "./components/SettingsPage": "./src/components/SettingsPage.tsx",

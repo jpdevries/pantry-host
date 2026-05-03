@@ -44,6 +44,7 @@ const CAT_ICONS: Record<string, ReactNode> = {
   'other': <Package size={16} aria-hidden />,
 };
 import IngredientForm, { type IngredientFormVariables, type IngredientData } from '@pantry-host/shared/components/IngredientForm';
+import IngredientTypeahead from '@pantry-host/shared/components/IngredientTypeahead';
 import BatchScanSession from '../components/BatchScanSession';
 
 const QUERY = `
@@ -192,18 +193,14 @@ export default function IngredientsPage() {
       {ingredients.length > 0 && (
         <div className="mb-8">
           <label htmlFor="pantry-filter" className="field-label">Filter Ingredients</label>
-          <input
+          <IngredientTypeahead
             id="pantry-filter"
-            type="text"
-            list="pantry-filter-suggestions"
+            mode="single"
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={setFilter}
             placeholder="garlic"
-            className="field-input w-full"
+            suggestions={filterSuggestions}
           />
-          <datalist id="pantry-filter-suggestions">
-            {filterSuggestions.map((s) => <option key={s} value={s} />)}
-          </datalist>
           <label className="flex items-center gap-2 mt-3 text-sm cursor-pointer">
             <input
               type="checkbox"

@@ -19,6 +19,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { COMMON_INGREDIENTS } from '../constants';
+import { usePreferBrowserChrome } from './prefer-browser-chrome';
 
 type Mode = 'segmented' | 'single';
 
@@ -99,7 +100,13 @@ const listboxStyle: React.CSSProperties = {
   background: 'var(--color-bg-card)',
   border: '1px solid var(--color-border-card)',
   borderRadius: '0.5rem',
-  boxShadow: '0 10px 15px -3px rgba(0,0,0,0.35), 0 4px 6px -4px rgba(0,0,0,0.3)',
+  // Black is the right shadow color in dark mode (where the dropdown sits on a
+  // mostly-dark canvas) but reads as a heavy slab in light mode. light-dark()
+  // matches the rest of the theme tokens (--color-season-*, --color-diet-*) —
+  // the body's color-scheme is set by the shared theme module on every render.
+  boxShadow:
+    '0 10px 15px -3px light-dark(rgba(0,0,0,0.10), rgba(0,0,0,0.35)),' +
+    ' 0 4px 6px -4px light-dark(rgba(0,0,0,0.06), rgba(0,0,0,0.30))',
   padding: '0.25rem 0',
 };
 
@@ -139,6 +146,7 @@ export default function IngredientTypeahead({
   'aria-describedby': ariaDescribedBy,
   'aria-required': ariaRequired,
 }: Props) {
+  const preferNative = usePreferBrowserChrome();
   const listboxId = useId();
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
@@ -229,6 +237,27 @@ export default function IngredientTypeahead({
   const showList = open && navList.length > 0;
   const activeOptionId = showList && activeIdx >= 0 ? `${listboxId}-opt-${activeIdx}` : undefined;
 
+  // Native fallback for the PREFER_BROWSER_CHROME setting. Branched after
+  // all hooks have run so toggling the setting at runtime doesn't break
+  // the Rules of Hooks.
+  if (preferNative) {
+    return (
+      <NativeFallback
+        id={id}
+        value={value}
+        onChange={onChange}
+        mode={mode}
+        required={required}
+        autoFocus={autoFocus}
+        placeholder={placeholder}
+        suggestions={suggestions}
+        groups={groups}
+        ariaDescribedBy={ariaDescribedBy}
+        ariaRequired={ariaRequired}
+      />
+    );
+  }
+
   function renderOption(item: string, flatIdx: number) {
     const active = flatIdx === activeIdx;
     return (
@@ -299,5 +328,89 @@ export default function IngredientTypeahead({
         </ul>
       )}
     </div>
+  );
+}
+
+// ── Native fallback ──────────────────────────────────────────────────────
+// When PREFER_BROWSER_CHROME is on, render the same shape this component
+// replaced — a plain <input list> + <datalist> for segmented mode, or a
+// <select> with <optgroup>s for single mode. UX-identical to pre-PR
+// behavior; lets mobile users get the native iOS / Android picker.
+
+interface NativeFallbackProps {
+  id: string;
+  value: string;
+  onChange: (next: string) => void;
+  mode: Mode;
+  required?: boolean;
+  autoFocus?: boolean;
+  placeholder?: string;
+  suggestions: readonly string[];
+  groups?: readonly Group[];
+  ariaDescribedBy?: string;
+  ariaRequired?: boolean | 'true' | 'false';
+}
+
+function NativeFallback({
+  id,
+  value,
+  onChange,
+  mode,
+  required,
+  autoFocus,
+  placeholder,
+  suggestions,
+  groups,
+  ariaDescribedBy,
+  ariaRequired,
+}: NativeFallbackProps) {
+  const datalistId = useId();
+  if (mode === 'single') {
+    return (
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        autoFocus={autoFocus}
+        className="field-select w-full"
+        aria-describedby={ariaDescribedBy}
+        aria-required={ariaRequired}
+      >
+        <option value="">{placeholder ?? '— select —'}</option>
+        {groups && groups.length > 0
+          ? groups.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.items.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </optgroup>
+            ))
+          : suggestions.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+      </select>
+    );
+  }
+  return (
+    <>
+      <input
+        id={id}
+        type="text"
+        list={datalistId}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        autoFocus={autoFocus}
+        placeholder={placeholder}
+        autoComplete="off"
+        className="field-input w-full"
+        aria-describedby={ariaDescribedBy}
+        aria-required={ariaRequired}
+      />
+      <datalist id={datalistId}>
+        {suggestions.map((s) => <option key={s} value={s} />)}
+      </datalist>
+    </>
   );
 }

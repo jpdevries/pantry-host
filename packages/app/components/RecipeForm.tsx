@@ -5,6 +5,7 @@ import { UNIT_GROUPS, COMMON_INGREDIENTS } from '@pantry-host/shared/constants';
 /** Units from the "Count" group — where per-item-size makes sense. */
 const COUNT_UNITS: readonly string[] = UNIT_GROUPS.find((g) => g.label === 'Count')?.units ?? [];
 import IngredientEditor, { resolveIngredients, type IngredientRow } from '@pantry-host/shared/components/IngredientEditor';
+import IngredientTypeahead from '@pantry-host/shared/components/IngredientTypeahead';
 import { extractCooklang, hasCooklangSyntax, updateCooklangIngredient, parseCooklangMetadata } from '@pantry-host/shared/cooklang-parser';
 import { gql } from '@/lib/gql';
 import { apiUrl } from '@/lib/apiUrl';
@@ -475,10 +476,11 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
 
   return (
     <form onSubmit={handleSubmit} aria-label={editing ? 'Edit recipe' : 'Add recipe'} noValidate>
-      <datalist id="form-ingredients">
-        {COMMON_INGREDIENTS.map((i) => <option key={i} value={i} />)}
-        {existingRecipes.map((r) => <option key={r.id} value={r.title} />)}
-      </datalist>
+      {/* IngredientEditor (matrix mode) renders its own per-row IngredientTypeahead
+          for ingredient names — the legacy `<datalist id="form-ingredients">` that
+          combined COMMON_INGREDIENTS + existingRecipes lived here for that input,
+          but is no longer needed once the editor renders typeaheads with their own
+          suggestion props. */}
 
       {/* URL Import */}
       {!editing && (
@@ -760,21 +762,13 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
       {/* Tags */}
       <div className="mb-5">
         <label htmlFor="recipe-tags" className="field-label">Tags</label>
-        {allTags.length > 0 && (
-          <datalist id="form-tags">
-            {allTags
-              .filter((t) => !tagInput.split(',').map((s) => s.trim().toLowerCase()).includes(t.toLowerCase()))
-              .map((t) => <option key={t} value={t} />)}
-          </datalist>
-        )}
-        <input
+        <IngredientTypeahead
           id="recipe-tags"
-          type="text"
-          list={allTags.length > 0 ? 'form-tags' : undefined}
+          mode="segmented"
           value={tagInput}
-          onChange={(e) => { dirtyFields.current.add('tags'); setTagInput(e.target.value); }}
+          onChange={(v) => { dirtyFields.current.add('tags'); setTagInput(v); }}
           placeholder="e.g. quick, kid-friendly, vegetarian"
-          className="field-input w-full"
+          suggestions={allTags}
         />
         <p className="text-xs text-[var(--color-text-secondary)] mt-1">Comma-separated. Type to see suggestions.</p>
         <label className="flex items-center gap-2 mt-2 cursor-pointer">
@@ -829,19 +823,13 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
         <label htmlFor="recipe-cookware" className="field-label">
           Required Cookware <span className="font-normal text-[var(--color-text-secondary)]">(comma-separated)</span>
         </label>
-        {cookwareItems.length > 0 && (
-          <datalist id="form-cookware">
-            {cookwareItems.map((c) => <option key={c.id} value={c.name} />)}
-          </datalist>
-        )}
-        <input
+        <IngredientTypeahead
           id="recipe-cookware"
-          type="text"
-          list={cookwareItems.length > 0 ? 'form-cookware' : undefined}
+          mode="segmented"
           value={cookwareInput}
-          onChange={(e) => setCookwareInput(e.target.value)}
+          onChange={setCookwareInput}
           placeholder="e.g. Instant Pot, Cast Iron Skillet"
-          className="field-input w-full"
+          suggestions={cookwareItems.map((c) => c.name)}
         />
       </div>
 

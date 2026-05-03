@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import IngredientForm from '@/components/IngredientForm';
 import BatchScanSession from '@/components/BatchScanSession';
+import IngredientTypeahead from '@pantry-host/shared/components/IngredientTypeahead';
 import { gql } from '@/lib/gql';
 import { useKitchen } from '@/lib/kitchen-context';
 import {
@@ -256,18 +257,14 @@ export default function IngredientsPage() {
         {ingredients.length > 0 && (
           <div className="mb-8">
             <label htmlFor="pantry-filter" className="field-label">Filter Ingredients</label>
-            <input
+            <IngredientTypeahead
               id="pantry-filter"
-              type="text"
-              list="pantry-filter-suggestions"
+              mode="single"
               value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              onChange={setFilter}
               placeholder="garlic"
-              className="field-input w-full"
+              suggestions={filterSuggestions}
             />
-            <datalist id="pantry-filter-suggestions">
-              {filterSuggestions.map((s) => <option key={s} value={s} />)}
-            </datalist>
             <label className="flex items-center gap-2 mt-3 text-sm cursor-pointer">
               <input
                 type="checkbox"

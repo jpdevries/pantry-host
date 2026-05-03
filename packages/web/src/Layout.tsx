@@ -2,6 +2,7 @@ import { Outlet, NavLink, useLocation, useParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import Footer from '@pantry-host/shared/components/Footer';
 import { getDailyQuote } from '@pantry-host/shared/dailyQuote';
+import { PreferBrowserChromeProvider } from '@pantry-host/shared/components/prefer-browser-chrome';
 
 function PantryHostLogo({ size = 24 }: { size?: number }) {
   return (
@@ -40,6 +41,23 @@ export default function Layout() {
   const [quote, setQuote] = useState<{ text: string; author: string } | null>(null);
 
   useEffect(() => { setQuote(getDailyQuote()); }, []);
+
+  // PREFER_BROWSER_CHROME — read sync from localStorage on each Layout
+  // mount, then listen for `storage` events. Web's SettingsAdapter
+  // dispatches a synthetic StorageEvent on save (see SettingsPage.tsx),
+  // so same-tab + cross-tab toggles both propagate without a reload.
+  const [preferBrowserChrome, setPreferBrowserChrome] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('prefer-browser-chrome') === 'true';
+  });
+  useEffect(() => {
+    function sync(e: StorageEvent) {
+      if (e.key !== null && e.key !== 'prefer-browser-chrome') return;
+      setPreferBrowserChrome(localStorage.getItem('prefer-browser-chrome') === 'true');
+    }
+    window.addEventListener('storage', sync);
+    return () => window.removeEventListener('storage', sync);
+  }, []);
 
   // Update page title on route change
   useEffect(() => {
@@ -89,6 +107,7 @@ export default function Layout() {
   const isHome = location.pathname === '/' || location.pathname === `/kitchens/${kitchenSlug}`;
 
   return (
+    <PreferBrowserChromeProvider value={preferBrowserChrome}>
     <div className="min-h-screen bg-[var(--color-bg-body)] text-[var(--color-text-primary)] transition-colors">
       <header
         className="relative flex flex-col min-h-[100svh] sm:min-h-0 px-6 py-8"
@@ -194,5 +213,6 @@ export default function Layout() {
       </main>
       <Footer />
     </div>
+    </PreferBrowserChromeProvider>
   );
 }

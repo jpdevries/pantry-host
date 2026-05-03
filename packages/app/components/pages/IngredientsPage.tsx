@@ -62,11 +62,12 @@ interface Ingredient {
   tags: string[];
   barcode: string | null;
   productMeta: string | null;
+  createdAt: string;
 }
 
 const INGREDIENTS_QUERY = `
   query Ingredients($kitchenSlug: String) {
-    ingredients(kitchenSlug: $kitchenSlug) { id name aliases category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta }
+    ingredients(kitchenSlug: $kitchenSlug) { id name aliases category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta createdAt }
   }
 `;
 
@@ -137,6 +138,18 @@ export default function IngredientsPage() {
   const allTags = [...new Set(ingredients.flatMap((i) => i.tags))].sort();
 
   const [filter, setFilter] = useState('');
+  const [recentlyAdded, setRecentlyAdded] = useState(false);
+
+  // Local midnight three calendar days back: today + the two prior full days.
+  // Computed once per mount — a stale cutoff across a midnight boundary is
+  // harmless (just keeps a day's worth of items visible briefly past their
+  // age-out point).
+  const recentCutoff = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - 2);
+    return d.getTime();
+  }, []);
 
   const filterSuggestions = useMemo(() => {
     const names = ingredients.map((i) => i.name);
@@ -145,9 +158,16 @@ export default function IngredientsPage() {
   }, [ingredients, allTags]);
 
   const filtered = useMemo(() => {
-    if (!filter.trim()) return ingredients;
+    let list = ingredients;
+    if (recentlyAdded) {
+      list = list.filter((i) => {
+        const t = i.createdAt ? new Date(i.createdAt).getTime() : 0;
+        return Number.isFinite(t) && t >= recentCutoff;
+      });
+    }
+    if (!filter.trim()) return list;
     const q = filter.toLowerCase().replace(/^#/, '');
-    return ingredients.filter((i) =>
+    return list.filter((i) =>
       i.name.toLowerCase().includes(q) ||
       i.category?.toLowerCase().includes(q) ||
       i.tags.some((t) => t.toLowerCase().includes(q)) ||
@@ -156,7 +176,7 @@ export default function IngredientsPage() {
       // is irrelevant; the raw stored value is what the user scanned.
       i.barcode?.includes(q)
     );
-  }, [ingredients, filter]);
+  }, [ingredients, filter, recentlyAdded, recentCutoff]);
 
   const grouped = groupBy(filtered, (i) => i.category ?? 'other');
 
@@ -248,6 +268,18 @@ export default function IngredientsPage() {
             <datalist id="pantry-filter-suggestions">
               {filterSuggestions.map((s) => <option key={s} value={s} />)}
             </datalist>
+            <label className="flex items-center gap-2 mt-3 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={recentlyAdded}
+                onChange={(e) => setRecentlyAdded(e.target.checked)}
+                className="w-4 h-4 accent-accent"
+              />
+              <span>
+                Recently added{' '}
+                <span className="text-[var(--color-text-secondary)]">(last 3 days)</span>
+              </span>
+            </label>
           </div>
         )}
 

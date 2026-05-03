@@ -33,6 +33,10 @@ export interface IngredientData {
   /** Opt-in barcode metadata (STORE_BARCODE_META setting). */
   barcode?: string | null;
   productMeta?: string | null;
+  /** ISO 8601 timestamp; populated by the GraphQL `Ingredient.createdAt`
+   *  resolver. Optional because form-only callers (which feed this type
+   *  to <IngredientForm>) don't query the field. */
+  createdAt?: string | null;
 }
 
 export interface IngredientFormVariables {

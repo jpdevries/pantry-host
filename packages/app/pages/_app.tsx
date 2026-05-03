@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { AppProps } from 'next/app';
 import Nav from '@/components/Nav';
-import { PreferBrowserChromeProvider } from '@pantry-host/shared/components/prefer-browser-chrome';
+import { PreferBrowserChromeProvider, rawToUserPref, type PreferBrowserChromeUserPref } from '@pantry-host/shared/components/prefer-browser-chrome';
 import OfflineBanner from '@/components/OfflineBanner';
 import { KitchenProvider } from '@/lib/kitchen-context';
 import Footer from '@pantry-host/shared/components/Footer';
@@ -12,15 +12,17 @@ import '../styles/globals.css';
 
 export default function App({ Component, pageProps }: AppProps) {
   // PREFER_BROWSER_CHROME — fetched on mount from /api/settings-read.
-  // The shared SettingsPage uses formAction='/api/settings-write' which
-  // triggers a full page reload on save, so this state is always fresh
-  // after a settings change without explicit listener wiring.
-  const [preferBrowserChrome, setPreferBrowserChrome] = useState(false);
+  // Tri-state: 'on' (explicit), 'off' (explicit), or undefined (no pref →
+  // Provider falls back to touch-first auto-detect). The shared SettingsPage
+  // uses formAction='/api/settings-write' which triggers a full page reload
+  // on save, so this state is always fresh after a settings change without
+  // explicit listener wiring.
+  const [preferBrowserChrome, setPreferBrowserChrome] = useState<PreferBrowserChromeUserPref>(undefined);
   useEffect(() => {
     fetch('/api/settings-read')
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { values?: Record<string, string | null> } | null) => {
-        if (d?.values?.PREFER_BROWSER_CHROME === 'true') setPreferBrowserChrome(true);
+        setPreferBrowserChrome(rawToUserPref(d?.values?.PREFER_BROWSER_CHROME));
       })
       .catch(() => {});
   }, []);
@@ -109,7 +111,7 @@ export default function App({ Component, pageProps }: AppProps) {
   }, []);
 
   return (
-    <PreferBrowserChromeProvider userPref={preferBrowserChrome}>
+    <PreferBrowserChromeProvider userPref={preferBrowserChrome}>{/* tri-state: 'on' | 'off' | undefined */}
       <KitchenProvider>
         <Nav />
         <OfflineBanner />

@@ -14,6 +14,7 @@ import {
   type SettingDef,
   type SettingGroup,
 } from '../settings-schema';
+import { usePreferBrowserChrome } from './prefer-browser-chrome';
 
 /**
  * Collapse a flat schema list into render segments. Consecutive entries
@@ -414,33 +415,18 @@ function SettingField({
   const descId = `${id}-desc`;
 
   if (def.kind === 'boolean') {
-    const stored = field?.value;
-    const effective = stored ?? def.defaultValue ?? 'true';
-    const checked = effective !== 'false';
     return (
-      <div className="card p-5">
-        <label htmlFor={id} className="flex items-start gap-3 cursor-pointer">
-          <input
-            id={id}
-            name={def.key}
-            type="checkbox"
-            checked={checked}
-            value="true"
-            onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
-            className="mt-1 w-4 h-4 shrink-0 accent-accent"
-            aria-describedby={descId}
-          />
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm">{def.label}</p>
-            <p id={descId} className="text-xs text-[var(--color-text-secondary)] mt-1 legible pretty">
-              {def.description}
-            </p>
-          </div>
-        </label>
-      </div>
+      <BooleanField
+        def={def}
+        field={field}
+        id={id}
+        descId={descId}
+        onChange={onChange}
+      />
     );
   }
 
+  // (Boolean fields handled above via <BooleanField>; non-boolean fields below.)
   return (
     <div className="card p-5">
       <label htmlFor={id} className="block text-sm font-semibold mb-1">
@@ -495,6 +481,56 @@ function SettingField({
         </p>
       )}
       {children}
+    </div>
+  );
+}
+
+/**
+ * Boolean checkbox field. Special-cases PREFER_BROWSER_CHROME so the
+ * displayed checked-state reflects the EFFECTIVE preference (which may
+ * include the touch-first auto-flip), not just the raw stored value.
+ * Toggling stores 'true' / 'false' explicitly; an explicit 'false' on a
+ * touch device overrides the auto-flip.
+ */
+function BooleanField({
+  def,
+  field,
+  id,
+  descId,
+  onChange,
+}: {
+  def: SettingDef;
+  field: FieldState | undefined;
+  id: string;
+  descId: string;
+  onChange: (value: string) => void;
+}) {
+  const effectivePref = usePreferBrowserChrome();
+  const stored = field?.value;
+  const checked =
+    def.key === 'PREFER_BROWSER_CHROME'
+      ? effectivePref
+      : (stored ?? def.defaultValue ?? 'true') !== 'false';
+  return (
+    <div className="card p-5">
+      <label htmlFor={id} className="flex items-start gap-3 cursor-pointer">
+        <input
+          id={id}
+          name={def.key}
+          type="checkbox"
+          checked={checked}
+          value="true"
+          onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
+          className="mt-1 w-4 h-4 shrink-0 accent-accent"
+          aria-describedby={descId}
+        />
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm">{def.label}</p>
+          <p id={descId} className="text-xs text-[var(--color-text-secondary)] mt-1 legible pretty">
+            {def.description}
+          </p>
+        </div>
+      </label>
     </div>
   );
 }

@@ -188,6 +188,8 @@ export default function RecipesIndexPage() {
               onChange={setSearch}
               placeholder={placeholder}
               suggestions={recipes.map((r) => r.title)}
+              inputMode="search"
+              enterKeyHint="search"
             />
           </div>
         </div>

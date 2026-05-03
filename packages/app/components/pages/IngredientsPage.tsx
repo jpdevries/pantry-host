@@ -264,6 +264,8 @@ export default function IngredientsPage() {
               onChange={setFilter}
               placeholder="garlic"
               suggestions={filterSuggestions}
+              inputMode="search"
+              enterKeyHint="search"
             />
             <label className="flex items-center gap-2 mt-3 text-sm cursor-pointer">
               <input

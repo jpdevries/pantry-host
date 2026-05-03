@@ -107,7 +107,7 @@ export default function Layout() {
   const isHome = location.pathname === '/' || location.pathname === `/kitchens/${kitchenSlug}`;
 
   return (
-    <PreferBrowserChromeProvider value={preferBrowserChrome}>
+    <PreferBrowserChromeProvider userPref={preferBrowserChrome}>
     <div className="min-h-screen bg-[var(--color-bg-body)] text-[var(--color-text-primary)] transition-colors">
       <header
         className="relative flex flex-col min-h-[100svh] sm:min-h-0 px-6 py-8"

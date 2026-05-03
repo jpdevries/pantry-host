@@ -109,7 +109,7 @@ export default function App({ Component, pageProps }: AppProps) {
   }, []);
 
   return (
-    <PreferBrowserChromeProvider value={preferBrowserChrome}>
+    <PreferBrowserChromeProvider userPref={preferBrowserChrome}>
       <KitchenProvider>
         <Nav />
         <OfflineBanner />

@@ -43,6 +43,24 @@ interface Props {
   maxResults?: number;
   'aria-describedby'?: string;
   'aria-required'?: boolean | 'true' | 'false';
+  // ── iOS keyboard hints ────────────────────────────────────────────────
+  // Pass-throughs that materially change the iOS soft keyboard. None of
+  // these affect the custom dropdown UI; they only style the keyboard.
+  /** `'search'` shows a search-flavored iOS keyboard with a "Go"/"Search"
+   *  return key; useful on filter inputs. Default unset (`'text'`). */
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+  /** Labels the iOS return key. `'search'` for filter inputs, `'done'` for
+   *  add-form fields, etc. Default unset (browser default "return"). */
+  enterKeyHint?: React.HTMLAttributes<HTMLInputElement>['enterKeyHint'];
+  /** Defaults to `'off'` in segmented mode (tag-list inputs are typically
+   *  lowercase and shouldn't get sentence-cap'd by iOS); pass-through with
+   *  no default in single mode. */
+  autoCapitalize?: 'off' | 'none' | 'on' | 'sentences' | 'words' | 'characters';
+  /** iOS auto-correct routinely mangles ingredient / tag names. Defaults
+   *  to `'off'` in segmented mode; pass-through with no default in single. */
+  autoCorrect?: 'on' | 'off';
+  /** Same rationale as autoCorrect — defaults to `false` in segmented mode. */
+  spellCheck?: boolean;
 }
 
 const DEFAULT_MAX_RESULTS = 8;
@@ -151,8 +169,21 @@ export default function IngredientTypeahead({
   maxResults = DEFAULT_MAX_RESULTS,
   'aria-describedby': ariaDescribedBy,
   'aria-required': ariaRequired,
+  inputMode,
+  enterKeyHint,
+  autoCapitalize,
+  autoCorrect,
+  spellCheck,
 }: Props) {
   const preferNative = usePreferBrowserChrome();
+  // Mode-based iOS keyboard defaults — segmented (tag-list) inputs almost
+  // always benefit from no auto-cap / auto-correct. Single mode keeps
+  // browser defaults so name-style fields (e.g. recipe titles) still get
+  // sensible capitalization.
+  const isSegmented = mode === 'segmented';
+  const resolvedAutoCapitalize = autoCapitalize ?? (isSegmented ? 'off' : undefined);
+  const resolvedAutoCorrect = autoCorrect ?? (isSegmented ? 'off' : undefined);
+  const resolvedSpellCheck = spellCheck ?? (isSegmented ? false : undefined);
   const listboxId = useId();
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
@@ -282,6 +313,11 @@ export default function IngredientTypeahead({
         groups={groups}
         ariaDescribedBy={ariaDescribedBy}
         ariaRequired={ariaRequired}
+        inputMode={inputMode}
+        enterKeyHint={enterKeyHint}
+        autoCapitalize={resolvedAutoCapitalize}
+        autoCorrect={resolvedAutoCorrect}
+        spellCheck={resolvedSpellCheck}
       />
     );
   }
@@ -315,6 +351,11 @@ export default function IngredientTypeahead({
         autoFocus={autoFocus}
         placeholder={placeholder}
         autoComplete="off"
+        inputMode={inputMode}
+        enterKeyHint={enterKeyHint}
+        autoCapitalize={resolvedAutoCapitalize}
+        autoCorrect={resolvedAutoCorrect}
+        spellCheck={resolvedSpellCheck}
         className="field-input w-full"
         aria-autocomplete="list"
         aria-expanded={showList}
@@ -377,6 +418,11 @@ interface NativeFallbackProps {
   groups?: readonly Group[];
   ariaDescribedBy?: string;
   ariaRequired?: boolean | 'true' | 'false';
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+  enterKeyHint?: React.HTMLAttributes<HTMLInputElement>['enterKeyHint'];
+  autoCapitalize?: 'off' | 'none' | 'on' | 'sentences' | 'words' | 'characters';
+  autoCorrect?: 'on' | 'off';
+  spellCheck?: boolean;
 }
 
 function NativeFallback({
@@ -391,6 +437,11 @@ function NativeFallback({
   groups,
   ariaDescribedBy,
   ariaRequired,
+  inputMode,
+  enterKeyHint,
+  autoCapitalize,
+  autoCorrect,
+  spellCheck,
 }: NativeFallbackProps) {
   const datalistId = useId();
   if (mode === 'single') {
@@ -432,6 +483,11 @@ function NativeFallback({
         autoFocus={autoFocus}
         placeholder={placeholder}
         autoComplete="off"
+        inputMode={inputMode}
+        enterKeyHint={enterKeyHint}
+        autoCapitalize={autoCapitalize}
+        autoCorrect={autoCorrect}
+        spellCheck={spellCheck}
         className="field-input w-full"
         aria-describedby={ariaDescribedBy}
         aria-required={ariaRequired}

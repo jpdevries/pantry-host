@@ -21,6 +21,8 @@ const PALETTE_OPTIONS: { value: ThemePalette; label: string }[] = [
   { value: 'default', label: 'Default' },
   { value: 'rose', label: 'Rosé' },
 { value: 'rebecca', label: 'Rebecca Purple' },
+  { value: 'lilac', label: 'Lilac' },
+  { value: 'morning-butter', label: 'Morning Butter' },
   { value: 'claude', label: 'Claude' },
   { value: 'claude-v1', label: 'Claude v1' },
   { value: 'avocado', label: 'Avocado' },

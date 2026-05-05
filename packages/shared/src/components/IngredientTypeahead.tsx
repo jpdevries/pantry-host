@@ -107,14 +107,18 @@ function highlight(label: string, query: string): ReactNode {
   if (!q) return label;
   const idx = label.toLowerCase().indexOf(q.toLowerCase());
   if (idx < 0) return label;
+  // Wrapping in a single <span> keeps the row's flex container from
+  // turning each text run into an anonymous flex item — those strip
+  // their edge whitespace, eating the space between e.g. "Jacobsen"
+  // and a mid-string match like "Rose" in "Jacobsen Rosemary Salt".
   return (
-    <>
+    <span>
       {label.slice(0, idx)}
       <mark style={{ background: 'transparent', fontWeight: 600, color: 'var(--color-text-primary)' }}>
         {label.slice(idx, idx + q.length)}
       </mark>
       {label.slice(idx + q.length)}
-    </>
+    </span>
   );
 }
 

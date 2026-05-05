@@ -1,6 +1,6 @@
 {
   "name": "@pantry-host/shared",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": true,
   "license": "MIT",
   "main": "src/index.ts",
@@ -13,6 +13,7 @@
     "./cache": "./src/cache.ts",
     "./favorites": "./src/favorites.ts",
     "./dailyQuote": "./src/dailyQuote.ts",
+    "./pickDaily": "./src/pickDaily.ts",
     "./components/Footer": "./src/components/Footer.tsx",
     "./components/AccessibilityPreferences": "./src/components/AccessibilityPreferences.tsx",
     "./components/Modal": "./src/components/Modal.tsx",

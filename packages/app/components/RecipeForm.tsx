@@ -6,6 +6,7 @@ import { UNIT_GROUPS, COMMON_INGREDIENTS } from '@pantry-host/shared/constants';
 const COUNT_UNITS: readonly string[] = UNIT_GROUPS.find((g) => g.label === 'Count')?.units ?? [];
 import IngredientEditor, { resolveIngredients, type IngredientRow } from '@pantry-host/shared/components/IngredientEditor';
 import IngredientTypeahead from '@pantry-host/shared/components/IngredientTypeahead';
+import { pickDaily } from '@pantry-host/shared/pickDaily';
 import { extractCooklang, hasCooklangSyntax, updateCooklangIngredient, parseCooklangMetadata } from '@pantry-host/shared/cooklang-parser';
 import { gql } from '@/lib/gql';
 import { apiUrl } from '@/lib/apiUrl';
@@ -135,6 +136,8 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
   const suppressExtraction = useRef(false);
   // On edit pages, fields are pre-filled → mark dirty so metadata doesn't overwrite
   const dirtyFields = useRef(new Set<string>(editing ? ['title', 'servings', 'prepTime', 'cookTime', 'tags'] : []));
+  // Daily-seeded pick — same value SSR + client (no hydration flash),
+  // rotates fresh per calendar day.
   const placeholderRecipe = useMemo(() => {
     const examples = [
       { title: 'Cucumber Salad', description: 'Crisp, cool, and ready in minutes' },
@@ -146,7 +149,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
       { title: 'Sweet Potato Black Bean Chili', description: 'Hearty one-pot comfort food' },
       { title: 'Coconut Curry Lentils', description: 'Warming spices with creamy coconut milk' },
     ];
-    return examples[Math.floor(Math.random() * examples.length)];
+    return pickDaily(examples) ?? examples[0];
   }, []);
 
   useEffect(() => {

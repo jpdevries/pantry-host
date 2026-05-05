@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { gql } from '@/lib/gql';
 import RecipeCard from '@/components/RecipeCard';
 import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
+import { pickDaily } from '@pantry-host/shared/pickDaily';
 import { readFavorites } from '@pantry-host/shared/favorites';
 import { Heart } from '@phosphor-icons/react';
 import { isOwner } from '@/lib/isTrustedNetwork';
@@ -83,10 +84,12 @@ export default function RecipesIndexPage() {
 
   const base = `/kitchens/${kitchen}/recipes`;
 
+  // Daily-seeded so SSR + client agree (no hydration flash) and the
+  // hint still rotates day-to-day. Falls back to a static string until
+  // the recipes query resolves so the SSR'd input matches first paint.
   const placeholder = useMemo(() => {
-    if (!recipes.length) return '';
-    const r = recipes[Math.floor(Math.random() * recipes.length)];
-    return r.title;
+    if (!recipes.length) return 'Search recipes…';
+    return pickDaily(recipes)?.title ?? 'Search recipes…';
   }, [recipes]);
 
   useEffect(() => { setOwner(isOwner()); }, []);

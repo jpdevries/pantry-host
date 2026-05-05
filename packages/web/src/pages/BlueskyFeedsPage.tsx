@@ -305,7 +305,12 @@ export default function BlueskyFeedsPage() {
               key={tag}
               type="button"
               onClick={() => toggleFilter(tag)}
-              className={`tag cursor-pointer transition-colors ${activeFilters.has(tag) ? 'bg-[var(--color-accent)] text-[var(--color-bg-body)]' : ''}`}
+              aria-pressed={activeFilters.has(tag)}
+              className="text-xs font-medium px-3 py-1.5 rounded-full border-2 transition-colors cursor-pointer"
+              style={activeFilters.has(tag)
+                ? { backgroundColor: 'var(--color-accent)', color: 'var(--color-bg-body)', borderColor: 'var(--color-accent)', fontWeight: 700 }
+                : { borderColor: 'var(--color-border-card)', color: 'var(--color-text-secondary)' }
+              }
             >
               {tag}
             </button>

@@ -11,7 +11,7 @@
 import { isServer } from './env';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
-export type ThemePalette = 'default' | 'rose' | 'rebecca' | 'claude' | 'claude-v1' | 'avocado'
+export type ThemePalette = 'default' | 'rose' | 'rebecca' | 'lilac' | 'morning-butter' | 'claude' | 'claude-v1' | 'avocado'
   | 'marrakech' | 'provencal' | 'kaiseki' | 'tuscany'
   | 'oaxacan' | 'pompeii' | 'nordic' | 'ottoman';
 

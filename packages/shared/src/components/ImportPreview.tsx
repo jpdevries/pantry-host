@@ -106,7 +106,7 @@ export default function ImportPreview({
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
       {/* ── Import CTA bar ── */}
-      <div className="card p-4 mb-6 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+      <div className="card p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-sm text-[var(--color-text-secondary)] break-words min-w-0">
             from{' '}
@@ -124,8 +124,7 @@ export default function ImportPreview({
             )}
           </span>
         </div>
-        <div className="hidden sm:block sm:flex-1" />
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:shrink-0">
           <button
             onClick={() => setQrOpen(true)}
             className="btn-secondary text-sm flex items-center justify-center gap-1.5"

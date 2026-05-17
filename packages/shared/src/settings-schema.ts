@@ -18,7 +18,8 @@ export type SettingKey =
   | 'PIXABAY_API_KEY'
   | 'PIXABAY_FALLBACK_ENABLED'
   | 'HARVEST_LOCATIONS'
-  | 'STORE_BARCODE_META';
+  | 'STORE_BARCODE_META'
+  | 'PREFER_BROWSER_CHROME';
 
 export type SettingKind = 'text' | 'secret' | 'boolean' | 'enum';
 
@@ -117,6 +118,14 @@ export const SETTINGS_SCHEMA: SettingDef[] = [
     kind: 'boolean',
     packages: ['app', 'web'],
     defaultValue: 'false',
+  },
+  {
+    key: 'PREFER_BROWSER_CHROME',
+    label: 'Prefer native form pickers',
+    description:
+      "When enabled, the IngredientForm name + category fields and other typeaheads fall back to the browser's native <datalist> autocomplete and <select> dropdown useful on mobile or if you just prefer browser chrome over a custom combobox. Initially auto-detected as on for touch-first devices.",
+    kind: 'boolean',
+    packages: ['app', 'web'],
   },
   {
     key: 'HARVEST_LOCATIONS',

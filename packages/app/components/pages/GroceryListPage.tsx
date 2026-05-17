@@ -3,9 +3,11 @@ import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
 import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
 import { enqueue } from '@/lib/offlineQueue';
+import { useKitchen } from '@/lib/kitchen-context';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem, normalizeIngredientName, type GroceryStatus, type PantryLookup } from '@pantry-host/shared/grocery-status';
 import { ShoppingCart, Basket, MapPin } from '@phosphor-icons/react';
+import { isServer } from '@pantry-host/shared/env';
 
 /** Convert a kebab-case tag to Title Case display: "farmers-market" → "Farmers Market" */
 function tagToTitle(tag: string): string {
@@ -114,23 +116,22 @@ function fmtItem(item: PerRecipeItem): string {
   return fmtQty(item.quantity, item.unit);
 }
 
-interface Props { kitchen: string; }
-
-export default function GroceryListPage({ kitchen }: Props) {
+export default function GroceryListPage() {
+  const kitchen = useKitchen();
   const [recipes, setRecipes] = useState<QueuedRecipe[]>([]);
   const [pantry, setPantry] = useState<PantryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingCommon, setAddingCommon] = useState(false);
   const [hasCommon, setHasCommon] = useState(false);
   const [commonItems, setCommonItems] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return [];
+    if (isServer) return [];
     try {
       const raw = localStorage.getItem('groceryCommonItems');
       return raw ? (JSON.parse(raw) as string[]) : [];
     } catch { return []; }
   });
   const [checked, setChecked] = useState<Set<string>>(() => {
-    if (typeof window === 'undefined') return new Set();
+    if (isServer) return new Set();
     try {
       const raw = localStorage.getItem('groceryChecked');
       return raw ? new Set<string>(JSON.parse(raw) as string[]) : new Set();
@@ -139,7 +140,7 @@ export default function GroceryListPage({ kitchen }: Props) {
 
   const [harvestLocations, setHarvestLocations] = useState<string[]>([]);
 
-  const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
+  const recipesBase = `/kitchens/${kitchen}/recipes`;
 
   const cacheKey = `cache:groceryList:${kitchen}`;
 

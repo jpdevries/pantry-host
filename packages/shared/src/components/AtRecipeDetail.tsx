@@ -210,9 +210,20 @@ export default function AtRecipeDetail({
         <h2 className="text-xl font-semibold mb-3">Ingredients</h2>
         {groupIngredients(recipe.ingredients).map((g, gi) => {
           const list = (
-            <ul className="list-disc pl-6 space-y-1.5 marker:text-[var(--color-text-secondary)]">
+            // Inline list-style + padding on the <ul> — Tailwind v4
+            // preflight zeroes `list-style`, `margin`, and `padding` on
+            // every ul, and the `list-disc` / `pl-6` utilities get
+            // reliably stripped when this shared component renders
+            // through Rex's scanner (cross-package source globs miss
+            // these classes often enough). Inline styles win the
+            // specificity fight and render identically in every
+            // consumer.
+            <ul
+              className="marker:text-[var(--color-text-secondary)]"
+              style={{ listStyleType: 'disc', paddingInlineStart: '1.5rem' }}
+            >
               {g.items.map((ing, ii) => (
-                <li key={ii} className="text-sm pl-1">
+                <li key={ii} className="text-sm pl-1" style={{ marginBlockEnd: '0.3125rem', lineHeight: '1.6' }}>
                   {ing.quantity != null && <span className="font-medium">{Math.round(ing.quantity * 100) / 100}</span>}
                   {ing.unit && <span className="text-[var(--color-text-secondary)]"> {ing.unit}</span>}
                   {' '}{ing.ingredientName}

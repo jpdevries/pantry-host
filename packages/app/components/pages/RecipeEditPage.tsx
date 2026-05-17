@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { gql } from '@/lib/gql';
+import { useKitchen } from '@/lib/kitchen-context';
 import RecipeForm from '@/components/RecipeForm';
 
 interface RecipeIngredient {
@@ -38,11 +39,12 @@ const EDIT_QUERY = `
   }
 `;
 
-interface Props { kitchen: string; recipeId: string; }
+interface Props { recipeId: string; }
 
-export default function RecipeEditPage({ kitchen, recipeId }: Props) {
+export default function RecipeEditPage({ recipeId }: Props) {
+  const kitchen = useKitchen();
   const router = useRouter();
-  const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
+  const recipesBase = `/kitchens/${kitchen}/recipes`;
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [existingRecipes, setExistingRecipes] = useState<{ id: string; slug?: string; title: string; source: string }[]>([]);
   const [cookwareItems, setCookwareItems] = useState<{ id: string; name: string; tags: string[] }[]>([]);

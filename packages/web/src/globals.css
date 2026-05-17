@@ -36,6 +36,19 @@
     --color-ring-offset: #ffffff;
     --color-danger: #dc2626;
     --color-warning: #b45309;        /* amber-700 — AA on white */
+    /* Featured-tag accent for the `vegan` diet flag. Uses
+       `light-dark()` so the same token works under any palette
+       without per-palette duplication. New convention going
+       forward; existing featured tags (gluten-free, vegetarian,
+       etc.) still use hardcoded Tailwind classes. */
+    --color-diet-vegan: light-dark(#65a30d, #a3e635);  /* lime-600 / lime-400 */
+    /* Per-season tag-chip palette. WCAG AA-verified against the
+       body bg (chip inherits body bg). Defined once via
+       `light-dark()` so it works under any palette. */
+    --color-season-spring: light-dark(#15803d, #86efac);  /* green-700 / green-300 */
+    --color-season-summer: light-dark(#854d0e, #fbbf24);  /* yellow-800 / amber-400 — golden, AAA both modes */
+    --color-season-fall:   light-dark(#92400e, #fdba74);  /* amber-800 / orange-300 */
+    --color-season-winter: light-dark(#1e40af, #93c5fd);  /* blue-800 / blue-300 */
   }
 
   /* ── Default dark (system preference — no JS needed) ── */
@@ -156,6 +169,102 @@
     --color-bg-nav: #110a1f;
     --color-ring-focus: #b794d6;
     --color-ring-offset: #110a1f;
+  }
+
+  /* ── Lilac palette (light) — cream body, deeper-lilac accent for AA.
+       The literal #C8A2C9 + #FEFBCE pair lives most clearly in dark mode
+       (cream text + lilac accent on plum); in light mode the accent is
+       darkened to clear 4.5:1 against cream. */
+  body[data-theme="lilac"] {
+    --color-bg-body: #fefbce;        /* literal cream */
+    --color-bg-card: #ffffff;
+    --color-border-card: #e5d4ea;
+    --color-text-primary: #2c1b3a;   /* deep plum, ~14:1 on cream */
+    --color-text-secondary: #5a3f70; /* ~7:1 on cream */
+    --color-accent: #7d5499;         /* deeper lilac, ~6:1 on cream */
+    --color-accent-hover: #5f3f7a;
+    --color-accent-subtle: #f0e1f4;  /* light lavender wash */
+    --color-bg-nav: #fefbce;
+    --color-ring-focus: #7d5499;
+    --color-ring-offset: #ffffff;
+  }
+  /* Lilac dark (system) — literal lilac as accent, literal cream as text. */
+  @media (prefers-color-scheme: dark) {
+    body[data-theme="lilac"]:not([data-color-scheme="light"]) {
+      --color-bg-body: #2a1b3a;
+      --color-bg-card: #372544;
+      --color-border-card: #5a3f70;
+      --color-text-primary: #fefbce;   /* literal cream, ~14:1 on plum */
+      --color-text-secondary: #e5d4ea;
+      --color-accent: #c8a2c9;         /* literal lilac, ~5.4:1 on plum */
+      --color-accent-hover: #d9bce0;
+      --color-accent-subtle: #3d2750;
+      --color-bg-nav: #2a1b3a;
+      --color-ring-focus: #c8a2c9;
+      --color-ring-offset: #2a1b3a;
+    }
+  }
+  /* Lilac dark (forced) */
+  body[data-theme="lilac"][data-color-scheme="dark"] {
+    --color-bg-body: #2a1b3a;
+    --color-bg-card: #372544;
+    --color-border-card: #5a3f70;
+    --color-text-primary: #fefbce;
+    --color-text-secondary: #e5d4ea;
+    --color-accent: #c8a2c9;
+    --color-accent-hover: #d9bce0;
+    --color-accent-subtle: #3d2750;
+    --color-bg-nav: #2a1b3a;
+    --color-ring-focus: #c8a2c9;
+    --color-ring-offset: #2a1b3a;
+  }
+
+  /* ── Morning Butter palette (light) — pale butter bg (literal #F3D98F
+       at ~35% on white = #FBF2D8, lighter for readability), deep navy
+       text, deeper blue-grey accent for AA. Like Lilac, the literal
+       pair shines brightest in dark mode. */
+  body[data-theme="morning-butter"] {
+    --color-bg-body: #fbf2d8;        /* pale butter wash */
+    --color-bg-card: #ffffff;
+    --color-border-card: #dcc57c;
+    --color-text-primary: #1a2942;   /* deep navy, ~13:1 on bg */
+    --color-text-secondary: #3f5f8e; /* ~5.8:1 on bg */
+    --color-accent: #3f5f8e;         /* deeper blue-grey, ~5.8:1 on bg */
+    --color-accent-hover: #2d466f;
+    --color-accent-subtle: #e5eef8;
+    --color-bg-nav: #fbf2d8;
+    --color-ring-focus: #3f5f8e;
+    --color-ring-offset: #ffffff;
+  }
+  /* Morning Butter dark (system) — literal butter as text, literal blue-grey as accent. */
+  @media (prefers-color-scheme: dark) {
+    body[data-theme="morning-butter"]:not([data-color-scheme="light"]) {
+      --color-bg-body: #1a2942;
+      --color-bg-card: #25344d;
+      --color-border-card: #3f5f8e;
+      --color-text-primary: #f3d98f;   /* literal butter, ~10:1 on navy */
+      --color-text-secondary: #e2d5b8;
+      --color-accent: #7298c7;         /* literal blue-grey, ~4.7:1 on navy */
+      --color-accent-hover: #95b4d8;
+      --color-accent-subtle: #25344d;
+      --color-bg-nav: #1a2942;
+      --color-ring-focus: #7298c7;
+      --color-ring-offset: #1a2942;
+    }
+  }
+  /* Morning Butter dark (forced) */
+  body[data-theme="morning-butter"][data-color-scheme="dark"] {
+    --color-bg-body: #1a2942;
+    --color-bg-card: #25344d;
+    --color-border-card: #3f5f8e;
+    --color-text-primary: #f3d98f;
+    --color-text-secondary: #e2d5b8;
+    --color-accent: #7298c7;
+    --color-accent-hover: #95b4d8;
+    --color-accent-subtle: #25344d;
+    --color-bg-nav: #1a2942;
+    --color-ring-focus: #7298c7;
+    --color-ring-offset: #1a2942;
   }
 
   /* ── Claude palette (light) — based on Claude Code 2026 UI ── */
@@ -1286,3 +1395,21 @@
     list-style: none;
   }
 }
+
+/* Header fade — see CLAUDE.md gotcha #13 (#stage convention).
+   Browsers paint the document once before snapping scroll to a URL
+   fragment, so users on a `/<route>#stage` link see the <header>
+   for ~one frame before it scrolls off-screen. Hide it during the
+   scroll-to-fragment pass and fade back to full opacity. */
+@keyframes pantry-stage-header-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+body:has(#stage:target) header {
+  animation: pantry-stage-header-fade-in 350ms ease-out 200ms both;
+}
+/* Note: no `prefers-reduced-motion: reduce` override here. The flash this
+   covers is itself motion — letting it through for reduced-motion users
+   would defeat the rule's purpose. The fade is a single opacity property
+   (no transform / parallax / scroll-linked motion) so it's appropriate
+   to keep for reduced-motion. */

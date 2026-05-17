@@ -2,7 +2,9 @@ import Head from 'next/head';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import IngredientForm from '@/components/IngredientForm';
 import BatchScanSession from '@/components/BatchScanSession';
+import IngredientTypeahead from '@pantry-host/shared/components/IngredientTypeahead';
 import { gql } from '@/lib/gql';
+import { useKitchen } from '@/lib/kitchen-context';
 import {
   Camera, PencilSimple, Trash, Barcode,
   Leaf, Bone, Egg, Package, Snowflake, DotsThree,
@@ -61,11 +63,12 @@ interface Ingredient {
   tags: string[];
   barcode: string | null;
   productMeta: string | null;
+  createdAt: string;
 }
 
 const INGREDIENTS_QUERY = `
   query Ingredients($kitchenSlug: String) {
-    ingredients(kitchenSlug: $kitchenSlug) { id name aliases category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta }
+    ingredients(kitchenSlug: $kitchenSlug) { id name aliases category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta createdAt }
   }
 `;
 
@@ -75,9 +78,8 @@ const DELETE_INGREDIENT = `
   }
 `;
 
-interface Props { kitchen: string; }
-
-export default function IngredientsPage({ kitchen }: Props) {
+export default function IngredientsPage() {
+  const kitchen = useKitchen();
   const cacheKey = `cache:ingredients:${kitchen}`;
   const cached = cacheGet<Ingredient[]>(cacheKey);
 
@@ -137,6 +139,18 @@ export default function IngredientsPage({ kitchen }: Props) {
   const allTags = [...new Set(ingredients.flatMap((i) => i.tags))].sort();
 
   const [filter, setFilter] = useState('');
+  const [recentlyAdded, setRecentlyAdded] = useState(false);
+
+  // Local midnight three calendar days back: today + the two prior full days.
+  // Computed once per mount — a stale cutoff across a midnight boundary is
+  // harmless (just keeps a day's worth of items visible briefly past their
+  // age-out point).
+  const recentCutoff = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - 2);
+    return d.getTime();
+  }, []);
 
   const filterSuggestions = useMemo(() => {
     const names = ingredients.map((i) => i.name);
@@ -145,14 +159,25 @@ export default function IngredientsPage({ kitchen }: Props) {
   }, [ingredients, allTags]);
 
   const filtered = useMemo(() => {
-    if (!filter.trim()) return ingredients;
+    let list = ingredients;
+    if (recentlyAdded) {
+      list = list.filter((i) => {
+        const t = i.createdAt ? new Date(i.createdAt).getTime() : 0;
+        return Number.isFinite(t) && t >= recentCutoff;
+      });
+    }
+    if (!filter.trim()) return list;
     const q = filter.toLowerCase().replace(/^#/, '');
-    return ingredients.filter((i) =>
+    return list.filter((i) =>
       i.name.toLowerCase().includes(q) ||
       i.category?.toLowerCase().includes(q) ||
-      i.tags.some((t) => t.toLowerCase().includes(q))
+      i.tags.some((t) => t.toLowerCase().includes(q)) ||
+      // Barcode match: lets users jump to a row by typing the printed
+      // UPC/EAN digits (or a prefix). Barcodes are digit-only so case
+      // is irrelevant; the raw stored value is what the user scanned.
+      i.barcode?.includes(q)
     );
-  }, [ingredients, filter]);
+  }, [ingredients, filter, recentlyAdded, recentCutoff]);
 
   const grouped = groupBy(filtered, (i) => i.category ?? 'other');
 
@@ -232,18 +257,29 @@ export default function IngredientsPage({ kitchen }: Props) {
         {ingredients.length > 0 && (
           <div className="mb-8">
             <label htmlFor="pantry-filter" className="field-label">Filter Ingredients</label>
-            <input
+            <IngredientTypeahead
               id="pantry-filter"
-              type="text"
-              list="pantry-filter-suggestions"
+              mode="single"
               value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              onChange={setFilter}
               placeholder="garlic"
-              className="field-input w-full"
+              suggestions={filterSuggestions}
+              inputMode="search"
+              enterKeyHint="search"
+              ariaLabel="Pantry filter suggestions"
             />
-            <datalist id="pantry-filter-suggestions">
-              {filterSuggestions.map((s) => <option key={s} value={s} />)}
-            </datalist>
+            <label className="flex items-center gap-2 mt-3 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={recentlyAdded}
+                onChange={(e) => setRecentlyAdded(e.target.checked)}
+                className="w-4 h-4 accent-accent"
+              />
+              <span>
+                Recently added{' '}
+                <span className="text-[var(--color-text-secondary)]">(last 3 days)</span>
+              </span>
+            </label>
           </div>
         )}
 

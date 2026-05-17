@@ -39,9 +39,9 @@ const CREATE_RECIPE_MUTATION = `mutation(
 }`;
 
 const CREATE_MENU_MUTATION = `mutation(
-  $title: String!, $description: String, $recipes: [MenuRecipeInput!]!, $kitchenSlug: String
+  $title: String!, $description: String, $sourceUrl: String, $recipes: [MenuRecipeInput!]!, $kitchenSlug: String
 ) {
-  createMenu(title: $title, description: $description, recipes: $recipes, kitchenSlug: $kitchenSlug) { id slug }
+  createMenu(title: $title, description: $description, sourceUrl: $sourceUrl, recipes: $recipes, kitchenSlug: $kitchenSlug) { id slug }
 }`;
 
 export interface ImportCollectionResult {
@@ -133,6 +133,7 @@ export async function importBlueskyCollection(opts: {
     {
       title: collection.name,
       description: collection.description ?? null,
+      sourceUrl: atUri,
       recipes: recipeIds.map((recipeId) => ({ recipeId })),
       kitchenSlug,
     },

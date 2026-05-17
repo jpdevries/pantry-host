@@ -1,7 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { AppProps } from 'next/app';
 import Nav from '@/components/Nav';
+import { PreferBrowserChromeProvider, rawToUserPref, type PreferBrowserChromeUserPref } from '@pantry-host/shared/components/prefer-browser-chrome';
 import OfflineBanner from '@/components/OfflineBanner';
+import { KitchenProvider } from '@/lib/kitchen-context';
 import Footer from '@pantry-host/shared/components/Footer';
 import { flush } from '@/lib/offlineQueue';
 import { registerFlush } from '@/lib/apiStatus';
@@ -9,6 +11,22 @@ import { initTheme } from '@pantry-host/shared/theme';
 import '../styles/globals.css';
 
 export default function App({ Component, pageProps }: AppProps) {
+  // PREFER_BROWSER_CHROME — fetched on mount from /api/settings-read.
+  // Tri-state: 'on' (explicit), 'off' (explicit), or undefined (no pref →
+  // Provider falls back to touch-first auto-detect). The shared SettingsPage
+  // uses formAction='/api/settings-write' which triggers a full page reload
+  // on save, so this state is always fresh after a settings change without
+  // explicit listener wiring.
+  const [preferBrowserChrome, setPreferBrowserChrome] = useState<PreferBrowserChromeUserPref>(undefined);
+  useEffect(() => {
+    fetch('/api/settings-read')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { values?: Record<string, string | null> } | null) => {
+        setPreferBrowserChrome(rawToUserPref(d?.values?.PREFER_BROWSER_CHROME));
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     // Normalize scheme-prefixed URL variants (at:, http:, https:) to their
     // scheme-named route so route matching works. Some edges/hosts rewrite
@@ -29,7 +47,15 @@ export default function App({ Component, pageProps }: AppProps) {
 
     if ('serviceWorker' in navigator) {
       const buildHash = document.querySelector<HTMLMetaElement>('meta[name="build-hash"]')?.content || 'dev';
-      navigator.serviceWorker.register(`/sw.js?v=${buildHash}`).catch(console.error);
+      // `updateViaCache: 'none'` bypasses the browser HTTP cache when
+      // checking for SW updates — so a newly-deployed sw.js is always
+      // fetched fresh rather than served from the HTTP cache. Without
+      // this, Rex's unset Cache-Control lets browsers heuristically
+      // cache /sw.js for hours, preventing the SW from noticing that
+      // the build hash changed on the server.
+      navigator.serviceWorker
+        .register(`/sw.js?v=${buildHash}`, { updateViaCache: 'none' })
+        .catch(console.error);
 
       // When a new SW activates after a deploy, it posts a 'SW_UPDATED'
       // message. Reload so the page picks up the new HTML + JS bundles.
@@ -85,11 +111,13 @@ export default function App({ Component, pageProps }: AppProps) {
   }, []);
 
   return (
-    <>
-      <Nav />
-      <OfflineBanner />
-      <Component {...pageProps} />
-      <Footer />
-    </>
+    <PreferBrowserChromeProvider userPref={preferBrowserChrome}>{/* tri-state: 'on' | 'off' | undefined */}
+      <KitchenProvider>
+        <Nav />
+        <OfflineBanner />
+        <Component {...pageProps} />
+        <Footer />
+      </KitchenProvider>
+    </PreferBrowserChromeProvider>
   );
 }

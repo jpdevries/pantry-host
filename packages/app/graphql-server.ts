@@ -2,6 +2,12 @@ import http from 'http';
 import { execute, parse, validate } from 'graphql';
 import { schema } from './lib/schema/index.js';
 import sql from './lib/db.js';
+import { IncomingForm, type File as FormidableFile } from 'formidable';
+import { promises as fs } from 'fs';
+import path from 'path';
+import { randomUUID } from 'crypto';
+import { processUploadedImage } from './lib/image-server.js';
+import { FEATURES } from './lib/features.js';
 
 const PORT = parseInt(process.env.GRAPHQL_PORT ?? '4001', 10);
 
@@ -404,6 +410,68 @@ async function handleFetchRecipe(body: string, res: http.ServerResponse) {
 
 // ── HTTP server ───────────────────────────────────────────────────────────────
 
+// ── /upload — multipart image upload ──────────────────────────────────────────
+// The Rex 0.20.0 /api/upload route is broken — Rex consumes req.body before
+// formidable can, so form.parse's callback never fires and the handler
+// promise hangs. This mirror endpoint on the graphql-server (plain Node
+// http.createServer, no V8 isolate) handles multipart reliably. Same shape
+// as the Rex route so clients can target either URL interchangeably.
+
+async function handleUpload(req: http.IncomingMessage, res: http.ServerResponse) {
+  try {
+    const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+    await fs.mkdir(uploadsDir, { recursive: true });
+
+    const form = new IncomingForm({
+      uploadDir: uploadsDir,
+      keepExtensions: true,
+      maxFileSize: 10 * 1024 * 1024,
+    });
+
+    const [, files] = await new Promise<[unknown, { file?: FormidableFile | FormidableFile[] }]>(
+      (resolve, reject) => {
+        form.parse(req, (err, fields, files) => {
+          if (err) reject(err); else resolve([fields, files as { file?: FormidableFile | FormidableFile[] }]);
+        });
+      },
+    );
+
+    const fileField = files.file;
+    const file: FormidableFile | undefined = Array.isArray(fileField) ? fileField[0] : fileField;
+    if (!file) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'No file uploaded' }));
+      return;
+    }
+
+    const ext = (path.extname(file.originalFilename ?? '.jpg').toLowerCase() || '.jpg');
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+    if (!allowed.includes(ext)) {
+      await fs.unlink(file.filepath).catch(() => {});
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid file type' }));
+      return;
+    }
+
+    const uuid = randomUUID();
+    const filename = `${uuid}${ext}`;
+    const dest = path.join(uploadsDir, filename);
+    await fs.rename(file.filepath, dest);
+
+    if (FEATURES.imageProcessing) {
+      processUploadedImage(dest, uploadsDir, uuid).catch((e) =>
+        console.error('[upload] Failed to generate image variants:', e),
+      );
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ url: `/uploads/${filename}` }));
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: `Upload failed: ${(err as Error).message}` }));
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -411,6 +479,13 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   if (req.method !== 'POST') { res.writeHead(405); res.end('Method not allowed'); return; }
+
+  // Multipart upload: parse with formidable directly off the req stream.
+  // Must not buffer the body first.
+  if (req.url === '/upload') {
+    await handleUpload(req, res);
+    return;
+  }
 
   let body = '';
   req.on('data', (chunk: string) => { body += chunk; });
@@ -478,6 +553,47 @@ async function runMigrations() {
   }
   // Add source_url column to recipes
   await sql`ALTER TABLE recipes ADD COLUMN IF NOT EXISTS source_url TEXT`;
+
+  // v0.1.1: Add notes to cookware (e.g. device guides, composting rules)
+  await sql`ALTER TABLE cookware ADD COLUMN IF NOT EXISTS notes TEXT`;
+
+  // v0.2.0: UUID join table replacing required_cookware TEXT[]
+  await sql`
+    CREATE TABLE IF NOT EXISTS recipe_cookware (
+      recipe_id   UUID NOT NULL REFERENCES recipes(id)  ON DELETE CASCADE,
+      cookware_id UUID NOT NULL REFERENCES cookware(id) ON DELETE CASCADE,
+      PRIMARY KEY (recipe_id, cookware_id)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_recipe_cookware_recipe   ON recipe_cookware(recipe_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_recipe_cookware_cookware ON recipe_cookware(cookware_id)`;
+
+  // v0.3.0: Step-by-step photos for recipes
+  await sql`ALTER TABLE recipes ADD COLUMN IF NOT EXISTS step_photos TEXT[] DEFAULT '{}'`;
+
+  // v0.4.0: Two-dimension quantity on ingredients + recipe_ingredients.
+  // Lets users express "3 jars × 12 fl_oz each" in the pantry and "2 16oz
+  // pepper steaks" in a recipe. When item_size is set, the row's effective
+  // total is quantity × item_size measured in item_size_unit. When null,
+  // the row behaves exactly as before.
+  await sql`ALTER TABLE ingredients        ADD COLUMN IF NOT EXISTS item_size      DECIMAL`;
+  await sql`ALTER TABLE ingredients        ADD COLUMN IF NOT EXISTS item_size_unit VARCHAR(50)`;
+  await sql`ALTER TABLE recipe_ingredients ADD COLUMN IF NOT EXISTS item_size      DECIMAL`;
+  await sql`ALTER TABLE recipe_ingredients ADD COLUMN IF NOT EXISTS item_size_unit VARCHAR(50)`;
+
+  // v0.5.0: Opt-in barcode + product metadata on pantry ingredients.
+  await sql`ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS barcode       VARCHAR(64)`;
+  await sql`ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS product_meta  JSONB`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_ingredients_barcode ON ingredients(barcode) WHERE barcode IS NOT NULL`;
+
+  // v0.5.1: Pantry-row aliases — alternative names that participate in
+  // recipe-ingredient matching.
+  await sql`ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS aliases TEXT[]`;
+
+  // v0.6.0: source_url on menus — mirrors recipes.source_url so imported
+  // menus (e.g. from a Bluesky AT Protocol collection) can surface their
+  // provenance on the detail page with the same click-to-copy treatment.
+  await sql`ALTER TABLE menus ADD COLUMN IF NOT EXISTS source_url TEXT`;
 }
 
 // Keep the server alive on unexpected errors

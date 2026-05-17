@@ -1,6 +1,6 @@
 {
   "name": "@pantry-host/mcp",
-  "version": "0.1.0-beta",
+  "version": "0.1.9",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -15,6 +15,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
     "@pantry-host/shared": "*",
+    "sharp": "^0.34.5",
     "zod": "^3.24.4"
   },
   "devDependencies": {

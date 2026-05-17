@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
 import { gql } from '@/lib/gql';
 import { HIDDEN_TAGS, ALL_CATEGORIES, CATEGORY_GROUPS } from '@pantry-host/shared/constants';
 import {
@@ -43,13 +44,18 @@ const CAT_ICONS: Record<string, ReactNode> = {
   'other': <Package size={16} aria-hidden />,
 };
 import IngredientForm, { type IngredientFormVariables, type IngredientData } from '@pantry-host/shared/components/IngredientForm';
+import IngredientTypeahead from '@pantry-host/shared/components/IngredientTypeahead';
 import BatchScanSession from '../components/BatchScanSession';
 
-const QUERY = `{ ingredients { id name aliases category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta } }`;
+const QUERY = `
+  query Ingredients($kitchenSlug: String) {
+    ingredients(kitchenSlug: $kitchenSlug) { id name aliases category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta createdAt }
+  }
+`;
 
 const ADD_MUTATION = `
-  mutation($name: String!, $aliases: [String!], $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!]) {
-    addIngredient(name: $name, aliases: $aliases, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags) { id }
+  mutation($name: String!, $aliases: [String!], $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!], $kitchenSlug: String) {
+    addIngredient(name: $name, aliases: $aliases, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags, kitchenSlug: $kitchenSlug) { id }
   }
 `;
 
@@ -60,6 +66,7 @@ const UPDATE_MUTATION = `
 `;
 
 export default function IngredientsPage() {
+  const kitchen = useParams<{ kitchen?: string }>().kitchen ?? 'home';
   const [ingredients, setIngredients] = useState<IngredientData[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -73,15 +80,15 @@ export default function IngredientsPage() {
   }, []);
 
   async function load() {
-    const { ingredients: list } = await gql<{ ingredients: IngredientData[] }>(QUERY);
+    const { ingredients: list } = await gql<{ ingredients: IngredientData[] }>(QUERY, { kitchenSlug: kitchen });
     setIngredients(list);
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { setLoading(true); load(); }, [kitchen]);
 
   async function handleAdd(vars: IngredientFormVariables) {
-    await gql(ADD_MUTATION, vars);
+    await gql(ADD_MUTATION, { ...vars, kitchenSlug: kitchen });
     setShowAddForm(false);
     load();
   }
@@ -99,6 +106,18 @@ export default function IngredientsPage() {
   }
 
   const [filter, setFilter] = useState('');
+  const [recentlyAdded, setRecentlyAdded] = useState(false);
+
+  // Local midnight three calendar days back: today + the two prior full days.
+  // Computed once per mount — a stale cutoff across a midnight boundary is
+  // harmless (just keeps a day's worth of items visible briefly past their
+  // age-out point).
+  const recentCutoff = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - 2);
+    return d.getTime();
+  }, []);
 
   const filterSuggestions = useMemo(() => {
     const names = ingredients.map((i) => i.name);
@@ -107,14 +126,25 @@ export default function IngredientsPage() {
   }, [ingredients]);
 
   const filtered = useMemo(() => {
-    if (!filter.trim()) return ingredients;
+    let list = ingredients;
+    if (recentlyAdded) {
+      list = list.filter((i) => {
+        const t = i.createdAt ? new Date(i.createdAt).getTime() : 0;
+        return Number.isFinite(t) && t >= recentCutoff;
+      });
+    }
+    if (!filter.trim()) return list;
     const q = filter.toLowerCase().replace(/^#/, '');
-    return ingredients.filter((i) =>
+    return list.filter((i) =>
       i.name.toLowerCase().includes(q) ||
       i.category?.toLowerCase().includes(q) ||
-      i.tags.some((t) => t.toLowerCase().includes(q))
+      i.tags.some((t) => t.toLowerCase().includes(q)) ||
+      // Barcode match: lets users jump to a row by typing the printed
+      // UPC/EAN digits (or a prefix). Barcodes are digit-only so case
+      // is irrelevant; the raw stored value is what the user scanned.
+      i.barcode?.includes(q)
     );
-  }, [ingredients, filter]);
+  }, [ingredients, filter, recentlyAdded, recentCutoff]);
 
   const grouped = filtered.reduce<Record<string, IngredientData[]>>((acc, ing) => {
     const cat = ing.category || 'other';
@@ -163,18 +193,29 @@ export default function IngredientsPage() {
       {ingredients.length > 0 && (
         <div className="mb-8">
           <label htmlFor="pantry-filter" className="field-label">Filter Ingredients</label>
-          <input
+          <IngredientTypeahead
             id="pantry-filter"
-            type="text"
-            list="pantry-filter-suggestions"
+            mode="single"
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={setFilter}
             placeholder="garlic"
-            className="field-input w-full"
+            suggestions={filterSuggestions}
+            inputMode="search"
+            enterKeyHint="search"
+            ariaLabel="Pantry filter suggestions"
           />
-          <datalist id="pantry-filter-suggestions">
-            {filterSuggestions.map((s) => <option key={s} value={s} />)}
-          </datalist>
+          <label className="flex items-center gap-2 mt-3 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={recentlyAdded}
+              onChange={(e) => setRecentlyAdded(e.target.checked)}
+              className="w-4 h-4 accent-accent"
+            />
+            <span>
+              Recently added{' '}
+              <span className="text-[var(--color-text-secondary)]">(last 3 days)</span>
+            </span>
+          </label>
         </div>
       )}
 

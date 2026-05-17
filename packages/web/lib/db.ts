@@ -111,6 +111,7 @@ CREATE TABLE IF NOT EXISTS menus (
   description TEXT,
   active      BOOLEAN DEFAULT TRUE,
   category    VARCHAR(50),
+  source_url  TEXT,
   kitchen_id  TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE,
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
@@ -181,6 +182,8 @@ async function getDB(): Promise<PGlite> {
       await instance.query(`CREATE INDEX IF NOT EXISTS idx_ingredients_barcode ON ingredients(barcode) WHERE barcode IS NOT NULL`);
       // v0.5.1: Pantry-row aliases for recipe-ingredient matching.
       await instance.query(`ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS aliases TEXT[]`);
+      // v0.6.0: Source URL on menus (parity with recipes.source_url).
+      await instance.query(`ALTER TABLE menus ADD COLUMN IF NOT EXISTS source_url TEXT`);
     }
 
     // Only expose db after schema is fully initialized

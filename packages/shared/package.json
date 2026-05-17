@@ -1,22 +1,26 @@
 {
   "name": "@pantry-host/shared",
-  "version": "0.1.0-beta",
+  "version": "0.1.9",
   "private": true,
   "license": "MIT",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./env": "./src/env.ts",
     "./constants": "./src/constants.ts",
     "./theme": "./src/theme.ts",
     "./cache": "./src/cache.ts",
     "./favorites": "./src/favorites.ts",
     "./dailyQuote": "./src/dailyQuote.ts",
+    "./pickDaily": "./src/pickDaily.ts",
     "./components/Footer": "./src/components/Footer.tsx",
     "./components/AccessibilityPreferences": "./src/components/AccessibilityPreferences.tsx",
     "./components/Modal": "./src/components/Modal.tsx",
     "./components/IngredientEditor": "./src/components/IngredientEditor.tsx",
     "./components/IngredientForm": "./src/components/IngredientForm.tsx",
+    "./components/IngredientTypeahead": "./src/components/IngredientTypeahead.tsx",
+    "./components/prefer-browser-chrome": "./src/components/prefer-browser-chrome.tsx",
     "./components/FeaturedTags": "./src/components/FeaturedTags.tsx",
     "./components/NutritionFacts": "./src/components/NutritionFacts.tsx",
     "./components/SettingsPage": "./src/components/SettingsPage.tsx",
@@ -34,6 +38,7 @@
     "./wikibooks": "./src/wikibooks.ts",
     "./cocktaildb": "./src/cocktaildb.ts",
     "./recipe-api": "./src/recipe-api.ts",
+    "./atproto-pds": "./src/atproto-pds.ts",
     "./bluesky": "./src/bluesky.ts",
     "./bluesky-import": "./src/bluesky-import.ts",
     "./pixabay": "./src/pixabay.ts",
@@ -42,6 +47,8 @@
     "./grocery-status": "./src/grocery-status.ts",
     "./units": "./src/units.ts",
     "./product-meta": "./src/product-meta.ts",
+    "./plu": "./src/plu.ts",
+    "./plu-codes.json": "./src/plu-codes.json",
     "./nutrition-aggregate": "./src/nutrition-aggregate.ts",
     "./types/nutrition": "./src/types/nutrition.ts",
     "./components/NutritionGrid": "./src/components/NutritionGrid.tsx",
@@ -53,7 +60,15 @@
     "./components/AtRecipeDetail": "./src/components/AtRecipeDetail.tsx",
     "./components/AtMenuDetail": "./src/components/AtMenuDetail.tsx",
     "./components/UrlRecipeDetail": "./src/components/UrlRecipeDetail.tsx",
-    "./components/QRCodeModal": "./src/components/QRCodeModal.tsx"
+    "./components/QRCodeModal": "./src/components/QRCodeModal.tsx",
+    "./components/ImageBoundary": "./src/components/ImageBoundary.tsx"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.6"
   },
   "peerDependencies": {
     "@phosphor-icons/react": "^2.1.10",

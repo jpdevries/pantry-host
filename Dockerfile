@@ -14,14 +14,6 @@ COPY packages/web/package.json packages/web/
 COPY packages/mcp/package.json packages/mcp/
 RUN npm ci
 
-# Rex uses platform-specific native binaries — npm ci only installs for the
-# lockfile's platform. Force-install the Linux binary for Docker builds.
-RUN cd node_modules/@limlabs && npm pack @limlabs/rex-linux-arm64@0.20.0 && \
-    tar -xzf limlabs-rex-linux-arm64-0.20.0.tgz && \
-    mv package rex-linux-arm64 && \
-    rm limlabs-rex-linux-arm64-0.20.0.tgz && \
-    chmod +x rex-linux-arm64/bin/rex
-
 # Copy source
 COPY packages/app packages/app
 COPY packages/shared packages/shared
@@ -30,6 +22,25 @@ COPY packages/shared packages/shared
 RUN cd packages/app && mkdir -p node_modules && \
     ln -sf ../../../node_modules/react node_modules/react && \
     ln -sf ../../../node_modules/react-dom node_modules/react-dom
+
+# Rex + sharp ship platform-specific native binaries as optional deps.
+# npm ci sometimes skips the linux variant during cross-platform buildx
+# (e.g. building linux/amd64 on an arm64 Mac under qemu) because it
+# inspects the host lockfile / environment rather than the target. Force
+# the correct linux binary for the stage's actual runtime arch before
+# building.
+#
+# Using `uname -m` here rather than BuildKit's $TARGETARCH: the stage's
+# actual runtime arch is always correct under emulated buildx and it's
+# also available in plain (non-BuildKit) `docker build` — no ARG dance.
+#
+# The Rex native binary is pinned to the version npm ci already resolved
+# for @limlabs/rex in the root lockfile — a JS-loader / native-binary
+# version mismatch fails at runtime rather than build time.
+RUN ARCH="$(case "$(uname -m)" in x86_64) echo x64 ;; aarch64) echo arm64 ;; *) echo "unsupported-$(uname -m)" ;; esac)" && \
+    REX_VERSION="$(node -p "require('./node_modules/@limlabs/rex/package.json').version")" && \
+    npm install "@limlabs/rex-linux-${ARCH}@${REX_VERSION}" && \
+    npm install --os=linux --cpu="${ARCH}" sharp
 
 # Build Rex for production
 RUN npx @limlabs/rex build --root packages/app

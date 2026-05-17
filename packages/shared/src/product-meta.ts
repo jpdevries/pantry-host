@@ -34,6 +34,40 @@ export interface ProductMeta {
   labels_tags?: string[];
   /** Nutrient map — we keep per-100g and per-serving numeric values only. */
   nutriments?: Record<string, number>;
+  /** OFF's primary category tag ("en:ice-cream"). Often populated when
+   *  `categories_tags` is thin, so kept alongside as a complement rather
+   *  than a substitute. */
+  main_category?: string;
+  /** OFF's nutritional-grouping taxonomy. Two-level hierarchy:
+   *    pnns_groups_1 = "Sugary snacks" | "Milk and dairy products" | ...
+   *    pnns_groups_2 = "Ice cream" | "Cheese" | ...
+   *  Present on many products where `categories_tags` is empty, so
+   *  valuable for later re-classification passes even when the value is
+   *  "unknown" on a given scan — the shape stays consistent. */
+  pnns_groups_1?: string;
+  pnns_groups_2?: string;
+  /** Provenance flag: where did this meta come from? Absent = OFF
+   *  (the implicit default for historical rows). `"ifps"` = the
+   *  International Federation for Produce Standards PLU database,
+   *  which populates a different subset of fields (commodity,
+   *  variety, size, organic, category) and leaves nutriments /
+   *  nutriscore / labels_tags null. Branch on this key when
+   *  rendering the meta panel — PLU rows don't have nutrition. */
+  plu_source?: 'ifps';
+  /** IFPS commodity name ("Bananas", "Apples"). Populated on PLU
+   *  rows only. */
+  commodity?: string;
+  /** IFPS produce category ("Fruits" | "Vegetables" | "Herbs" |
+   *  "Nuts" | "Dried Fruits" | "Retailer Assigned Numbers"). */
+  category?: string;
+  /** IFPS cultivar/variety ("Hass", "Yellow (includes Cavendish)"). */
+  variety?: string;
+  /** IFPS size descriptor ("All Sizes", "Small", "Large",
+   *  "60 size and smaller", etc.). */
+  size?: string;
+  /** True when the stored `code` is the 5-digit organic variant
+   *  (e.g. `94011` for organic banana). Applies only to PLU rows. */
+  organic?: boolean;
 }
 
 /** OFF keys worth fetching in addition to the existing
@@ -48,6 +82,9 @@ export const OFF_METADATA_FIELDS = [
   'serving_size',
   'serving_quantity',
   'labels_tags',
+  'main_category',
+  'pnns_groups_1',
+  'pnns_groups_2',
   'code',
 ] as const;
 
@@ -132,6 +169,12 @@ export function allowlistProductMeta(raw: Record<string, unknown> | null | undef
   if (labels) meta.labels_tags = labels;
   const nut = trimNutriments(raw.nutriments as Record<string, unknown> | undefined);
   if (nut) meta.nutriments = nut;
+  const mainCategory = trimString(raw.main_category, 200);
+  if (mainCategory) meta.main_category = mainCategory;
+  const pnns1 = trimString(raw.pnns_groups_1, 100);
+  if (pnns1) meta.pnns_groups_1 = pnns1;
+  const pnns2 = trimString(raw.pnns_groups_2, 100);
+  if (pnns2) meta.pnns_groups_2 = pnns2;
 
   if (Object.keys(meta).length === 0) return null;
 

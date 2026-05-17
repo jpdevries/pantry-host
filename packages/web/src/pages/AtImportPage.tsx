@@ -49,13 +49,13 @@ const CREATE_RECIPE = `
     $title: String!, $description: String, $instructions: String!,
     $servings: Int, $prepTime: Int, $cookTime: Int,
     $tags: [String!], $photoUrl: String, $sourceUrl: String,
-    $ingredients: [RecipeIngredientInput!]!
+    $ingredients: [RecipeIngredientInput!]!, $kitchenSlug: String
   ) {
     createRecipe(
       title: $title, description: $description, instructions: $instructions,
       servings: $servings, prepTime: $prepTime, cookTime: $cookTime,
       tags: $tags, photoUrl: $photoUrl, sourceUrl: $sourceUrl,
-      ingredients: $ingredients
+      ingredients: $ingredients, kitchenSlug: $kitchenSlug
     ) { id slug }
   }
 `;
@@ -64,7 +64,11 @@ const RECIPES_QUERY = `{ recipes { id slug sourceUrl } }`;
 const MENUS_QUERY = `{ menus { id slug } }`;
 
 export default function AtImportPage() {
-  const { '*': wildcard } = useParams();
+  // Same component renders at two routes:
+  //   /at/*                       → kitchen defaults to 'home' (alias)
+  //   /kitchens/:kitchen/at/*     → kitchen from the URL slug
+  const { '*': wildcard, kitchen: kitchenParam } = useParams<{ '*': string; kitchen?: string }>();
+  const kitchen = kitchenParam ?? 'home';
 
   if (!wildcard) {
     return (
@@ -90,14 +94,14 @@ export default function AtImportPage() {
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
 
   if (parsed.collection === LEXICON_COLLECTION) {
-    return <MenuBranch atUri={atUri} shareUrl={shareUrl} />;
+    return <MenuBranch atUri={atUri} shareUrl={shareUrl} kitchen={kitchen} />;
   }
-  return <RecipeBranch atUri={atUri} shareUrl={shareUrl} />;
+  return <RecipeBranch atUri={atUri} shareUrl={shareUrl} kitchen={kitchen} />;
 }
 
 // ── Recipe branch ──────────────────────────────────────────────────────
 
-function RecipeBranch({ atUri, shareUrl }: { atUri: string; shareUrl: string }) {
+function RecipeBranch({ atUri, shareUrl, kitchen }: { atUri: string; shareUrl: string; kitchen: string }) {
   const handleImport = useCallback(async (recipe: ParsedRecipe) => {
     const data = await gql<{ createRecipe: { id: string; slug: string } }>(CREATE_RECIPE, {
       title: recipe.title,
@@ -114,9 +118,10 @@ function RecipeBranch({ atUri, shareUrl }: { atUri: string; shareUrl: string }) 
         quantity: i.quantity ?? null,
         unit: i.unit ?? null,
       })),
+      kitchenSlug: kitchen,
     });
     return { slug: data.createRecipe.slug };
-  }, []);
+  }, [kitchen]);
 
   const checkDuplicate = useCallback(async (sourceUrl: string) => {
     const data = await gql<{ recipes: { id: string; slug: string; sourceUrl: string | null }[] }>(RECIPES_QUERY);
@@ -125,14 +130,14 @@ function RecipeBranch({ atUri, shareUrl }: { atUri: string; shareUrl: string }) 
   }, []);
 
   const renderRecipeLink = useCallback((slug: string, children: React.ReactNode) => (
-    <Link to={`/recipes/${slug}#stage`}>{children}</Link>
-  ), []);
+    <Link to={`/kitchens/${kitchen}/recipes/${slug}#stage`}>{children}</Link>
+  ), [kitchen]);
 
   return (
     <AtRecipeDetail
       atUri={atUri}
       shareUrl={shareUrl}
-      recipeBasePath="/recipes"
+      recipeBasePath={`/kitchens/${kitchen}/recipes`}
       onImport={handleImport}
       checkDuplicate={checkDuplicate}
       renderRecipeLink={renderRecipeLink}
@@ -142,7 +147,7 @@ function RecipeBranch({ atUri, shareUrl }: { atUri: string; shareUrl: string }) 
 
 // ── Menu branch ────────────────────────────────────────────────────────
 
-function MenuBranch({ atUri, shareUrl }: { atUri: string; shareUrl: string }) {
+function MenuBranch({ atUri, shareUrl, kitchen }: { atUri: string; shareUrl: string; kitchen: string }) {
   // Duplicate check for menus is best-effort: menus don't currently have
   // a sourceUrl column, so we can only match if a prior import stored
   // the AT URI as the slug seed. For now we always return null — the
@@ -156,16 +161,17 @@ function MenuBranch({ atUri, shareUrl }: { atUri: string; shareUrl: string }) {
   }, []);
 
   const renderMenuLink = useCallback((slug: string, children: React.ReactNode) => (
-    <Link to={`/menus/${slug}#stage`}>{children}</Link>
-  ), []);
+    <Link to={`/kitchens/${kitchen}/menus/${slug}#stage`}>{children}</Link>
+  ), [kitchen]);
 
   return (
     <AtMenuDetail
       atUri={atUri}
       shareUrl={shareUrl}
-      menuBasePath="/menus"
-      recipeAtBase="/at"
+      menuBasePath={`/kitchens/${kitchen}/menus`}
+      recipeAtBase={`/kitchens/${kitchen}/at`}
       gql={gql}
+      kitchenSlug={kitchen}
       checkDuplicate={checkDuplicate}
       renderMenuLink={renderMenuLink}
     />

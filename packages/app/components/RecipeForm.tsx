@@ -5,8 +5,12 @@ import { UNIT_GROUPS, COMMON_INGREDIENTS } from '@pantry-host/shared/constants';
 /** Units from the "Count" group — where per-item-size makes sense. */
 const COUNT_UNITS: readonly string[] = UNIT_GROUPS.find((g) => g.label === 'Count')?.units ?? [];
 import IngredientEditor, { resolveIngredients, type IngredientRow } from '@pantry-host/shared/components/IngredientEditor';
+import IngredientTypeahead from '@pantry-host/shared/components/IngredientTypeahead';
+import { pickDaily } from '@pantry-host/shared/pickDaily';
 import { extractCooklang, hasCooklangSyntax, updateCooklangIngredient, parseCooklangMetadata } from '@pantry-host/shared/cooklang-parser';
 import { gql } from '@/lib/gql';
+import { apiUrl } from '@/lib/apiUrl';
+import { downscaleIfLarge } from '@/lib/downscaleImage';
 import { enqueue } from '@/lib/offlineQueue';
 
 interface RecipeIngredient {
@@ -132,6 +136,8 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
   const suppressExtraction = useRef(false);
   // On edit pages, fields are pre-filled → mark dirty so metadata doesn't overwrite
   const dirtyFields = useRef(new Set<string>(editing ? ['title', 'servings', 'prepTime', 'cookTime', 'tags'] : []));
+  // Daily-seeded pick — same value SSR + client (no hydration flash),
+  // rotates fresh per calendar day.
   const placeholderRecipe = useMemo(() => {
     const examples = [
       { title: 'Cucumber Salad', description: 'Crisp, cool, and ready in minutes' },
@@ -143,7 +149,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
       { title: 'Sweet Potato Black Bean Chili', description: 'Hearty one-pot comfort food' },
       { title: 'Coconut Curry Lentils', description: 'Warming spices with creamy coconut milk' },
     ];
-    return examples[Math.floor(Math.random() * examples.length)];
+    return pickDaily(examples) ?? examples[0];
   }, []);
 
   useEffect(() => {
@@ -205,6 +211,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
   }
 
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const ingredientListRef = useRef<HTMLUListElement>(null);
   const [focusNewRecipeSelect, setFocusNewRecipeSelect] = useState(false);
 
@@ -224,9 +231,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
     setImporting(true);
     setImportError(null);
     try {
-      const proto = window.location.protocol === 'https:' ? 'https' : 'http';
-      const port = proto === 'https' ? 4443 : 4001;
-      const res = await fetch(`${proto}://${window.location.hostname}:${port}/fetch-recipe`, {
+      const res = await fetch(apiUrl('/fetch-recipe'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: importUrl.trim() }),
@@ -235,11 +240,17 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
         title?: string; description?: string; instructions?: string; servings?: number;
         prepTime?: number; cookTime?: number; tags?: string[]; requiredCookware?: string[]; photoUrl?: string;
         ingredients?: { ingredientName: string; quantity: number | null; unit: string | null }[];
+        sourceUrl?: string;
         error?: string;
       };
 
       if (!res.ok || data.error) throw new Error(data.error ?? 'Unknown error');
 
+      // Preserve provenance: the URL we imported from becomes the
+      // recipe's sourceUrl at save time (line ~440 reads importUrl
+      // state). If the server returned a canonical URL after a
+      // redirect, prefer that over whatever the user typed.
+      if (data.sourceUrl && data.sourceUrl !== importUrl) setImportUrl(data.sourceUrl);
       if (data.title) setTitle(data.title);
       if (data.description) setDescription(data.description);
       if (data.instructions) setInstructions(data.instructions);
@@ -280,14 +291,27 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingPhoto(true);
+    setPhotoError(null);
     try {
+      // Rex 0.20.0 rejects bodies over ~2 MB. Downscale phone-camera
+      // photos before POST; small files pass through untouched.
+      const prepared = await downscaleIfLarge(file);
       const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
-      const data = await res.json() as { url?: string; error?: string };
-      if (data.url) setPhotoUrl(data.url);
-    } catch {
-      // ignore upload error — user can still paste URL
+      fd.append('file', prepared);
+      const res = await fetch(apiUrl('/upload'), { method: 'POST', body: fd });
+      // /api/upload may return plaintext (e.g. Rex's default 413 page) on
+      // failure, so read as text first and only parse if it looks like JSON.
+      const text = await res.text();
+      let data: { url?: string; error?: string } = {};
+      try { data = text ? JSON.parse(text) : {}; } catch { /* non-JSON body */ }
+      if (!res.ok || !data.url) {
+        const detail = data.error ?? text.slice(0, 200) ?? `HTTP ${res.status}`;
+        setPhotoError(`Upload failed: ${detail}`);
+        return;
+      }
+      setPhotoUrl(data.url);
+    } catch (err) {
+      setPhotoError((err as Error).message ?? 'Upload failed');
     } finally {
       setUploadingPhoto(false);
     }
@@ -314,9 +338,11 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
   async function handleStepPhotoUpload(idx: number, file: File) {
     setUploadingStepIdx(idx);
     try {
+      // Rex 0.20.0 rejects bodies over ~2 MB. See downscaleIfLarge.
+      const prepared = await downscaleIfLarge(file);
       const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      fd.append('file', prepared);
+      const res = await fetch(apiUrl('/upload'), { method: 'POST', body: fd });
       const data = await res.json() as { url?: string; error?: string };
       if (data.url) {
         setStepPhotos((prev) => { const n = [...prev]; n[idx] = data.url!; return n; });
@@ -414,7 +440,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
         cookTime: cookTime ? parseInt(cookTime) : null,
         tags,
         requiredCookwareIds,
-        photoUrl: photoUrl || null,
+        photoUrl: photoUrl ?? null,
         stepPhotos: stepPhotos.some((s) => s) ? stepPhotos : null,
         ingredients,
       };
@@ -434,7 +460,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
         cookTime: cookTime ? parseInt(cookTime) : null,
         tags,
         requiredCookwareIds,
-        photoUrl: photoUrl || null,
+        photoUrl: photoUrl ?? null,
         stepPhotos: stepPhotos.some((s) => s) ? stepPhotos : null,
         sourceUrl: importUrl.trim() || null,
         ingredients,
@@ -453,10 +479,11 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
 
   return (
     <form onSubmit={handleSubmit} aria-label={editing ? 'Edit recipe' : 'Add recipe'} noValidate>
-      <datalist id="form-ingredients">
-        {COMMON_INGREDIENTS.map((i) => <option key={i} value={i} />)}
-        {existingRecipes.map((r) => <option key={r.id} value={r.title} />)}
-      </datalist>
+      {/* IngredientEditor (matrix mode) renders its own per-row IngredientTypeahead
+          for ingredient names — the legacy `<datalist id="form-ingredients">` that
+          combined COMMON_INGREDIENTS + existingRecipes lived here for that input,
+          but is no longer needed once the editor renders typeaheads with their own
+          suggestion props. */}
 
       {/* URL Import */}
       {!editing && (
@@ -720,7 +747,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
                     <span className="text-xs text-[var(--color-text-secondary)]">Click or drag</span>
                     <input
                       type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      accept="image/*"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) handleStepPhotoUpload(i, file);
@@ -738,21 +765,14 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
       {/* Tags */}
       <div className="mb-5">
         <label htmlFor="recipe-tags" className="field-label">Tags</label>
-        {allTags.length > 0 && (
-          <datalist id="form-tags">
-            {allTags
-              .filter((t) => !tagInput.split(',').map((s) => s.trim().toLowerCase()).includes(t.toLowerCase()))
-              .map((t) => <option key={t} value={t} />)}
-          </datalist>
-        )}
-        <input
+        <IngredientTypeahead
           id="recipe-tags"
-          type="text"
-          list={allTags.length > 0 ? 'form-tags' : undefined}
+          mode="segmented"
           value={tagInput}
-          onChange={(e) => { dirtyFields.current.add('tags'); setTagInput(e.target.value); }}
+          onChange={(v) => { dirtyFields.current.add('tags'); setTagInput(v); }}
           placeholder="e.g. quick, kid-friendly, vegetarian"
-          className="field-input w-full"
+          suggestions={allTags}
+          ariaLabel="Tag suggestions"
         />
         <p className="text-xs text-[var(--color-text-secondary)] mt-1">Comma-separated. Type to see suggestions.</p>
         <label className="flex items-center gap-2 mt-2 cursor-pointer">
@@ -807,19 +827,15 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
         <label htmlFor="recipe-cookware" className="field-label">
           Required Cookware <span className="font-normal text-[var(--color-text-secondary)]">(comma-separated)</span>
         </label>
-        {cookwareItems.length > 0 && (
-          <datalist id="form-cookware">
-            {cookwareItems.map((c) => <option key={c.id} value={c.name} />)}
-          </datalist>
-        )}
-        <input
+        <IngredientTypeahead
           id="recipe-cookware"
-          type="text"
-          list={cookwareItems.length > 0 ? 'form-cookware' : undefined}
+          mode="segmented"
           value={cookwareInput}
-          onChange={(e) => setCookwareInput(e.target.value)}
+          onChange={setCookwareInput}
           placeholder="e.g. Instant Pot, Cast Iron Skillet"
-          className="field-input w-full"
+          suggestions={cookwareItems.map((c) => c.name)}
+          ariaLabel="Cookware suggestions"
+          autoCapitalize="words"
         />
       </div>
 
@@ -843,7 +859,7 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
             <input
               ref={photoInputRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
+              accept="image/*"
               onChange={handlePhotoUpload}
               className="sr-only"
               id="recipe-photo-file"
@@ -858,10 +874,16 @@ export default function RecipeForm({ initial, existingRecipes = [], cookwareItem
               {uploadingPhoto ? 'Uploading…' : 'Upload from device'}
             </button>
           </div>
+          {photoError && (
+            <p role="alert" className="text-sm text-red-600 dark:text-red-400">{photoError}</p>
+          )}
           {photoUrl && (
             <div className="mt-2">
               <img
-                src={photoUrl.startsWith('/uploads/') ? photoUrl.replace(/\.\w+$/, '-400.jpg') : photoUrl}
+                // Use the original here (not the -400 variant) because sharp
+                // generates variants in the background — right after upload
+                // the -400.jpg doesn't exist yet and the preview 404s.
+                src={photoUrl}
                 alt="Recipe preview"
                 className="h-32 w-auto object-cover border border-[var(--color-border-card)]"
                 width={227}

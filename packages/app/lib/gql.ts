@@ -2,13 +2,7 @@
  * Lightweight client-side GraphQL fetch helper.
  */
 import { setApiOnline } from './apiStatus';
-
-function getGraphqlUrl(): string {
-  if (typeof window === 'undefined') return 'http://localhost:4001/graphql';
-  const proto = window.location.protocol === 'https:' ? 'https' : 'http';
-  const gqlPort = proto === 'https' ? 4443 : 4001;
-  return `${proto}://${window.location.hostname}:${gqlPort}/graphql`;
-}
+import { apiUrl } from './apiUrl';
 
 /** Timeout in ms for GraphQL fetches. The server is on localhost/LAN so it
  * responds in <100ms when reachable. 4s is generous for cold starts but fast
@@ -26,7 +20,7 @@ export async function gql<T = unknown>(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), isMutation ? GQL_TIMEOUT_LONG : GQL_TIMEOUT);
   try {
-    res = await fetch(getGraphqlUrl(), {
+    res = await fetch(apiUrl('/graphql'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query, variables }),

@@ -10,6 +10,11 @@ interface ParsedRecipe {
   tags?: string[];
   photoUrl?: string;
   ingredients?: { ingredientName: string; quantity: number | null; unit: string | null }[];
+  /** Echo of the input URL so callers can persist provenance on
+   *  the resulting recipe row. Without this, imported recipes save
+   *  with source='manual' and source_url=NULL even though they
+   *  came from a specific URL. */
+  sourceUrl?: string;
 }
 
 /** Decode common HTML entities that sneak into LD+JSON or scraped text. */
@@ -114,15 +119,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!url) return res.status(400).json({ error: 'url is required' });
 
   let html: string;
+  // Use an AbortController + setTimeout instead of AbortSignal.timeout —
+  // the latter is a Node 17.3+ / modern-browser static method that
+  // Rex's embedded V8 runtime doesn't ship. Calling it throws
+  // `AbortSignal.timeout is not a function` and silently fails every
+  // URL import. The controller pattern works in every runtime.
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 10_000);
   try {
     const response = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PantryListBot/1.0)' },
-      signal: AbortSignal.timeout(10_000),
+      signal: ac.signal,
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     html = await response.text();
   } catch (err) {
     return res.status(502).json({ error: `Failed to fetch URL: ${(err as Error).message}` });
+  } finally {
+    clearTimeout(timer);
   }
 
   // Try extracting LD+JSON schema.org Recipe
@@ -133,7 +147,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const type = data['@type'];
       if (type === 'Recipe' || (Array.isArray(type) && type.includes('Recipe')) || data['@graph']) {
         const parsed = extractFromLdJson(data);
-        if (parsed.title) return res.json(parsed);
+        if (parsed.title) return res.json({ ...parsed, sourceUrl: url });
       }
     } catch {
       // continue
@@ -149,5 +163,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(422).json({ error: 'Could not extract recipe data from this page. Try copying the recipe manually.' });
   }
 
-  return res.json({ title, ingredients: [] } as ParsedRecipe);
+  return res.json({ title, ingredients: [], sourceUrl: url } as ParsedRecipe);
 }

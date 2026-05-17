@@ -3,8 +3,9 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { gql } from '@/lib/gql';
 import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
-import { ArrowsOut, ArrowsIn, Trash, Heart, Printer, Circle, CheckCircle, CalendarPlus, LinkSimple, ForkKnife, ShareNetwork, Code, Rows, Columns, GridNine } from '@phosphor-icons/react';
+import { ArrowsOut, ArrowsIn, Trash, Heart, Printer, Circle, CheckCircle, CalendarPlus, LinkSimple, ForkKnife, ShareNetwork, Code, Rows, Columns, GridNine, Sun, Snowflake } from '@phosphor-icons/react';
 import { enqueue } from '@/lib/offlineQueue';
+import { useKitchen } from '@/lib/kitchen-context';
 import RecipeCard from '@/components/RecipeCard';
 import { Leaf } from '@phosphor-icons/react';
 import { HIDDEN_TAGS, classifyRecipeCourse } from '@pantry-host/shared/constants';
@@ -13,6 +14,7 @@ import { recipeToDataURI, imageToDataURI } from '@pantry-host/shared/export-reci
 import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang';
 import { hasCooklangSyntax, extractCooklang } from '@pantry-host/shared/cooklang-parser';
 import PixabayImage from '@pantry-host/shared/components/PixabayImage';
+import ImageBoundary from '@pantry-host/shared/components/ImageBoundary';
 import Modal from '@pantry-host/shared/components/Modal';
 import { NutritionSource } from '@pantry-host/shared/components/NutritionSource';
 import { AllergensLine } from '@pantry-host/shared/components/AllergensLine';
@@ -21,6 +23,7 @@ import { readFavorites, toggleFavorite } from '@pantry-host/shared/favorites';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem } from '@pantry-host/shared/grocery-status';
 import { isOwner } from '@/lib/isTrustedNetwork';
+import { isBrowser } from '@pantry-host/shared/env';
 
 interface RecipeIngredient {
   ingredientName: string;
@@ -44,7 +47,7 @@ interface SubRecipe {
   queued: boolean;
 }
 
-interface Recipe {
+export interface Recipe {
   id: string;
   slug: string | null;
   title: string;
@@ -69,7 +72,7 @@ interface Recipe {
   usedIn: SubRecipe[];
 }
 
-const RECIPE_QUERY = `
+export const RECIPE_QUERY = `
   query Recipe($id: String!) {
     recipe(id: $id) {
       id slug title description instructions servings prepTime cookTime
@@ -87,9 +90,55 @@ const TOGGLE_QUEUED = `mutation ToggleQueued($id: String!) { toggleRecipeQueued(
 const PANTRY_QUERY = `query Ingredients($kitchenSlug: String) { ingredients(kitchenSlug: $kitchenSlug) { id name aliases quantity unit itemSize itemSizeUnit alwaysOnHand barcode productMeta } }`;
 const UPDATE_INGREDIENT = `mutation UpdateIngredient($id: String!, $quantity: Float) { updateIngredient(id: $id, quantity: $quantity) { id quantity } }`;
 
+// Intl.DateTimeFormat's ICU pattern cache blows Rex's V8 SSR isolate heap
+// ("Fatal process out of memory: DateTimePatternGeneratorCache::CreateGenerator"),
+// which kills the Rex process and truncates the response mid-body. Format
+// dates deterministically without Intl so SSR stays within the isolate's budget.
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function formatMadeDate(iso: string, style: 'short' | 'long' = 'short'): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const months = style === 'short' ? MONTHS_SHORT : MONTHS_LONG;
+  return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
+// Structural-equality check used to bail out of `setRecipe()` when the
+// post-hydration GraphQL refetch returns the same payload as the SSR seed
+// (the common case). Without this gate the new object reference fires the
+// `[recipe, …]` useEffects (sub-recipes fetch, pantry auto-check, photoUrl
+// re-resolve, Pixabay key arrival → mount), each one a re-render and a
+// visible flicker through PixabayImage's idle→loading→hit transitions.
+// Stringify cost on a ~2 KB recipe payload is sub-ms and runs once per load.
+function sameRecipe(a: Recipe | null, b: Recipe | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 interface PantryItem { id: string; name: string; aliases: string[] | null; quantity: number | null; unit: string | null; itemSize: number | null; itemSizeUnit: string | null; alwaysOnHand: boolean; barcode: string | null; productMeta: string | null; }
 
-interface Props { kitchen: string; recipeId: string; }
+interface Props { recipeId: string; initialRecipe?: Recipe | null; }
+
+/**
+ * Per-season tag-chip metadata. `autumn` is mapped as a synonym
+ * of `fall` so British/Commonwealth users get the same icon and
+ * color when they tag a recipe their way. The display label is
+ * always whatever the user typed (we just pick the icon + token
+ * by lookup) — so a recipe tagged `autumn` shows "autumn" with
+ * the fall-orange palette, not silently rewritten to "fall".
+ */
+const SEASON_META: Record<string, { Icon: React.ComponentType<{ size?: number; weight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone'; 'aria-hidden'?: boolean }>; token: string }> = {
+  spring: { Icon: SeedlingIcon, token: '--color-season-spring' },
+  summer: { Icon: Sun, token: '--color-season-summer' },
+  fall: { Icon: MapleLeafIcon, token: '--color-season-fall' },
+  autumn: { Icon: MapleLeafIcon, token: '--color-season-fall' },
+  winter: { Icon: Snowflake, token: '--color-season-winter' },
+};
+/** Tags that get the seasonal chip treatment. Added to the
+ *  generic-tag exclusion filter so a styled chip + plain chip
+ *  don't render twice. */
+const SEASON_TAGS = new Set(Object.keys(SEASON_META));
 
 const GRID_OPTIONS = [
   { cols: 3, Icon: GridNine, label: '3 columns' },
@@ -157,13 +206,15 @@ function StepPhotos({ steps, sourceUrl, dbStepPhotos }: { steps: string[]; sourc
   );
 }
 
-export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
+export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
+  const kitchen = useKitchen();
   const router = useRouter();
-  const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
+  const recipesBase = `/kitchens/${kitchen}/recipes`;
 
   const cacheKey = `cache:recipe:${recipeId}`;
-  const cachedRecipe = typeof window !== 'undefined' ? cacheGet<Recipe>(cacheKey) : null;
-  const [recipe, setRecipe] = useState<Recipe | null>(cachedRecipe);
+  const cachedRecipe = isBrowser ? cacheGet<Recipe>(cacheKey) : null;
+  const seedRecipe = initialRecipe ?? cachedRecipe;
+  const [recipe, setRecipe] = useState<Recipe | null>(seedRecipe);
   const [notFound, setNotFound] = useState(false);
   const [owner, setOwner] = useState(false);
   const [lanIP, setLanIP] = useState<string | null>(null);
@@ -173,7 +224,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
   const [savingMenus, setSavingMenus] = useState(false);
   const [menuStatus, setMenuStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [ageVerified, setAgeVerified] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('age-verified') === 'true';
+    if (isBrowser) return localStorage.getItem('age-verified') === 'true';
     return false;
   });
   // recipe-api.com key for the NutritionFacts display block. Only fetched
@@ -209,7 +260,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [supportsFullscreen, setSupportsFullscreen] = useState(false);
   const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
-  const [servings, setServings] = useState(cachedRecipe?.servings ?? 2);
+  const [servings, setServings] = useState(seedRecipe?.servings ?? 2);
 
   // Pantry snapshot for auto-check. Fetched once on mount in parallel
   // with the recipe; the merge effect below initializes checkboxes for
@@ -223,8 +274,8 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [completing, setCompleting] = useState(false);
-  const [lastMadeAt, setLastMadeAt] = useState<string | null>(cachedRecipe?.lastMadeAt ?? null);
-  const [queued, setQueued] = useState(cachedRecipe?.queued ?? false);
+  const [lastMadeAt, setLastMadeAt] = useState<string | null>(seedRecipe?.lastMadeAt ?? null);
+  const [queued, setQueued] = useState(seedRecipe?.queued ?? false);
   const [togglingQueue, setTogglingQueue] = useState(false);
   const [favorited, setFavorited] = useState(false);
   const [favoritedRecipes, setFavoritedRecipes] = useState<SubRecipe[]>([]);
@@ -329,11 +380,16 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
     gql<{ recipe: Recipe | null }>(RECIPE_QUERY, { id: recipeId })
       .then((d) => {
         if (!d.recipe) { setNotFound(true); return; }
-        setRecipe(d.recipe);
-        setServings(d.recipe.servings ?? 2);
-        setLastMadeAt(d.recipe.lastMadeAt);
-        setQueued(d.recipe.queued);
-        cacheSet(cacheKey, d.recipe);
+        const fresh = d.recipe;
+        // Bail out at the setter level when the refetch matches the seed.
+        // React skips the re-render when the updater returns reference-equal
+        // state, so downstream `[recipe, …]` effects don't re-fire.
+        setRecipe((prev) => sameRecipe(prev, fresh) ? prev : fresh);
+        const nextServings = fresh.servings ?? 2;
+        setServings((prev) => prev === nextServings ? prev : nextServings);
+        setLastMadeAt((prev) => prev === fresh.lastMadeAt ? prev : fresh.lastMadeAt);
+        setQueued((prev) => prev === fresh.queued ? prev : fresh.queued);
+        cacheSet(cacheKey, fresh);
       })
       .catch(() => {
         const cached = cacheGet<Recipe>(cacheKey);
@@ -553,6 +609,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
   const isPregnancySafe = recipe.tags.some((t) => t.toLowerCase() === 'pregnancy-safe');
   const isPescatarian = recipe.tags.some((t) => t.toLowerCase() === 'pescatarian');
   const isVegetarian = recipe.tags.some((t) => t.toLowerCase() === 'vegetarian');
+  const isVegan = recipe.tags.some((t) => t.toLowerCase() === 'vegan');
   // Allergen warning tags — render with the same amber chip treatment as
   // breastfeeding-alert. Substance label = strip the "contains-" prefix.
   const allergenTags = recipe.tags.filter((t) => t.toLowerCase().startsWith('contains-'));
@@ -630,21 +687,33 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
           >
             <ArrowsIn size={18} aria-hidden />
           </button>
-          {recipe.photoUrl ? (
-            <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
-              <ResponsiveImage
-                src={recipe.photoUrl}
-                alt={recipe.title}
-                className="w-full h-full object-cover"
-                loading="eager"
-                sizes="(min-width: 896px) 896px, 100vw"
-              />
-            </div>
-          ) : pixabayEnabled && pixabayKey ? (
-            <div className="mb-8">
-              <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey} alt={recipe.title} hidePlaceholder />
-            </div>
-          ) : null}
+          {/* Hero box. Always reserved for any recipe that lacks a photoUrl — the
+              `pixabayEnabled` / `pixabayKey` settings come from a post-mount
+              /api/settings-read fetch, so gating the box on them caused it to pop
+              into existence ~150ms after hydration and shove the page down (the
+              user-reported flicker). Now the empty card-bg renders from SSR onward
+              and PixabayImage fills it in if/when the key arrives. Recipes with
+              neither a photoUrl nor an enabled Pixabay just show a stable empty
+              card — same shape as the boundary's fallback, no layout surprise. */}
+          <ImageBoundary alt={recipe.title}>
+            {recipe.photoUrl ? (
+              <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
+                <ResponsiveImage
+                  src={recipe.photoUrl}
+                  alt={recipe.title}
+                  className="w-full h-full object-cover"
+                  loading="eager"
+                  sizes="(min-width: 896px) 896px, 100vw"
+                />
+              </div>
+            ) : (
+              <div className="mb-8 aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
+                {pixabayEnabled && pixabayKey ? (
+                  <PixabayImage recipe={{ id: recipe.id, title: recipe.title }} apiKey={pixabayKey} alt={recipe.title} hidePlaceholder />
+                ) : null}
+              </div>
+            )}
+          </ImageBoundary>
 
           <header className="mb-8">
             <div className="flex flex-wrap gap-2 mb-3">
@@ -725,7 +794,25 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                   vegetarian
                 </span>
               )}
-              {recipe.tags.filter((t) => !HIDDEN_TAGS.has(t.toLowerCase()) && !t.toLowerCase().startsWith('contains-') && !['gluten-free', '420', 'cannabis', 'adult-only', 'sustainable', 'local', 'breastfeeding-safe', 'lactation', 'breastfeeding-alert', 'pregnancy-safe', 'pescatarian', 'vegetarian'].includes(t.toLowerCase())).map((t) => <span key={t} className="tag">{t}</span>)}
+              {isVegan && (
+                <span className="tag inline-flex items-center gap-1" style={{ color: 'var(--color-diet-vegan)' }} title="Vegan">
+                  <LeafIcon />
+                  vegan
+                </span>
+              )}
+              {/* Seasonal tags get a per-season chip palette + Phosphor
+                  icon. `autumn` and `fall` collapse to the same fall
+                  treatment. Display preserves the original tag string. */}
+              {recipe.tags.filter((t) => SEASON_TAGS.has(t.toLowerCase())).map((t) => {
+                const { Icon, token } = SEASON_META[t.toLowerCase()];
+                return (
+                  <span key={t} className="tag inline-flex items-center gap-1" style={{ color: `var(${token})` }} title={t.charAt(0).toUpperCase() + t.slice(1)}>
+                    <Icon size={12} weight="bold" aria-hidden />
+                    {t}
+                  </span>
+                );
+              })}
+              {recipe.tags.filter((t) => !HIDDEN_TAGS.has(t.toLowerCase()) && !t.toLowerCase().startsWith('contains-') && !SEASON_TAGS.has(t.toLowerCase()) && !['gluten-free', '420', 'cannabis', 'adult-only', 'sustainable', 'local', 'breastfeeding-safe', 'lactation', 'breastfeeding-alert', 'pregnancy-safe', 'pescatarian', 'vegetarian', 'vegan'].includes(t.toLowerCase())).map((t) => <span key={t} className="tag">{t}</span>)}
             </div>
             <h1 className="text-4xl font-bold mb-4">{recipe.title}</h1>
             {recipe.description && (
@@ -764,7 +851,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
               {lastMadeAt && (
                 <div>
                   <dt className="font-semibold text-xs uppercase tracking-wider text-[var(--color-text-secondary)] mb-0.5">Last Made</dt>
-                  <dd><time dateTime={lastMadeAt}>{new Date(lastMadeAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</time></dd>
+                  <dd><time dateTime={lastMadeAt}>{formatMadeDate(lastMadeAt)}</time></dd>
                 </div>
               )}
             </dl>
@@ -774,7 +861,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
                 <p className="font-semibold text-xs uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">Cookware</p>
                 <div className="flex flex-wrap gap-2">
                   {recipe.requiredCookware.map((cw) => (
-                    <a key={cw.id} href={kitchen === 'home' ? `/cookware/${cw.id}#stage` : `/kitchens/${kitchen}/cookware/${cw.id}#stage`} className="tag hover:underline">
+                    <a key={cw.id} href={`/kitchens/${kitchen}/cookware/${cw.id}#stage`} className="tag hover:underline">
                       {cw.name}{cw.brand && cw.brand !== cw.name && <em className="font-normal"> by {cw.brand}</em>}
                     </a>
                   ))}
@@ -925,7 +1012,7 @@ export default function RecipeDetailPage({ kitchen, recipeId }: Props) {
             <p className="text-sm text-[var(--color-text-secondary)] mt-3">Mark this recipe as made to track when you last cooked it and update your pantry quantities.</p>
             {lastMadeAt && (owner || (Date.now() - new Date(lastMadeAt).getTime()) > 7 * 24 * 60 * 60 * 1000) && (
               <p className="mt-2 text-xs italic text-[var(--color-text-secondary)]">
-                Last made on {new Date(lastMadeAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+                Last made on {formatMadeDate(lastMadeAt, 'long')}
               </p>
             )}
           </section>
@@ -1275,6 +1362,36 @@ function CarrotIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
       <path d="M504.6 138.5c-22.9-27.6-53.4-43.4-86.4-44.8-1.6-32.1-17.1-63.4-44.7-86.3-5.9-4.9-13.1-7.4-20.4-7.4-7.2 0-14.5 2.5-20.4 7.4-27.2 22.6-43.1 53-44.6 85.8-.7 14.5 1.8 28.7 6.6 42.2-13.3-4.4-26.8-7.3-40.3-7.3-48 0-94.1 26.8-116.6 72.8L2.4 478.3c-3 6.2-3.3 13.8 0 20.5 4.1 8.3 12.4 13.1 21 13.1 3.4 0 6.9-.8 10.2-2.4L311.2 374c25-12.2 46.4-32.6 59.6-59.6 15.4-31.5 16.7-66.2 6.5-97.1 11.8 4.1 23.9 6.6 36.4 6.6 34.7 0 67-15.9 90.9-44.7 9.9-11.7 9.9-28.9 0-40.7zm-162.5 162c-9.6 19.7-25.2 35.3-44.9 44.9l-124.8 60.9c-.4-.5-.6-1.1-1.1-1.6l-32-32c-6.2-6.2-16.4-6.2-22.6 0-6.2 6.2-6.2 16.4 0 22.6l25.6 25.6-100.2 49L154 240.6l26.7 26.7c3.1 3.1 7.2 4.7 11.3 4.7s8.2-1.6 11.3-4.7c6.2-6.2 6.2-16.4 0-22.6l-32-32c-.7-.7-1.7-1.1-2.5-1.7 17.1-31.5 49.4-51 85.6-51 14.9 0 29.2 3.3 42.7 9.9 23.4 11.4 41 31.3 49.5 56s6.9 51.1-4.5 74.6zM413.8 192c-21.5 0-43.1-8.9-60.6-26.5l-6.7-6.7c-37.2-37.1-35.4-92 6.6-126.8 33.2 27.5 41.5 67.6 25.3 101.6 11.2-5.3 23-8 34.9-8 24.1 0 48.3 11.1 66.7 33.3-18.3 22.1-42.3 33.1-66.2 33.1z" />
+    </svg>
+  );
+}
+
+function LeafIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 576 512" fill="currentColor" aria-hidden="true">
+      {/* Font Awesome Pro 5.15.4 - fa-leaf (light) */}
+      <path d="M546.2 9.7c-2.9-6.5-8.6-9.7-14.3-9.7-5.3 0-10.7 2.8-14 8.5C486.9 62.4 431.4 96 368 96h-80C182 96 96 182 96 288c0 20.9 3.4 40.9 9.6 59.7C29.3 413 1.4 489.4.9 490.7c-2.9 8.3 1.5 17.5 9.8 20.4 7.9 2.8 17.4-1.1 20.4-9.8.4-1.2 23.9-65.1 87.6-122.7C151.1 438.9 214.7 480 288 480c6.9 0 13.7-.4 20.4-1.1C465.5 467.5 576 326.8 576 154.3c0-50.2-10.8-102.2-29.8-144.6zM305 447.1c-5.9.6-11.6.9-17 .9-63.3 0-117.6-37.2-143.5-90.6C196.3 319 268.6 288 368 288c8.8 0 16-7.2 16-16s-7.2-16-16-16c-102.8 0-179 31-234.8 70.4-3.1-12.4-5.2-25.1-5.2-38.4 0-88.2 71.8-160 160-160h80c63.3 0 121-28.4 159.7-77.2 10.5 32.3 16.3 68.7 16.3 103.5 0 159.6-100.1 282.7-239 292.8z" />
+    </svg>
+  );
+}
+
+function SeedlingIcon({ size = 12 }: { size?: number; weight?: string; 'aria-hidden'?: boolean }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
+      {/* Font Awesome Pro 5.15.4 - fa-seedling (light) */}
+      <path d="M442.7 32c-95.9 0-176.4 79.4-197.2 185.7C210.5 145.1 144.8 96 69.3 96H0v16c0 132.3 90.9 240 202.7 240H240v120c0 4.4 3.6 8 8 8h16c4.4 0 8-3.6 8-8V288h37.3C421.1 288 512 180.3 512 48V32h-69.3zm-240 288C113 320 39.2 235.2 32.5 128h36.8c89.7 0 163.4 84.8 170.2 192h-36.8zm106.6-64h-36.8C279.2 148.8 353 64 442.7 64h36.8c-6.7 107.2-80.5 192-170.2 192z" />
+    </svg>
+  );
+}
+
+function MapleLeafIcon({ size = 12 }: { size?: number; weight?: string; 'aria-hidden'?: boolean }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
+      {/* Font Awesome Pro 5.15.4 - fa-leaf-maple (light). Picked over
+          Phosphor Tree because Phosphor has no autumn-leaf glyph and
+          maple is the universally-recognized "fall" symbol across
+          cultures. */}
+      <path d="M496.06 163.47l-27.34-16.41 8.44-75.97c2.14-19.5-13.61-38.41-36.25-36.27l-75.97 8.45-16.41-27.34C342.62 6.11 332.28.16 320.81 0c-10.59-.02-21.97 5.53-28.12 15.2l-42.91 67.45c-8.33-22.52-32.9-24.41-42.53-19.2l-13.81 7.41-35.09-39.72c-6.17-7.71-15.42-12.31-25.62-12.31-10.03 0-19.37 4.47-25.16 11.7L72 70.86l-13.81-7.41c-18.48-9.99-50.1 8.62-43.72 37.31l29.41 142.69-24 10.3c-26.45 11.34-26.45 49 0 60.34l108.79 46.62L4.69 484.69c-6.25 6.25-6.25 16.38 0 22.62C7.81 510.44 11.91 512 16 512s8.19-1.56 11.31-4.69l123.98-123.98 46.62 108.74c5.19 12.18 17.11 19.92 30.19 19.92 13.12 0 24.97-7.8 30.19-19.91l10.25-23.98L411 497.5c23.83 5.29 47.82-17.22 38.97-40l-8.84-17.5 39.75-35.09c16.65-13.35 16.07-38.02.34-50.97l-40.09-35.38 7.41-13.8c6.34-11.73 1.1-35.19-19.22-42.52l67.5-42.94c20.67-13.17 20.05-43.34-.76-55.83zM342.94 279.28c-15.25 9.71-5.02 33.47 12.56 29l62.78-14.8-17.34 32.3 60.43 53.51-60.43 53.49 17.78 33.12-169.32-34.42-22.06 48.02-51.68-120.54L331.3 203.32c6.25-6.25 6.25-16.38 0-22.62-6.25-6.25-16.37-6.25-22.62 0L153.16 336.21 32.5 283.16l48-20.58L46.87 93.69l32.31 17.36 54.66-59.33 52.41 59.33 33.41-17.95.16.47-16.09 62.94c-4.45 17.53 19.18 27.83 29 12.56L321.1 32.41l26.97 44.94 97.28-9.78-10.69 96.37 44.97 28.38-136.69 86.96z" />
     </svg>
   );
 }

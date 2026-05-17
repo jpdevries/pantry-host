@@ -241,6 +241,7 @@ const MenuType = builder.objectType('Menu', {
     description: t.string({ nullable: true, resolve: (r) => r.description }),
     active: t.boolean({ resolve: (r) => r.active ?? true }),
     category: t.string({ nullable: true, resolve: (r) => r.category ?? null }),
+    sourceUrl: t.string({ nullable: true, resolve: (r) => r.source_url ?? null }),
     createdAt: t.string({ resolve: (r) => r.created_at?.toISOString() ?? '' }),
     recipes: t.field({
       type: [MenuRecipeType],
@@ -672,6 +673,7 @@ builder.mutationField('updateRecipe', (t) =>
       requiredCookwareIds: t.arg.stringList(),
       photoUrl: t.arg.string(),
       stepPhotos: t.arg.stringList(),
+      sourceUrl: t.arg.string(),
       ingredients: t.arg({ type: [RecipeIngredientInputType] }),
     },
     resolve: async (_, args) => {
@@ -687,7 +689,12 @@ builder.mutationField('updateRecipe', (t) =>
           cook_time = COALESCE(${args.cookTime ?? null}, cook_time),
           tags = COALESCE(${args.tags ? sql.array(args.tags) : null}, tags),
           photo_url = COALESCE(${args.photoUrl ?? null}, photo_url),
-          step_photos = COALESCE(${args.stepPhotos ? sql.array(args.stepPhotos) : null}, step_photos)
+          step_photos = COALESCE(${args.stepPhotos ? sql.array(args.stepPhotos) : null}, step_photos),
+          source_url = COALESCE(${args.sourceUrl ?? null}, source_url),
+          source = CASE
+            WHEN ${args.sourceUrl ?? null}::text IS NOT NULL THEN 'url-import'
+            ELSE source
+          END
         WHERE id = ${args.id}
         RETURNING *
       `;
@@ -881,14 +888,15 @@ builder.mutationField('createMenu', (t) =>
       description: t.arg.string(),
       active: t.arg.boolean(),
       category: t.arg.string(),
+      sourceUrl: t.arg.string(),
       kitchenSlug: t.arg.string(),
       recipes: t.arg({ type: [MenuRecipeInputType], required: true }),
     },
-    resolve: async (_, { title, description, active, category, kitchenSlug, recipes }) => {
+    resolve: async (_, { title, description, active, category, sourceUrl, kitchenSlug, recipes }) => {
       const kitchenId = await resolveKitchenId(kitchenSlug);
       const slug = await uniqueMenuSlug(title);
       const isActive = active ?? true;
-      const [menu] = await sql`INSERT INTO menus (title, slug, description, active, category, kitchen_id) VALUES (${title}, ${slug}, ${description ?? null}, ${isActive}, ${category ?? null}, ${kitchenId}) RETURNING *`;
+      const [menu] = await sql`INSERT INTO menus (title, slug, description, active, category, source_url, kitchen_id) VALUES (${title}, ${slug}, ${description ?? null}, ${isActive}, ${category ?? null}, ${sourceUrl ?? null}, ${kitchenId}) RETURNING *`;
       for (let i = 0; i < recipes.length; i++) {
         const r = recipes[i];
         await sql`INSERT INTO menu_recipes (menu_id, recipe_id, course, sort_order) VALUES (${menu.id}, ${r.recipeId}, ${r.course ?? null}, ${r.sortOrder ?? i})`;
@@ -908,16 +916,18 @@ builder.mutationField('updateMenu', (t) =>
       description: t.arg.string(),
       active: t.arg.boolean(),
       category: t.arg.string(),
+      sourceUrl: t.arg.string(),
       recipes: t.arg({ type: [MenuRecipeInputType] }),
     },
-    resolve: async (_, { id, title, description, active, category, recipes }) => {
+    resolve: async (_, { id, title, description, active, category, sourceUrl, recipes }) => {
       const slug = title ? await uniqueMenuSlug(title, id) : undefined;
       const [updated] = await sql`UPDATE menus SET
         title = COALESCE(${title ?? null}, title),
         slug = COALESCE(${slug ?? null}, slug),
         description = COALESCE(${description ?? null}, description),
         active = COALESCE(${active ?? null}, active),
-        category = ${category !== undefined ? (category ?? null) : null}
+        category = ${category !== undefined ? (category ?? null) : null},
+        source_url = COALESCE(${sourceUrl ?? null}, source_url)
         WHERE id = ${id} RETURNING *`;
       if (!updated) return null;
       if (recipes) {

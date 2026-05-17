@@ -3,6 +3,8 @@ import { gql } from '@/lib/gql';
 import { listBlueskyCollections, type BlueskyCollectionRecord } from '@pantry-host/shared/bluesky';
 import { importBlueskyCollection } from '@pantry-host/shared/bluesky-import';
 import ImportGrid, { captureActiveElement } from '@pantry-host/shared/components/ImportGrid';
+import { useKitchen } from '@/lib/kitchen-context';
+import { isBrowser, isServer } from '@pantry-host/shared/env';
 
 const FEED_API = 'https://feed.pantryhost.app/api/handles';
 const FEED_RECIPES_API = 'https://feed.pantryhost.app/api/recipes';
@@ -25,11 +27,9 @@ interface FeedCollection {
 const BLUESKY_VIEWBOX = '0 0 600 530';
 const BLUESKY_PATH = 'M135.72 44.03C202.216 93.951 273.74 195.17 299.91 249.49c26.17-54.32 97.694-155.539 164.19-205.46C512.18 8.005 590 -19.728 590 69.04c0 17.726-10.155 148.928-16.111 170.208-20.703 73.984-96.144 92.854-163.25 81.433 117.262 19.96 147.131 86.084 82.654 152.208-122.385 125.621-175.86-31.511-189.563-71.807-2.512-7.387-3.687-10.832-3.69-7.905-.003-2.927-1.179.518-3.69 7.905-13.704 40.296-67.18 197.428-189.563 71.807-64.477-66.124-34.61-132.251 82.65-152.208-67.105 11.421-142.548-7.45-163.25-81.433C20.232 217.968 10.077 86.766 10.077 69.04c0-88.768 77.82-61.035 125.9-25.01z';
 
-interface Props { kitchen: string; }
-
-export default function BlueskyMenuFeedsPage({ kitchen }: Props) {
-  const menusBase = kitchen === 'home' ? '/menus' : `/kitchens/${kitchen}/menus`;
-  const kitchenSlug = kitchen === 'home' ? null : kitchen;
+export default function BlueskyMenuFeedsPage() {
+  const kitchen = useKitchen();
+  const menusBase = `/kitchens/${kitchen}/menus`;
   const [collections, setCollections] = useState<FeedCollection[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -37,11 +37,11 @@ export default function BlueskyMenuFeedsPage({ kitchen }: Props) {
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
   const [mode, setMode] = useState<'bulk' | 'browse'>(() => {
-    if (typeof window === 'undefined') return 'browse';
+    if (isServer) return 'browse';
     return (localStorage.getItem('bsky-menu-feeds-mode') as 'bulk' | 'browse') || 'browse';
   });
   useEffect(() => {
-    if (typeof window !== 'undefined') localStorage.setItem('bsky-menu-feeds-mode', mode);
+    if (isBrowser) localStorage.setItem('bsky-menu-feeds-mode', mode);
   }, [mode]);
 
   const [cursor, setCursor] = useState<string | null>(null);
@@ -179,7 +179,7 @@ export default function BlueskyMenuFeedsPage({ kitchen }: Props) {
     let done = 0;
     for (const atUri of selected) {
       try {
-        await importBlueskyCollection({ atUri, gql, kitchenSlug });
+        await importBlueskyCollection({ atUri, gql, kitchenSlug: kitchen });
       } catch (err) {
         console.error('Collection import failed:', err);
       }
@@ -294,7 +294,7 @@ export default function BlueskyMenuFeedsPage({ kitchen }: Props) {
               );
 
               if (mode === 'browse') {
-                const path = '/at/' + item.atUri.replace(/^at:\/\//, '') + '#stage';
+                const path = `/kitchens/${kitchen}/at/${item.atUri.replace(/^at:\/\//, '')}#stage`;
                 return (
                   <a
                     key={item.atUri}

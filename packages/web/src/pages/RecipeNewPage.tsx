@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Camera, X } from '@phosphor-icons/react';
 import { gql } from '@/lib/gql';
+import { pickDaily } from '@pantry-host/shared/pickDaily';
 import { storePhotoBlob, fetchAndStorePhoto } from '@/lib/photo-helpers';
 import IngredientEditor, { resolveIngredients, type IngredientRow } from '@pantry-host/shared/components/IngredientEditor';
 import FeaturedTags from '@pantry-host/shared/components/FeaturedTags';
@@ -91,6 +92,8 @@ export default function RecipeNewPage() {
   const [allRecipes, setAllRecipes] = useState<{ id: string; slug: string; title: string }[]>([]);
   const [pantryIngredients, setPantryIngredients] = useState<{ name: string; quantity: number | null; unit: string | null }[]>([]);
   const [saving, setSaving] = useState(false);
+  // Daily-seeded — stable across remounts and matches the app package
+  // for cross-build parity.
   const placeholderRecipe = useMemo(() => {
     const examples = [
       { title: 'Cucumber Salad', description: 'Crisp, cool, and ready in minutes' },
@@ -102,7 +105,7 @@ export default function RecipeNewPage() {
       { title: 'Sweet Potato Black Bean Chili', description: 'Hearty one-pot comfort food' },
       { title: 'Coconut Curry Lentils', description: 'Warming spices with creamy coconut milk' },
     ];
-    return examples[Math.floor(Math.random() * examples.length)];
+    return pickDaily(examples) ?? examples[0];
   }, []);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cooklangDebounceRef = useRef<ReturnType<typeof setTimeout>>();

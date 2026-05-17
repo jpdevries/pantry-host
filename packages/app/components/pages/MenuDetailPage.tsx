@@ -4,6 +4,8 @@ import { cacheGet, cacheSet } from '@pantry-host/shared/cache';
 import RecipeCard from '@/components/RecipeCard';
 import { Robot, Leaf, ArrowsOut, ArrowsIn } from '@phosphor-icons/react';
 import { isOwner } from '@/lib/isTrustedNetwork';
+import { useKitchen } from '@/lib/kitchen-context';
+import { isBrowser } from '@pantry-host/shared/env';
 
 interface MenuRecipe {
   id: string;
@@ -24,18 +26,19 @@ interface MenuRecipe {
   };
 }
 
-interface Menu {
+export interface Menu {
   id: string;
   slug: string | null;
   title: string;
   description: string | null;
+  sourceUrl: string | null;
   active: boolean;
   recipes: MenuRecipe[];
 }
 
-const MENU_QUERY = `query Menu($id: String!) {
+export const MENU_QUERY = `query Menu($id: String!) {
   menu(id: $id) {
-    id slug title description active
+    id slug title description sourceUrl active
     recipes {
       id course sortOrder
       recipe { id slug title description cookTime prepTime servings source tags photoUrl queued }
@@ -66,22 +69,26 @@ function courseLabel(course: string, menuTitle: string): string {
 const COURSE_ORDER = ['baby', 'appetizer', 'breakfast', 'main-course', 'side', 'beverage', 'dessert', 'other'];
 
 interface Props {
-  kitchen: string;
   menuId: string;
+  initialMenu?: Menu | null;
 }
 
-export default function MenuDetailPage({ kitchen, menuId }: Props) {
-  const [menu, setMenu] = useState<Menu | null>(null);
+export default function MenuDetailPage({ menuId, initialMenu }: Props) {
+  const kitchen = useKitchen();
+  const cacheKey = `cache:menu:${menuId}`;
+  const cachedMenu = isBrowser ? cacheGet<Menu>(cacheKey) : null;
+  const [menu, setMenu] = useState<Menu | null>(initialMenu ?? cachedMenu);
   const [notFound, setNotFound] = useState(false);
   const [owner, setOwner] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [copiedUri, setCopiedUri] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [supportsFullscreen, setSupportsFullscreen] = useState(false);
   const articleRef = useRef<HTMLElement>(null);
-  const menusBase = kitchen === 'home' ? '/menus' : `/kitchens/${kitchen}/menus`;
-  const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
+  const menusBase = `/kitchens/${kitchen}/menus`;
+  const recipesBase = `/kitchens/${kitchen}/recipes`;
 
   useEffect(() => {
     setOwner(isOwner());
@@ -120,7 +127,6 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
   useEffect(() => {
     console.log('[MenuDetailPage] menuId:', JSON.stringify(menuId));
     if (!menuId) return;
-    const cacheKey = `cache:menu:${menuId}`;
     const ownr = isOwner();
     gql<{ menu: Menu | null }>(MENU_QUERY, { id: menuId })
       .then((d) => {
@@ -271,6 +277,19 @@ export default function MenuDetailPage({ kitchen, menuId }: Props) {
       <h1 className="text-3xl font-bold mb-2">{menu.title}</h1>
       {menu.description && (
         <p className="legible text-[var(--color-text-secondary)] mb-6 pretty">{menu.description}</p>
+      )}
+      {menu.sourceUrl && (
+        <p className="mt-4 mb-6 text-xs text-[var(--color-text-secondary)] overflow-hidden">
+          {menu.sourceUrl.startsWith('at://') ? (
+            <span className="flex items-baseline gap-2 max-w-full overflow-hidden">
+              <span className="shrink-0">Source:</span>
+              <button type="button" onClick={() => { navigator.clipboard.writeText(menu.sourceUrl!); setCopiedUri(true); setTimeout(() => setCopiedUri(false), 2000); }} title="Copy AT URI" className="font-mono text-[10px] min-w-0 truncate hover:underline cursor-copy">{menu.sourceUrl}</button>
+              <span aria-live="polite" className="shrink-0 text-[10px]">{copiedUri ? '✓ Copied' : ''}</span>
+            </span>
+          ) : (
+            <>Source: <a href={menu.sourceUrl} target={`_${menu.slug ?? menu.id}`} rel="noopener noreferrer" className="underline">{(() => { try { return new URL(menu.sourceUrl!).hostname; } catch { return menu.sourceUrl; } })()}</a></>
+          )}
+        </p>
       )}
 
       {availableFilters.length > 0 && (

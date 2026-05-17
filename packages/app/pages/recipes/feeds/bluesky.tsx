@@ -5,7 +5,7 @@ export default function BlueskyFeedsRoute() {
   return (
     <>
       <Head><title>Bluesky Recipes — Pantry Host</title></Head>
-      <BlueskyFeedsPage kitchen="home" />
+      <BlueskyFeedsPage />
     </>
   );
 }

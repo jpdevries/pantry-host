@@ -3,9 +3,13 @@ import { useState, useEffect, useMemo } from 'react';
 import { gql } from '@/lib/gql';
 import RecipeCard from '@/components/RecipeCard';
 import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
+import { pickDaily } from '@pantry-host/shared/pickDaily';
 import { readFavorites } from '@pantry-host/shared/favorites';
 import { Heart } from '@phosphor-icons/react';
 import { isOwner } from '@/lib/isTrustedNetwork';
+import { useKitchen } from '@/lib/kitchen-context';
+import IngredientTypeahead from '@pantry-host/shared/components/IngredientTypeahead';
+import { isBrowser, isServer } from '@pantry-host/shared/env';
 
 interface Recipe {
   id: string;
@@ -27,20 +31,19 @@ const RECIPES_QUERY = `
   }
 `;
 
-interface Props { kitchen: string; }
-
 const ADULT_TAGS = ['420', 'cannabis', 'adult-only'];
 
-export default function RecipesIndexPage({ kitchen }: Props) {
+export default function RecipesIndexPage() {
+  const kitchen = useKitchen();
   const cacheKey = `cache:recipes:${kitchen}`;
   const [recipes, setRecipes] = useState<Recipe[]>(() => cacheGet<Recipe[]>(cacheKey) ?? []);
   const [owner, setOwner] = useState(false);
   const [ageVerified, setAgeVerified] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('age-verified') === 'true';
+    if (isBrowser) return localStorage.getItem('age-verified') === 'true';
     return false;
   });
   const [search, setSearch] = useState(() => {
-    if (typeof window !== 'undefined') {
+    if (isBrowser) {
       return new URLSearchParams(window.location.search).get('search') ?? '';
     }
     return '';
@@ -50,7 +53,7 @@ export default function RecipesIndexPage({ kitchen }: Props) {
   // Off unless the URL explicitly asks. Hydrates after mount (same guard
   // as `search`) so SSR doesn't touch `window.location`.
   const [favoritesOnly, setFavoritesOnly] = useState(() => {
-    if (typeof window !== 'undefined') {
+    if (isBrowser) {
       return new URLSearchParams(window.location.search).get('favorites') === '1';
     }
     return false;
@@ -59,7 +62,7 @@ export default function RecipesIndexPage({ kitchen }: Props) {
   useEffect(() => { setFavoriteIds(readFavorites()); }, []);
   function clearFavoritesFilter() {
     setFavoritesOnly(false);
-    if (typeof window !== 'undefined') {
+    if (isBrowser) {
       const url = new URL(window.location.href);
       url.searchParams.delete('favorites');
       window.history.replaceState({}, '', url);
@@ -71,20 +74,22 @@ export default function RecipesIndexPage({ kitchen }: Props) {
   // two-tab-per-card behavior. Persisted so power users don't re-pick.
   type KeyboardMode = 'nav-and-queue' | 'nav-only' | 'queue-only';
   const [keyboardMode, setKeyboardMode] = useState<KeyboardMode>(() => {
-    if (typeof window === 'undefined') return 'nav-and-queue';
+    if (isServer) return 'nav-and-queue';
     const v = localStorage.getItem('recipes-grid-keyboard-mode');
     return (v === 'nav-only' || v === 'queue-only' || v === 'nav-and-queue') ? v : 'nav-and-queue';
   });
   useEffect(() => {
-    if (typeof window !== 'undefined') localStorage.setItem('recipes-grid-keyboard-mode', keyboardMode);
+    if (isBrowser) localStorage.setItem('recipes-grid-keyboard-mode', keyboardMode);
   }, [keyboardMode]);
 
-  const base = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
+  const base = `/kitchens/${kitchen}/recipes`;
 
+  // Daily-seeded so SSR + client agree (no hydration flash) and the
+  // hint still rotates day-to-day. Falls back to a static string until
+  // the recipes query resolves so the SSR'd input matches first paint.
   const placeholder = useMemo(() => {
-    if (!recipes.length) return '';
-    const r = recipes[Math.floor(Math.random() * recipes.length)];
-    return r.title;
+    if (!recipes.length) return 'Search recipes…';
+    return pickDaily(recipes)?.title ?? 'Search recipes…';
   }, [recipes]);
 
   useEffect(() => { setOwner(isOwner()); }, []);
@@ -140,10 +145,6 @@ export default function RecipesIndexPage({ kitchen }: Props) {
     <>
       <Head><title>Recipes — Pantry Host</title></Head>
 
-      <datalist id="recipe-titles">
-        {recipes.map((r) => <option key={r.id} value={r.title} />)}
-      </datalist>
-
       <main id="stage" className="group/stage max-sm:min-h-screen px-4 py-10 md:px-8 max-w-5xl mx-auto">
         <a href={`${base}/feeds/bluesky#stage`} className="mb-8 flex items-center gap-4 card p-4 rounded-xl hover:border-accent transition-colors">
           <svg fill="currentColor" viewBox="0 0 600 530" width={32} height={28} aria-hidden="true" className="shrink-0 opacity-60" xmlns="http://www.w3.org/2000/svg">
@@ -182,7 +183,19 @@ export default function RecipesIndexPage({ kitchen }: Props) {
 
         <div className="mb-4">
           <label htmlFor="recipe-search" className="field-label">Search</label>
-          <input id="recipe-search" type="search" list="recipe-titles" placeholder={placeholder} value={search} onChange={(e) => setSearch(e.target.value)} className="field-input w-full md:max-w-sm" />
+          <div className="md:max-w-sm">
+            <IngredientTypeahead
+              id="recipe-search"
+              mode="single"
+              value={search}
+              onChange={setSearch}
+              placeholder={placeholder}
+              suggestions={recipes.map((r) => r.title)}
+              inputMode="search"
+              enterKeyHint="search"
+              ariaLabel="Recipe title suggestions"
+            />
+          </div>
         </div>
 
         {/* Skip link — visible only on keyboard focus */}

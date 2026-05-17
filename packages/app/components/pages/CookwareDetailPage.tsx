@@ -1,6 +1,7 @@
 import Head from 'next/head';
 import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
+import { useKitchen } from '@/lib/kitchen-context';
 import RecipeCard from '@/components/RecipeCard';
 
 interface Recipe {
@@ -40,15 +41,16 @@ const UPDATE_MUTATION = `
   }
 `;
 
-interface Props { id: string; kitchen: string; }
+interface Props { id: string; }
 
-export default function CookwareDetailPage({ id, kitchen }: Props) {
+export default function CookwareDetailPage({ id }: Props) {
+  const kitchen = useKitchen();
   const [item, setItem] = useState<CookwareItem | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [editing, setEditing] = useState(false);
 
-  const cookwareBase = kitchen === 'home' ? '/cookware' : `/kitchens/${kitchen}/cookware`;
-  const recipesBase = kitchen === 'home' ? '/recipes' : `/kitchens/${kitchen}/recipes`;
+  const cookwareBase = `/kitchens/${kitchen}/cookware`;
+  const recipesBase = `/kitchens/${kitchen}/recipes`;
 
   function load() {
     if (!id) return;

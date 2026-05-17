@@ -202,8 +202,16 @@ export function resolveGroceryStatus(
   }
 
   // Different units: try conversion (volume↔volume, weight↔weight).
-  // Cross-category or unknown-unit returns null → fall back to check_pantry.
   const converted = convert(pantry.total, pantry.unit, recipe.unit);
-  if (converted == null) return 'check_pantry';
-  return converted >= recipe.total ? 'have' : 'need_more';
+  if (converted != null) return converted >= recipe.total ? 'have' : 'need_more';
+
+  // Cross-category or unknown-unit — e.g. pantry stored as "1 whole ×
+  // 8.1 oz" (weight) but recipe wants "2 tsp" (volume). No math bridges
+  // weight ↔ volume without density tables, so fall back to presence
+  // semantics: if we have *any* amount, treat as on-hand; if we're at
+  // zero, we're out regardless of units. Matches real-world intent —
+  // "I have a jar of spice, I'm not out" — while still catching the
+  // "3 apples but recipe needs 10" case above via the same-unit path.
+  if (pantry.total > 0) return 'have';
+  return 'need_more';
 }

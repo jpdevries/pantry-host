@@ -10,14 +10,6 @@ Built with Rex (React + rolldown), GraphQL (Pothos + graphql-yoga), PostgreSQL, 
 
 Want to access the API away from home? You can't. Unless you set up a [Tailscale](https://tailscale.com/) mesh network, an SSH tunnel (`ssh -L 3000:localhost:3000 your-mac`), or a reverse proxy like [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-tunnel/) — but that's on you. By default, the app is only reachable on your local network, and that's the point.
 
----
-
-## Project Origin
-
-Pantry Host was founded in Forest Grove, Oregon (45.5246° N, 123.1106° W), on the ancestral homeland of the Atfalati Kalapuya people. See [SOVEREIGNTY.md](SOVEREIGNTY.md).
-
----
-
 ## Features
 
 - **Pantry** — track ingredients by category with quantities and tags; batch-scan groceries with your camera

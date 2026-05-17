@@ -199,9 +199,9 @@ Exposes the PantryHost GraphQL API as MCP (Model Context Protocol) tools so exte
 - **Dual transport**: stdio (Claude Desktop) via default, HTTP on port 5001 via `--http` flag
 - **Optional auth**: Set `MCP_API_KEY` env var to require `Authorization: Bearer` for HTTP transport
 
-### Tools (29 total)
+### Tools (30 total)
 - **Read (9):** search_pantry, search_recipes, get_recipe, list_cookware, get_cookware, list_kitchens, get_kitchen, list_menus, get_menu
-- **Write (15):** add_ingredient, add_ingredients, update_ingredient, remove_ingredient, create_recipe, update_recipe, delete_recipe, mark_recipe_cooked, queue_recipe, add_cookware, update_cookware, delete_cookware, create_menu, update_menu, delete_menu, toggle_recipe_in_menu
+- **Write (16):** add_ingredient, add_ingredients, update_ingredient, remove_ingredient, create_recipe, update_recipe, set_recipe_photo, delete_recipe, mark_recipe_cooked, queue_recipe, add_cookware, update_cookware, delete_cookware, create_menu, update_menu, delete_menu, toggle_recipe_in_menu
 - **AI (1):** generate_recipes (requires `AI_API_KEY` on the GraphQL server)
 
 ### Resources
@@ -255,8 +255,23 @@ A thin AT Protocol firehose indexer that powers the Bluesky feed pages in both w
 - `GET /api/handles` — all publishers that have ever appeared in the firehose
 - `GET /api/recipe-url?url=…` — cross-origin URL proxy for the browser PWA (bypasses CORS for sites that don't set `access-control-allow-origin: *`)
 - `GET /api/markets?lat=&lng=` — OSM Overpass proxy for nearby farmers' markets and farms
-- No auth on reads; cache-control: 30s on `/api/recipes`
+- `GET /api/plu?name=banana` (or `&name=…` repeated, or `?code=4011`) — IFPS PLU lookup. Returns produce-code candidates backed by the bundled `plu-codes.json` (~1,500 rows). Self-hosted mirror at `:3000/api/plu` has identical shape.
+- No auth on reads; cache-control: 30s on `/api/recipes`; 86400s on `/api/plu` (static data).
 - Data is always re-fetched live from each author's PDS at render time. The indexer only tells us records exist — values in the response are the most recent seen, but the detail page re-fetches to guarantee freshness.
+
+## Pantry identifiers (barcode + PLU)
+
+**`ingredients.barcode` is overloaded**: it stores any printed product identifier, UPC/EAN *and* PLU. Discriminate by length:
+
+| Length, content | Type | Metadata source |
+|---|---|---|
+| 8, 12, or 13 digits | UPC-A / EAN-8 / EAN-13 (packaged) | Open Food Facts → `product_meta` populated with `nutriments`, `nutriscore_grade`, `nova_group`, `labels_tags`, `allergens_tags`, etc. |
+| 4 digits in 3000–4999 | Conventional PLU (produce) | IFPS → `product_meta.plu_source: "ifps"` with `commodity`, `variety`, `size`, `organic: false`, `category` |
+| 5 digits starting with 9 | Organic PLU variant | Same IFPS record as the 4-digit base, with `organic: true` |
+
+`shared/src/plu.ts` exports `isPluCode(code)` as the canonical check — anything matching goes down the PLU path; otherwise treat as barcode. `buildPluMeta(rec, organic)` constructs the IFPS-flavored `ProductMeta`. Callers (pantry filter, `IngredientMetaPanel`, MCP tools) should branch on `plu_source === 'ifps'` and/or `isPluCode(barcode)` to render correctly — PLU rows don't have nutrition, OFF rows don't have commodity/variety.
+
+The pantry filter's `i.barcode?.includes(q)` predicate matches both — typing `4011` finds the banana row, typing `011863118764` finds the cheese row.
 
 ## Conventions
 
@@ -356,6 +371,7 @@ DEFAULT_THEME=claude                                            # auto-set by la
 MCP_PORT=5001                                                   # default 5001, MCP HTTP mode
 MCP_API_KEY=                                                    # optional, bearer auth for MCP HTTP
 GRAPHQL_URL=http://localhost:4001/graphql                       # MCP server's GraphQL target
+APP_URL=http://localhost:3000                                   # MCP server's target for /api/upload (set_recipe_photo)
 ENABLE_IMAGE_PROCESSING=true                                    # false: skip sharp variants, save disk (Pi)
 ```
 

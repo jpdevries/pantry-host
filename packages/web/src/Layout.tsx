@@ -2,6 +2,7 @@ import { Outlet, NavLink, useLocation, useParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import Footer from '@pantry-host/shared/components/Footer';
 import { getDailyQuote } from '@pantry-host/shared/dailyQuote';
+import { PreferBrowserChromeProvider, rawToUserPref, type PreferBrowserChromeUserPref } from '@pantry-host/shared/components/prefer-browser-chrome';
 
 function PantryHostLogo({ size = 24 }: { size?: number }) {
   return (
@@ -40,6 +41,25 @@ export default function Layout() {
   const [quote, setQuote] = useState<{ text: string; author: string } | null>(null);
 
   useEffect(() => { setQuote(getDailyQuote()); }, []);
+
+  // PREFER_BROWSER_CHROME — read sync from localStorage on each Layout
+  // mount, then listen for `storage` events. Tri-state: 'on' / 'off' /
+  // undefined (the latter means "no preference, fall back to auto-detect").
+  // Web's SettingsAdapter dispatches a synthetic StorageEvent on save (see
+  // SettingsPage.tsx), so same-tab + cross-tab toggles both propagate
+  // without a reload.
+  const [preferBrowserChrome, setPreferBrowserChrome] = useState<PreferBrowserChromeUserPref>(() => {
+    if (typeof window === 'undefined') return undefined;
+    return rawToUserPref(localStorage.getItem('prefer-browser-chrome'));
+  });
+  useEffect(() => {
+    function sync(e: StorageEvent) {
+      if (e.key !== null && e.key !== 'prefer-browser-chrome') return;
+      setPreferBrowserChrome(rawToUserPref(localStorage.getItem('prefer-browser-chrome')));
+    }
+    window.addEventListener('storage', sync);
+    return () => window.removeEventListener('storage', sync);
+  }, []);
 
   // Update page title on route change
   useEffect(() => {
@@ -89,6 +109,7 @@ export default function Layout() {
   const isHome = location.pathname === '/' || location.pathname === `/kitchens/${kitchenSlug}`;
 
   return (
+    <PreferBrowserChromeProvider userPref={preferBrowserChrome}>{/* tri-state: 'on' | 'off' | undefined */}
     <div className="min-h-screen bg-[var(--color-bg-body)] text-[var(--color-text-primary)] transition-colors">
       <header
         className="relative flex flex-col min-h-[100svh] sm:min-h-0 px-6 py-8"
@@ -194,5 +215,6 @@ export default function Layout() {
       </main>
       <Footer />
     </div>
+    </PreferBrowserChromeProvider>
   );
 }

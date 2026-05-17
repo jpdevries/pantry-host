@@ -1,319 +1,125 @@
 /**
- * PGlite database adapter that mimics the postgres.js tagged template API.
+ * Browser SQLite adapter backed by @sqlite.org/sqlite-wasm with the
+ * OPFS-SAH-Pool VFS for persistence. Runs on the main thread (SAH-Pool
+ * does not need a Worker or COOP/COEP). Falls back to in-memory if OPFS
+ * is unavailable (incognito/Safari private).
  *
- * The app's GraphQL schema uses `sql` as a tagged template literal:
- *   sql`SELECT * FROM foo WHERE id = ${id}`
- *
- * It also uses two special forms:
- *   sql.array(items)     — converts JS array to PostgreSQL array literal
- *   sql(rows, ...cols)   — generates bulk INSERT fragment
- *
- * This module wraps PGlite to provide the same API so the schema resolvers
- * work unmodified in the browser.
+ * The exported `sql` matches the app's tagged-template wrapper API so the
+ * GraphQL resolvers in lib/schema/index.ts compile unchanged.
  */
+import sqlite3InitModule, { type Database, type Sqlite3Static } from '@sqlite.org/sqlite-wasm';
+import { SCHEMA_SQL } from '@pantry-host/shared/sql/schema';
 
-import { PGlite } from '@electric-sql/pglite';
+let _db: Database | null = null;
+let _initPromise: Promise<Database> | null = null;
 
-let db: PGlite | null = null;
-let initPromise: Promise<void> | null = null;
+async function openDB(): Promise<Database> {
+  if (_db) return _db;
+  if (_initPromise) return _initPromise;
 
-// Schema SQL is inlined at build time — see initDB()
-const SCHEMA_SQL = `
-CREATE TABLE IF NOT EXISTS kitchens (
-  id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  slug        TEXT NOT NULL UNIQUE,
-  name        TEXT NOT NULL,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
-);
+  _initPromise = (async () => {
+    const sqlite3 = (await sqlite3InitModule({ print: () => {}, printErr: console.error })) as Sqlite3Static;
 
-INSERT INTO kitchens (slug, name) VALUES ('home', 'Home') ON CONFLICT (slug) DO NOTHING;
-
-CREATE TABLE IF NOT EXISTS ingredients (
-  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name           VARCHAR(255) NOT NULL,
-  category       VARCHAR(100),
-  quantity       DECIMAL,
-  unit           VARCHAR(50),
-  item_size      DECIMAL,
-  item_size_unit VARCHAR(50),
-  always_on_hand BOOLEAN NOT NULL DEFAULT false,
-  tags           TEXT[] DEFAULT '{}',
-  barcode        VARCHAR(64),
-  product_meta   JSONB,
-  aliases        TEXT[],
-  kitchen_id     TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE,
-  created_at     TIMESTAMPTZ DEFAULT NOW(),
-  updated_at     TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_ingredients_tags ON ingredients USING GIN(tags);
-
-CREATE TABLE IF NOT EXISTS recipes (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title             VARCHAR(255) NOT NULL,
-  slug              VARCHAR(255),
-  description       TEXT,
-  instructions      TEXT NOT NULL,
-  servings          INTEGER DEFAULT 2,
-  prep_time         INTEGER,
-  cook_time         INTEGER,
-  tags              TEXT[] DEFAULT '{}',
-  required_cookware TEXT[] DEFAULT '{}',
-  source            VARCHAR(20) DEFAULT 'manual',
-  source_url        TEXT,
-  photo_url         TEXT,
-  step_photos       TEXT[] DEFAULT '{}',
-  last_made_at      TIMESTAMPTZ,
-  queued            BOOLEAN DEFAULT FALSE,
-  kitchen_id        TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE,
-  created_at        TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_recipes_tags ON recipes USING GIN(tags);
-CREATE INDEX IF NOT EXISTS idx_recipes_cookware ON recipes USING GIN(required_cookware);
-
-CREATE TABLE IF NOT EXISTS cookware (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name        VARCHAR(255) NOT NULL,
-  brand       VARCHAR(255),
-  tags        TEXT[] DEFAULT '{}',
-  kitchen_id  TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE,
-  notes       TEXT,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_cookware_tags ON cookware USING GIN(tags);
-
-CREATE TABLE IF NOT EXISTS recipe_cookware (
-  recipe_id   UUID NOT NULL REFERENCES recipes(id)  ON DELETE CASCADE,
-  cookware_id UUID NOT NULL REFERENCES cookware(id) ON DELETE CASCADE,
-  PRIMARY KEY (recipe_id, cookware_id)
-);
-CREATE INDEX IF NOT EXISTS idx_recipe_cookware_recipe   ON recipe_cookware(recipe_id);
-CREATE INDEX IF NOT EXISTS idx_recipe_cookware_cookware ON recipe_cookware(cookware_id);
-
-CREATE TABLE IF NOT EXISTS recipe_ingredients (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  recipe_id        UUID REFERENCES recipes(id) ON DELETE CASCADE,
-  ingredient_name  VARCHAR(255) NOT NULL,
-  quantity         DECIMAL,
-  unit             VARCHAR(50),
-  item_size        DECIMAL,
-  item_size_unit   VARCHAR(50),
-  source_recipe_id UUID REFERENCES recipes(id) ON DELETE SET NULL,
-  sort_order       INTEGER DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS menus (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title       VARCHAR(255) NOT NULL,
-  slug        VARCHAR(255) UNIQUE,
-  description TEXT,
-  active      BOOLEAN DEFAULT TRUE,
-  category    VARCHAR(50),
-  source_url  TEXT,
-  kitchen_id  TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_menus_kitchen ON menus(kitchen_id);
-
-CREATE TABLE IF NOT EXISTS menu_recipes (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  menu_id    UUID NOT NULL REFERENCES menus(id) ON DELETE CASCADE,
-  recipe_id  UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
-  course     VARCHAR(50),
-  sort_order INTEGER DEFAULT 0
-);
-
-CREATE INDEX IF NOT EXISTS idx_menu_recipes_menu ON menu_recipes(menu_id);
-`;
-
-async function getDB(): Promise<PGlite> {
-  if (db) return db;
-  if (initPromise) {
-    await initPromise;
-    return db!;
-  }
-
-  initPromise = (async () => {
-    const instance = new PGlite('idb://pantryhost');
-    await instance.waitReady;
-
-    // Check if schema already exists
-    const result = await instance.query(
-      `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'kitchens') as exists`
-    );
-    const exists = (result.rows[0] as { exists: boolean }).exists;
-
-    if (!exists) {
-      // Split and execute schema statements individually
-      const statements = SCHEMA_SQL
-        .split(';')
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
-      for (const stmt of statements) {
-        await instance.query(stmt + ';');
-      }
-    } else {
-      // Ensure home kitchen exists
-      await instance.query(
-        `INSERT INTO kitchens (slug, name) VALUES ('home', 'Home') ON CONFLICT (slug) DO NOTHING`
-      );
-      // Migrations for existing databases
-      await instance.query(`ALTER TABLE cookware ADD COLUMN IF NOT EXISTS notes TEXT`);
-      await instance.query(`CREATE TABLE IF NOT EXISTS recipe_cookware (
-        recipe_id   UUID NOT NULL REFERENCES recipes(id)  ON DELETE CASCADE,
-        cookware_id UUID NOT NULL REFERENCES cookware(id) ON DELETE CASCADE,
-        PRIMARY KEY (recipe_id, cookware_id)
-      )`);
-      await instance.query(`CREATE INDEX IF NOT EXISTS idx_recipe_cookware_recipe   ON recipe_cookware(recipe_id)`);
-      await instance.query(`CREATE INDEX IF NOT EXISTS idx_recipe_cookware_cookware ON recipe_cookware(cookware_id)`);
-      // v0.3.0: Step-by-step photos
-      await instance.query(`ALTER TABLE recipes ADD COLUMN IF NOT EXISTS step_photos TEXT[] DEFAULT '{}'`);
-      // v0.4.0: Two-dimension quantity on ingredients + recipe_ingredients
-      await instance.query(`ALTER TABLE ingredients         ADD COLUMN IF NOT EXISTS item_size      DECIMAL`);
-      await instance.query(`ALTER TABLE ingredients         ADD COLUMN IF NOT EXISTS item_size_unit VARCHAR(50)`);
-      await instance.query(`ALTER TABLE recipe_ingredients  ADD COLUMN IF NOT EXISTS item_size      DECIMAL`);
-      await instance.query(`ALTER TABLE recipe_ingredients  ADD COLUMN IF NOT EXISTS item_size_unit VARCHAR(50)`);
-      // v0.5.0: Opt-in barcode + product metadata on pantry ingredients
-      await instance.query(`ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS barcode      VARCHAR(64)`);
-      await instance.query(`ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS product_meta JSONB`);
-      await instance.query(`CREATE INDEX IF NOT EXISTS idx_ingredients_barcode ON ingredients(barcode) WHERE barcode IS NOT NULL`);
-      // v0.5.1: Pantry-row aliases for recipe-ingredient matching.
-      await instance.query(`ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS aliases TEXT[]`);
-      // v0.6.0: Source URL on menus (parity with recipes.source_url).
-      await instance.query(`ALTER TABLE menus ADD COLUMN IF NOT EXISTS source_url TEXT`);
+    let db: Database;
+    try {
+      const poolUtil = await (sqlite3 as any).installOpfsSAHPoolVfs({ name: 'pantryhost' });
+      db = new poolUtil.OpfsSAHPoolDb('/pantryhost.db') as Database;
+    } catch (err) {
+      console.warn('[db] OPFS-SAH-Pool unavailable, falling back to in-memory:', err);
+      db = new (sqlite3 as any).oo1.DB(':memory:', 'c') as Database;
     }
 
-    // Only expose db after schema is fully initialized
-    db = instance;
+    db.exec('PRAGMA foreign_keys = ON');
+    db.exec('PRAGMA busy_timeout = 5000');
+    db.exec(SCHEMA_SQL);
+
+    _db = db;
+    return db;
   })();
 
-  await initPromise;
-  return db!;
+  return _initPromise;
 }
 
-/** Marker class for sql.array() results */
-class PgArray {
-  constructor(public items: unknown[]) {}
+const RETURNS_ROWS = /^\s*(select|with|pragma)\b|\breturning\b/i;
+
+async function execute(text: string, params: unknown[]): Promise<unknown[]> {
+  const db = await openDB();
+  const bind = params.map((v) => {
+    if (v === undefined) return null;
+    if (typeof v === 'boolean') return v ? 1 : 0;
+    if (v instanceof Date) return v.toISOString();
+    return v as null | number | string;
+  });
+  if (RETURNS_ROWS.test(text)) {
+    try {
+      return (db as any).selectObjects(text, bind) as unknown[];
+    } catch (err) {
+      const e = err as Error;
+      e.message = `${e.message}\n  in: ${text}\n  params: ${JSON.stringify(bind)}`;
+      throw e;
+    }
+  }
+  try {
+    db.exec({ sql: text, bind });
+  } catch (err) {
+    const e = err as Error;
+    e.message = `${e.message}\n  in: ${text}\n  params: ${JSON.stringify(bind)}`;
+    throw e;
+  }
+  return [];
 }
 
-/** Marker class for sql(rows, ...cols) bulk insert results */
-class PgBulkInsert {
-  constructor(public rows: Record<string, unknown>[], public columns: string[]) {}
-}
+type SqlResult<T> = Promise<T[]>;
 
-/**
- * Tagged template literal that mimics postgres.js sql`...` API.
- * Converts template + interpolated values into a parameterized query.
- */
-function sqlTag(strings: TemplateStringsArray, ...values: unknown[]): Promise<unknown[]> & { text: string; values: unknown[] } {
-  let queryParts: string[] = [];
-  let params: unknown[] = [];
-  let paramIdx = 1;
-
+function sqlTag<T = Record<string, unknown>>(
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+): SqlResult<T> {
+  let text = '';
+  const params: unknown[] = [];
   for (let i = 0; i < strings.length; i++) {
-    queryParts.push(strings[i]);
-
+    text += strings[i];
     if (i < values.length) {
-      const val = values[i];
-
-      if (val instanceof PgArray) {
-        // sql.array([...]) → ARRAY[$1, $2, ...]
-        if (val.items.length === 0) {
-          queryParts.push("'{}'::text[]");
+      const v = values[i];
+      if (Array.isArray(v)) {
+        if (v.length === 0) {
+          text += 'NULL';
         } else {
-          const placeholders = val.items.map((item) => {
-            params.push(item);
-            return `$${paramIdx++}`;
-          });
-          queryParts.push(`ARRAY[${placeholders.join(', ')}]`);
+          text += v.map(() => '?').join(', ');
+          params.push(...v);
         }
-      } else if (val instanceof PgBulkInsert) {
-        // sql(rows, ...cols) → (col1, col2) VALUES ($1, $2), ($3, $4)
-        const cols = val.columns;
-        const rowPlaceholders = val.rows.map((row) => {
-          const ph = cols.map((col) => {
-            const v = row[col];
-            if (Array.isArray(v)) {
-              // Array columns need ARRAY[] syntax
-              if (v.length === 0) {
-                return "'{}'::text[]";
-              }
-              const arrPh = v.map((item) => {
-                params.push(item);
-                return `$${paramIdx++}`;
-              });
-              return `ARRAY[${arrPh.join(', ')}]`;
-            }
-            params.push(v);
-            return `$${paramIdx++}`;
-          });
-          return `(${ph.join(', ')})`;
-        });
-        queryParts.push(`(${cols.join(', ')}) VALUES ${rowPlaceholders.join(', ')}`);
-      } else if (val === null || val === undefined) {
-        params.push(null);
-        queryParts.push(`$${paramIdx++}`);
       } else {
-        params.push(val);
-        queryParts.push(`$${paramIdx++}`);
+        text += '?';
+        params.push(v);
       }
     }
   }
-
-  const text = queryParts.join('');
-
-  // Create a promise that auto-executes the query
-  const promise = getDB().then(async (db) => {
-    const result = await db.query(text, params);
-    return result.rows as unknown[];
-  }) as Promise<unknown[]> & { text: string; values: unknown[] };
-
-  // Attach query info for debugging
-  promise.text = text;
-  promise.values = params;
-
-  return promise;
+  return execute(text, params) as SqlResult<T>;
 }
 
-/**
- * sql.array(items) — converts a JS array to a Postgres array parameter.
- */
-sqlTag.array = function (items: unknown[]): PgArray {
-  return new PgArray(items ?? []);
-};
-
-/**
- * sql(rows, ...columns) — generates a bulk INSERT fragment.
- * Used as: sql`INSERT INTO foo ${sql(rows, 'col1', 'col2')}`
- */
-function sqlCallable(rows: Record<string, unknown>[], ...columns: string[]): PgBulkInsert {
-  return new PgBulkInsert(rows, columns);
+export function bulkInsert<T = Record<string, unknown>>(
+  table: string,
+  rows: Record<string, unknown>[],
+  cols: string[],
+): Promise<T[]> {
+  if (rows.length === 0) return Promise.resolve([]);
+  const placeholders = rows
+    .map(() => `(${cols.map(() => '?').join(',')})`)
+    .join(', ');
+  const params = rows.flatMap((r) => cols.map((c) => r[c]));
+  const text = `INSERT INTO ${table} (${cols.join(',')}) VALUES ${placeholders} RETURNING *`;
+  return execute(text, params) as Promise<T[]>;
 }
 
-// Merge the tagged template and callable forms
-const sql = Object.assign(
-  function (stringsOrRows: TemplateStringsArray | Record<string, unknown>[], ...rest: unknown[]) {
-    if (Array.isArray(stringsOrRows) && 'raw' in stringsOrRows) {
-      // Tagged template: sql`...`
-      return sqlTag(stringsOrRows as TemplateStringsArray, ...rest);
-    }
-    // Callable: sql(rows, ...columns)
-    return sqlCallable(stringsOrRows as Record<string, unknown>[], ...(rest as string[]));
-  },
-  { array: sqlTag.array },
-);
-
+const sql = sqlTag as typeof sqlTag;
 export default sql;
 
-/** Initialize the database (call early to start loading) */
+/** Initialize the database eagerly. Safe to call multiple times. */
 export async function initDB(): Promise<void> {
-  await getDB();
+  await openDB();
 }
 
-/** Get raw PGlite instance for advanced operations */
-export async function getRawDB(): Promise<PGlite> {
-  return getDB();
+/** Raw DB handle for tooling that needs to issue ad-hoc statements (export). */
+export async function getRawDB(): Promise<Database> {
+  return openDB();
 }

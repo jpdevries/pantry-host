@@ -6,7 +6,7 @@ Project context for AI agents working on this codebase.
 
 ## What is this?
 
-Pantry Host is a privacy-first kitchen companion for managing recipes, pantry ingredients, cookware, and grocery lists. It ships three ways: self-hosted with PostgreSQL, browser-native with PGlite, or as a static marketing page. All data stays on your hardware.
+Pantry Host is a privacy-first kitchen companion for managing recipes, pantry ingredients, cookware, and grocery lists. It ships three ways: self-hosted with SQLite (Node 22+'s built-in `node:sqlite`), browser-native with `@sqlite.org/sqlite-wasm` (OPFS-backed), or as a static marketing page. All data stays on your hardware.
 
 ## Monorepo structure
 
@@ -16,10 +16,10 @@ pantry-host/
 │   ├── app/          # Self-hosted Rex app (Postgres, SSR)
 │   ├── shared/       # Shared types, adapters, constants, theme, components
 │   ├── marketing/    # Static landing page (Vite, Cloudflare Pages)
-│   ├── web/          # Browser-native PWA (PGlite + IndexedDB, Vite)
+│   ├── web/          # Browser-native PWA (@sqlite.org/sqlite-wasm + OPFS, Vite)
 │   └── mcp/          # MCP server (Model Context Protocol for AI integrations)
 ├── package.json      # npm workspaces root
-├── .env.local        # App env vars (DATABASE_URL, AI_PROVIDER, AI_API_KEY)
+├── .env.local        # App env vars (SQLITE_DB_PATH, AI_PROVIDER, AI_API_KEY)
 ├── .claude/          # Launch configs, settings
 └── CLAUDE.md
 ```
@@ -37,7 +37,7 @@ npm run dev:mcp                # packages/mcp (MCP server, stdio)
 
 Or use `.claude/launch.json` configs: `pantry-host`, `graphql-server`, `marketing`, `web`, `mcp-server`.
 
-## packages/app — Self-hosted (Rex + Postgres)
+## packages/app — Self-hosted (Rex + SQLite)
 
 ### Rex framework (not Next.js)
 
@@ -60,22 +60,34 @@ Uses **Rex** (`@limlabs/rex`), a custom React bundler built on rolldown. Mimics 
 
 ### Database
 
-PostgreSQL 14+. `DATABASE_URL=postgres://jpdevries@localhost:5432/pantry_host`
+SQLite via **Node 22+'s built-in `node:sqlite`** module (no native install). Configure with `SQLITE_DB_PATH=./pantry.db` (default).
 
-Schema in `packages/app/schema.sql`, auto-applied on startup.
+Schema is the shared module `@pantry-host/shared/sql/schema` (single source of truth used by both the app and the web PWA). It's idempotent (`CREATE TABLE IF NOT EXISTS …`) and auto-applied by `lib/db.ts` on first connection.
 
-Tables: `kitchens`, `ingredients`, `recipes`, `recipe_ingredients`, `cookware`, `menus`, `menu_recipes`
+Tables: `kitchens`, `ingredients`, `recipes`, `recipe_ingredients`, `recipe_cookware`, `cookware`, `menus`, `menu_recipes`.
+
+Column conventions:
+- IDs are TEXT (UUIDs supplied by JS via `crypto.randomUUID()`).
+- Timestamps are TEXT ISO 8601 (`strftime('%Y-%m-%dT%H:%M:%fZ', 'now')` default).
+- Tag/alias/photo arrays are TEXT containing JSON (default `'[]'`); product_meta is JSON TEXT.
+- Booleans are INTEGER 0/1; decimals are REAL.
 
 ### GraphQL schema
 
-**`packages/app/lib/schema/index.ts` is the REAL schema.** Files `recipe.ts`, `ingredient.ts`, `cookware.ts`, `builder.ts` are dead code.
+**`packages/app/lib/schema/index.ts` is the REAL schema.** The old dead files (`recipe.ts`, `ingredient.ts`, `cookware.ts`, `builder.ts`) have been deleted.
 
-Uses the postgres.js tagged template API:
+The `sql` wrapper in `lib/db.ts` is a thin tagged-template over `node:sqlite`:
 ```typescript
 const [row] = await sql`SELECT * FROM recipes WHERE slug = ${slug}`;
-sql.array(tags)           // JS array → Postgres array
-sql(rows, ...columns)     // bulk INSERT
+
+// JS arrays expand to (?, ?, ?) for IN / VALUES lists:
+sql`SELECT * FROM recipes WHERE id IN (${ids})`;
+
+// JSON columns: caller stringifies explicitly.
+sql`INSERT INTO ingredients (..., tags) VALUES (..., ${JSON.stringify(tags ?? [])})`;
 ```
+
+A `bulkInsert(table, rows, cols)` helper is exported for the rare true bulk path (only `addIngredients` today).
 
 ### File structure
 
@@ -125,11 +137,12 @@ Exports used by all packages:
 | `@pantry-host/shared/bluesky-import` | `importBlueskyCollection({ atUri, gql, kitchenSlug?, onProgress? })` — fetches collection + each recipe + creates menu |
 | `@pantry-host/shared/adapters/database` | DatabaseAdapter interface |
 | `@pantry-host/shared/adapters/file-storage` | FileStorageAdapter interface |
+| `@pantry-host/shared/sql/schema` | Canonical SQLite DDL string. Imported by both `packages/app/lib/db.ts` and `packages/web/lib/db.ts` — single source of truth, resolves the schema-drift gotcha. |
 
 ### Storage adapter pattern
 
 ```typescript
-// DatabaseAdapter — Postgres (app) vs PGlite (web)
+// DatabaseAdapter — node:sqlite (app) vs @sqlite.org/sqlite-wasm + OPFS (web)
 interface DatabaseAdapter {
   query<T>(sql: string, params?: unknown[]): Promise<T[]>;
   execute(sql: string, params?: unknown[]): Promise<void>;
@@ -153,30 +166,32 @@ Sections: Hero, Tiers (Browser/Self-hosted/Claude Code), Features, Philosophy, F
 
 ## packages/web — Browser-native PWA
 
-Vite + React Router + PGlite + Tailwind v4. Runs entirely in-browser — no server required.
+Vite + React Router + @sqlite.org/sqlite-wasm + Tailwind v4. Runs entirely in-browser — no server required.
 
 ### Key architecture
 
-- **PGlite** (`lib/db.ts`): Postgres compiled to WASM, persisted in IndexedDB (`idb://pantryhost`). Provides a tagged template wrapper mimicking the postgres.js `sql` API so the GraphQL schema resolvers work unmodified.
+- **SQLite WASM** (`lib/db.ts`): The official `@sqlite.org/sqlite-wasm` build with the OPFS-SAH-Pool VFS for persistence (`/pantryhost.db` inside OPFS). Same tagged-template `sql` API as the app, so GraphQL resolvers in `lib/schema/index.ts` are byte-for-byte aligned with the app's. Falls back to in-memory if OPFS-SAH-Pool init fails (Safari private mode, sandboxed Playwright Chromium, etc.).
 - **Local GraphQL** (`lib/gql.ts`): Executes GraphQL directly in-browser via `graphql()` from `graphql-js`. Same `gql<T>(query, variables)` API as the app's HTTP client.
-- **Schema** (`lib/schema/index.ts`): Copy of app's schema with AI generation removed. Uses the PGlite-backed `sql` tagged template.
-- **OPFS storage** (`lib/storage-opfs.ts`): File storage in Origin Private File System.
-- **Data export** (`lib/export.ts`): SQL dump for backup/migration to self-hosted.
+- **Schema** (`lib/schema/index.ts`): Resolver code mirrors the app's; the only difference is the missing `generateRecipes` mutation (no server-side AI key). DDL comes from `@pantry-host/shared/sql/schema`.
+- **OPFS storage** (`lib/storage-opfs.ts`): User file uploads live in the same OPFS volume.
+- **Data export** (`lib/export.ts`): SQLite-flavored SQL dump for backup/migration to self-hosted.
 - **No guest mode** — everything is local, user owns all features.
 - **No AI generation** — no server-side API key available.
+
+> **OPFS-SAH-Pool VFS notes:** No COOP/COEP headers required. The pool VFS uses synchronous-access-handles obtained ahead of time and works on the main thread in Chrome/Edge 102+, Safari 17+, Firefox 111+. Playwright's Chromium reports `createSyncAccessHandle: false` even on recent versions — the fallback to in-memory kicks in there. To verify persistence locally, open the dev server in your actual browser; the absence of `[db] OPFS-SAH-Pool unavailable…` in console means OPFS persistence is active.
 
 ### File structure
 
 ```
 packages/web/
 ├── src/
-│   ├── main.tsx         # Entry point (theme init, PGlite init)
+│   ├── main.tsx         # Entry point (theme init, SQLite init)
 │   ├── App.tsx          # React Router routes
 │   ├── Layout.tsx       # Nav + Footer shell
 │   ├── globals.css      # Theme tokens + Tailwind v4
 │   └── pages/           # Page components (Home, Recipes, Ingredients, etc.)
 ├── lib/
-│   ├── db.ts            # PGlite tagged template wrapper
+│   ├── db.ts            # sqlite-wasm + OPFS-SAH-Pool tagged template wrapper
 │   ├── gql.ts           # Local GraphQL executor
 │   ├── schema/index.ts  # GraphQL schema (no AI)
 │   ├── storage-opfs.ts  # OPFS file storage
@@ -359,7 +374,7 @@ The SW provides offline support for the self-hosted app. Key design decisions:
 ## Environment variables
 
 ```bash
-DATABASE_URL=postgres://jpdevries@localhost:5432/pantry_host  # required for app
+SQLITE_DB_PATH=./pantry.db                                      # SQLite file path for app + migration script; default ./pantry.db
 AI_PROVIDER=anthropic                                             # default: anthropic
 AI_API_KEY=sk-ant-...                                             # optional, AI recipes
 RECIPE_API_KEY=rapi_...                                         # optional, recipe-api.com import tab (owner-gated)
@@ -377,24 +392,22 @@ ENABLE_IMAGE_PROCESSING=true                                    # false: skip sh
 
 ## Dev vs Prod mode
 
+Both modes read a local SQLite file at `$SQLITE_DB_PATH` (default `./pantry.db`).
+
 ### Dev mode (default)
-Uses local Postgres and local servers on this machine (jps-macbook-air).
+Local app, local SQLite file on this machine.
 ```
 preview_start pantry-host        # Rex dev server @ :3000
-preview_start graphql-server     # GraphQL @ :4001 (local Postgres)
+preview_start graphql-server     # GraphQL @ :4001 (local SQLite at ./pantry.db)
 ```
 
 ### Prod mode
-Local servers connecting to Mac Mini's Postgres directly over Tailscale.
-```
-preview_start pantry-host           # Rex dev server @ :3000 (SSR from Mini's DB)
-preview_start graphql-server-prod   # GraphQL @ :4001 (Mini's Postgres via Tailscale)
-```
-- Requires Tailscale connected and Mini's Postgres accepting connections
-- Mini Tailscale IP: `100.125.77.118` (hostname: `jmini`)
-- Mini Postgres user: `j7`, database: `pantry_host`
-- Mini's `pg_hba.conf` allows Tailscale CGNAT range (`100.64.0.0/10`)
-- `DATABASE_URL=postgres://j7@100.125.77.118:5432/pantry_host`
+With SQLite there's nothing networked to point at — the DB is just a file. To work against the Mini's data, either:
+- **Sync the file** over Tailscale: `rsync -av jmini:~/code/pantry-host/packages/app/pantry.db packages/app/pantry.db` (one-way; do this before/after each session).
+- **Mount remotely**: SSH-mount or SMB/NFS the Mini's repo, then point `SQLITE_DB_PATH` at the mounted path (writes are slow over the network — consider WAL mode + `PRAGMA synchronous=NORMAL` are already set).
+- **Run the server on the Mini**: `ssh jmini` and start `graphql-server` there, hitting it over Tailscale at `http://100.125.77.118:4001/graphql`.
+
+> The migration script `scripts/migrate-postgres-to-sqlite.ts` is the one-shot path from a previous Postgres install (set `DATABASE_URL=...` as source and `SQLITE_DB_PATH=...` as destination).
 
 ## Common tasks
 
@@ -422,8 +435,8 @@ cd packages/web && npx vite build         # → dist/
 4. **No `<Link>` in app**: Rex uses plain `<a>` tags. The web package uses React Router `<Link>`.
 5. **Tailwind v4 in Rex**: Rex 0.19.2 has Tailwind v4 built in. Don't use `@apply` — use plain CSS in `globals.css`.
 6. **Guest mode (app only)**: Owner = `localhost` / `127.0.0.1` / HTTPS. Guest = HTTP on any other hostname (e.g. `http://192.168.x.x:3000`). Owners see Add, Edit, Delete, Import, inactive menus, batch scan, AI generation. Guests get read-only access to active content. The `isOwner()` function in `lib/isTrustedNetwork.ts` controls this. Not applicable to web package.
-7. **PGlite WASM size**: ~2.8 MB gzipped. First load initializes schema. Subsequent loads are instant from IndexedDB.
-8. **Schema sync**: `packages/web/lib/schema/index.ts` is a copy of `packages/app/lib/schema/index.ts` minus AI generation. Keep them in sync when adding queries/mutations.
+7. **SQLite-wasm WASM size**: ~700 KB gzipped. First load applies the schema and creates `/pantryhost.db` inside OPFS via the SAH-Pool VFS. Subsequent loads are instant. Falls back to in-memory if OPFS is unavailable (Safari private mode, sandboxed Playwright Chromium).
+8. **Schema sync**: DDL lives in `@pantry-host/shared/sql/schema` — both `packages/app/lib/db.ts` and `packages/web/lib/db.ts` import the same string. **Resolver code** (`lib/schema/index.ts`) is still maintained per-package; the web copy is essentially the app's minus the `generateRecipes` mutation. Keep query/mutation surfaces in sync by hand when adding new operations.
 9. **Rex router `query` unreliable in prod**: `useRouter().query` sometimes returns empty on dynamic routes in production builds. Always fall back to parsing `window.location.pathname` for route params (see `MenuDetailPage.tsx` for the pattern).
 10. **Shared component Tailwind classes missing in app**: Rex's Tailwind v4 only scans `@source` paths. Add `@source "../../shared/src/components/";` to `globals.css` so shared component classes (grid-cols-7, flex-1, etc.) are generated.
 11. **Rex SSR hook-state bug (local dev, Rex 0.20.0)**: a known regression can make every SSR route fail with `TypeError: Cannot read properties of null (reading 'useState')` — React resolves to null. Not caused by user code; reproduces at pristine `HEAD`. The pm2 prod build on the Mini is unaffected. Workaround: clear `.rex/build`, `npm install`, restart. If persistent, rebuild from a clean worktree.

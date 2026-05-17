@@ -1,7 +1,7 @@
 import http from 'http';
 import { execute, parse, validate } from 'graphql';
 import { schema } from './lib/schema/index.js';
-import sql from './lib/db.js';
+import sql, { initDB } from './lib/db.js';
 import { IncomingForm, type File as FormidableFile } from 'formidable';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -515,87 +515,6 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-async function runMigrations() {
-  // Add kitchens table
-  await sql`
-    CREATE TABLE IF NOT EXISTS kitchens (
-      id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      slug       TEXT NOT NULL UNIQUE,
-      name       TEXT NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `;
-  // Seed home kitchen
-  await sql`INSERT INTO kitchens (slug, name) VALUES ('home', 'Home') ON CONFLICT (slug) DO NOTHING`;
-  // Add kitchen_id columns to data tables
-  await sql`ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS kitchen_id TEXT REFERENCES kitchens(id) ON DELETE CASCADE`;
-  await sql`ALTER TABLE recipes     ADD COLUMN IF NOT EXISTS kitchen_id TEXT REFERENCES kitchens(id) ON DELETE CASCADE`;
-  await sql`ALTER TABLE cookware    ADD COLUMN IF NOT EXISTS kitchen_id TEXT REFERENCES kitchens(id) ON DELETE CASCADE`;
-  // Backfill existing rows to home kitchen
-  await sql`UPDATE ingredients SET kitchen_id = (SELECT id FROM kitchens WHERE slug = 'home') WHERE kitchen_id IS NULL`;
-  await sql`UPDATE recipes     SET kitchen_id = (SELECT id FROM kitchens WHERE slug = 'home') WHERE kitchen_id IS NULL`;
-  await sql`UPDATE cookware    SET kitchen_id = (SELECT id FROM kitchens WHERE slug = 'home') WHERE kitchen_id IS NULL`;
-  // Add slug column to recipes
-  await sql`ALTER TABLE recipes ADD COLUMN IF NOT EXISTS slug TEXT`;
-  await sql`CREATE UNIQUE INDEX IF NOT EXISTS recipes_slug_idx ON recipes (slug) WHERE slug IS NOT NULL`;
-  // Backfill slugs for existing recipes that don't have one
-  const unslugged = await sql`SELECT id, title FROM recipes WHERE slug IS NULL`;
-  for (const row of unslugged) {
-    const base = row.title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-');
-    let candidate = base;
-    let suffix = 2;
-    while (true) {
-      const [existing] = await sql`SELECT id FROM recipes WHERE slug = ${candidate}`;
-      if (!existing) break;
-      candidate = `${base}-${suffix++}`;
-    }
-    await sql`UPDATE recipes SET slug = ${candidate} WHERE id = ${row.id}`;
-  }
-  // Add source_url column to recipes
-  await sql`ALTER TABLE recipes ADD COLUMN IF NOT EXISTS source_url TEXT`;
-
-  // v0.1.1: Add notes to cookware (e.g. device guides, composting rules)
-  await sql`ALTER TABLE cookware ADD COLUMN IF NOT EXISTS notes TEXT`;
-
-  // v0.2.0: UUID join table replacing required_cookware TEXT[]
-  await sql`
-    CREATE TABLE IF NOT EXISTS recipe_cookware (
-      recipe_id   UUID NOT NULL REFERENCES recipes(id)  ON DELETE CASCADE,
-      cookware_id UUID NOT NULL REFERENCES cookware(id) ON DELETE CASCADE,
-      PRIMARY KEY (recipe_id, cookware_id)
-    )
-  `;
-  await sql`CREATE INDEX IF NOT EXISTS idx_recipe_cookware_recipe   ON recipe_cookware(recipe_id)`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_recipe_cookware_cookware ON recipe_cookware(cookware_id)`;
-
-  // v0.3.0: Step-by-step photos for recipes
-  await sql`ALTER TABLE recipes ADD COLUMN IF NOT EXISTS step_photos TEXT[] DEFAULT '{}'`;
-
-  // v0.4.0: Two-dimension quantity on ingredients + recipe_ingredients.
-  // Lets users express "3 jars × 12 fl_oz each" in the pantry and "2 16oz
-  // pepper steaks" in a recipe. When item_size is set, the row's effective
-  // total is quantity × item_size measured in item_size_unit. When null,
-  // the row behaves exactly as before.
-  await sql`ALTER TABLE ingredients        ADD COLUMN IF NOT EXISTS item_size      DECIMAL`;
-  await sql`ALTER TABLE ingredients        ADD COLUMN IF NOT EXISTS item_size_unit VARCHAR(50)`;
-  await sql`ALTER TABLE recipe_ingredients ADD COLUMN IF NOT EXISTS item_size      DECIMAL`;
-  await sql`ALTER TABLE recipe_ingredients ADD COLUMN IF NOT EXISTS item_size_unit VARCHAR(50)`;
-
-  // v0.5.0: Opt-in barcode + product metadata on pantry ingredients.
-  await sql`ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS barcode       VARCHAR(64)`;
-  await sql`ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS product_meta  JSONB`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_ingredients_barcode ON ingredients(barcode) WHERE barcode IS NOT NULL`;
-
-  // v0.5.1: Pantry-row aliases — alternative names that participate in
-  // recipe-ingredient matching.
-  await sql`ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS aliases TEXT[]`;
-
-  // v0.6.0: source_url on menus — mirrors recipes.source_url so imported
-  // menus (e.g. from a Bluesky AT Protocol collection) can surface their
-  // provenance on the detail page with the same click-to-copy treatment.
-  await sql`ALTER TABLE menus ADD COLUMN IF NOT EXISTS source_url TEXT`;
-}
-
 // Keep the server alive on unexpected errors
 process.on('uncaughtException', (err) => {
   console.error('[GraphQL] Uncaught exception (server still running):', err);
@@ -604,14 +523,15 @@ process.on('unhandledRejection', (reason) => {
   console.error('[GraphQL] Unhandled rejection (server still running):', reason);
 });
 
-runMigrations()
-  .then(() => {
-    server.listen(PORT, '0.0.0.0', () => {
-      console.log(`GraphQL API ready at http://0.0.0.0:${PORT}/graphql`);
-      console.log(`Recipe fetch proxy ready at http://0.0.0.0:${PORT}/fetch-recipe`);
-    });
-  })
-  .catch((err) => {
-    console.error('Migration failed:', err);
-    process.exit(1);
+try {
+  initDB();
+  const dbPath = process.env.SQLITE_DB_PATH ?? './pantry.db';
+  console.log(`SQLite database ready at ${dbPath}`);
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`GraphQL API ready at http://0.0.0.0:${PORT}/graphql`);
+    console.log(`Recipe fetch proxy ready at http://0.0.0.0:${PORT}/fetch-recipe`);
   });
+} catch (err) {
+  console.error('Database init failed:', err);
+  process.exit(1);
+}

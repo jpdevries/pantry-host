@@ -22,12 +22,12 @@
  *
  * Dry-run by default. Pass `--apply` to write.
  *
- *   DATABASE_URL=postgres://j7@100.125.77.118:5432/pantry_host \
+ *   SQLITE_DB_PATH=./pantry.db \
  *     npx tsx packages/app/scripts/backfill-produce-plu.ts
- *   DATABASE_URL=… npx tsx packages/app/scripts/backfill-produce-plu.ts --apply
+ *   SQLITE_DB_PATH=… npx tsx packages/app/scripts/backfill-produce-plu.ts --apply
  */
 
-import postgres from 'postgres';
+import sql from '@/lib/db';
 import {
   lookupPluByName,
   type PluCandidate,
@@ -79,20 +79,14 @@ function isConfidentMatch(candidate: PluCandidate, pantryCategory: string): bool
 
 async function main() {
   const apply = process.argv.includes('--apply');
-  const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl) {
-    console.error('DATABASE_URL is required');
-    process.exit(1);
-  }
   console.log(`[mode] ${apply ? 'APPLY (will write)' : 'DRY RUN (read-only)'}`);
 
-  const sql = postgres(dbUrl);
-  try {
-    const rows = await sql<Array<{ id: string; name: string; category: string }>>`
+  {
+    const rows = await sql<{ id: string; name: string; category: string }>`
       SELECT id, name, category
       FROM ingredients
       WHERE (barcode IS NULL OR barcode = '')
-        AND LOWER(category) IN ${sql(PANTRY_CATEGORIES)}
+        AND LOWER(category) IN (${PANTRY_CATEGORIES})
       ORDER BY category, name
     `;
     console.log(`[scope] ${rows.length} produce-ish ingredients without a barcode/PLU`);
@@ -149,7 +143,7 @@ async function main() {
         await sql`
           UPDATE ingredients
           SET barcode = ${top.plu},
-              product_meta = ${sql.json(meta as never)}
+              product_meta = ${JSON.stringify(meta)}
           WHERE id = ${row.id}
         `;
       }
@@ -164,8 +158,6 @@ async function main() {
       console.log();
       console.log('[next step] re-run with --apply to write the ✓ rows');
     }
-  } finally {
-    await sql.end();
   }
 }
 

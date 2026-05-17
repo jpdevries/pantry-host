@@ -1,19 +1,19 @@
 /**
  * Data export — SQL dump + images zip.
  *
- * Generates a downloadable backup of the user's PGlite data:
- * - backup.sql with INSERT statements for all tables
- * - images/ directory with OPFS files
+ * Generates a downloadable SQLite-flavored backup of the user's data.
+ * Array/object columns (tags, aliases, step_photos, product_meta) are
+ * stored as JSON text and dumped verbatim.
  */
 
 import { getRawDB } from '@/lib/db';
-import { listFiles, opfsStorage } from '@/lib/storage-opfs';
 
 const TABLES = [
   'kitchens',
   'ingredients',
   'recipes',
   'recipe_ingredients',
+  'recipe_cookware',
   'cookware',
   'menus',
   'menu_recipes',
@@ -29,23 +29,17 @@ export async function generateSQLDump(): Promise<string> {
   ];
 
   for (const table of TABLES) {
-    const result = await db.query(`SELECT * FROM ${table}`);
-    if (result.rows.length === 0) continue;
+    const rows = (db as any).selectObjects(`SELECT * FROM ${table}`) as Record<string, unknown>[];
+    if (rows.length === 0) continue;
 
     lines.push(`-- ${table}`);
-
-    for (const row of result.rows as Record<string, unknown>[]) {
+    for (const row of rows) {
       const cols = Object.keys(row);
       const vals = cols.map((col) => {
         const v = row[col];
         if (v === null || v === undefined) return 'NULL';
-        if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
         if (typeof v === 'number') return String(v);
-        if (v instanceof Date) return `'${v.toISOString()}'`;
-        if (Array.isArray(v)) {
-          const items = v.map((i) => `'${String(i).replace(/'/g, "''")}'`).join(', ');
-          return `ARRAY[${items}]`;
-        }
+        if (typeof v === 'bigint') return v.toString();
         return `'${String(v).replace(/'/g, "''")}'`;
       });
       lines.push(`INSERT INTO ${table} (${cols.join(', ')}) VALUES (${vals.join(', ')});`);

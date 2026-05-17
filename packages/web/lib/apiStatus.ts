@@ -10,7 +10,7 @@ export function setApiOnline(_online: boolean) {
 }
 
 export function isApiOnline(): boolean {
-  return true; // local PGlite is always available
+  return true; // local SQLite is always available
 }
 
 export function onApiStatusChange(fn: (online: boolean) => void): () => void {

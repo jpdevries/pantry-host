@@ -2,7 +2,8 @@
  * Local in-browser GraphQL executor.
  *
  * Same `gql<T>(query, variables)` API signature as packages/app/lib/gql.ts,
- * but executes GraphQL directly against PGlite instead of HTTP POST.
+ * but executes GraphQL directly against the in-browser SQLite database
+ * (@sqlite.org/sqlite-wasm + OPFS) instead of HTTP POST.
  */
 
 import { graphql, type GraphQLSchema } from 'graphql';

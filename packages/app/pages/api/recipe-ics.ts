@@ -73,7 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       servings: row.servings,
       prepTime: row.prep_time,
       cookTime: row.cook_time,
-      tags: row.tags || [],
+      tags: (typeof row.tags === 'string' ? JSON.parse(row.tags || '[]') : (row.tags ?? [])),
       source: row.source,
       sourceUrl: row.source_url,
       photoUrl,

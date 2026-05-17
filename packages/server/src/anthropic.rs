@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::{CookwareRow, IngredientRow, parse_json_strings};
 
-const ENDPOINT: &str = "https://api.anthropic.com/v1/messages";
+const DEFAULT_BASE_URL: &str = "https://api.anthropic.com";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 const MODEL: &str = "claude-sonnet-4-6";
 const MAX_TOKENS: u32 = 4096;
@@ -75,6 +75,7 @@ enum ContentBlock {
 pub async fn generate_recipes(
     client: &reqwest::Client,
     api_key: &str,
+    base_url: Option<&str>,
     prompt: &str,
 ) -> anyhow::Result<Vec<GeneratedRecipe>> {
     let body = MessagesRequest {
@@ -86,8 +87,10 @@ pub async fn generate_recipes(
             content: prompt,
         }],
     };
+    let base = base_url.unwrap_or(DEFAULT_BASE_URL).trim_end_matches('/');
+    let endpoint = format!("{base}/v1/messages");
     let resp = client
-        .post(ENDPOINT)
+        .post(&endpoint)
         .timeout(REQUEST_TIMEOUT)
         .header("x-api-key", api_key)
         .header("anthropic-version", ANTHROPIC_VERSION)

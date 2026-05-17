@@ -19,6 +19,9 @@ pub struct ServerConfig {
     /// Anthropic key for `generateRecipes`. `AI_API_KEY` is the canonical name;
     /// `ANTHROPIC_API_KEY` is accepted for compatibility with the TS server.
     pub anthropic_api_key: Option<String>,
+    /// Override the Anthropic API base URL. Used by the integration test harness
+    /// to point the Messages client at a local mock. Empty = use the real API.
+    pub anthropic_base_url: Option<String>,
     /// Caps concurrent image-variant pipelines. A single 12 MP decode can pin
     /// ~50 MB of RGB buffer on a Pi 3; running two in parallel can OOM the
     /// 1 GB box. Default = 1; override with `IMAGE_CONCURRENCY` on bigger
@@ -39,6 +42,10 @@ impl ServerConfig {
             .ok()
             .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
             .filter(|s| !s.is_empty());
+        let anthropic_base_url = std::env::var("ANTHROPIC_BASE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.trim_end_matches('/').to_string());
         let image_concurrency = std::env::var("IMAGE_CONCURRENCY")
             .ok()
             .and_then(|v| v.parse().ok())
@@ -48,6 +55,7 @@ impl ServerConfig {
             uploads_dir,
             image_processing,
             anthropic_api_key,
+            anthropic_base_url,
             image_semaphore: Arc::new(Semaphore::new(image_concurrency)),
         }
     }

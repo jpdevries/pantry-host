@@ -1,5 +1,12 @@
-import { spawn, type ChildProcess } from 'node:child_process';
-import { writeFileSync, unlinkSync, readdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import {
+  writeFileSync,
+  unlinkSync,
+  readdirSync,
+  mkdtempSync,
+  rmSync,
+  existsSync,
+} from 'node:fs';
 import { createServer, type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,7 +18,23 @@ import { startMockServer, type MockServer } from './helpers/mock-server.ts';
 const HERE = import.meta.dirname;
 const REPO_ROOT = join(HERE, '..', '..');
 const APP_DIR = join(REPO_ROOT, 'packages', 'app');
+const SERVER_DIR = join(REPO_ROOT, 'packages', 'server');
+const SERVER_BIN = join(SERVER_DIR, 'target', 'debug', 'pantry-server');
 const HARNESS_FILE = join(HERE, '__harness__.json');
+
+function buildRustServer(): void {
+  console.log('[harness] Building Rust server (cargo build)…');
+  const r = spawnSync('cargo', ['build'], {
+    cwd: SERVER_DIR,
+    stdio: 'inherit',
+  });
+  if (r.status !== 0) {
+    throw new Error(`cargo build failed with code ${r.status}`);
+  }
+  if (!existsSync(SERVER_BIN)) {
+    throw new Error(`built but missing binary at ${SERVER_BIN}`);
+  }
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -29,7 +52,7 @@ async function getFreePort(): Promise<number> {
   });
 }
 
-async function waitForServer(url: string, deadlineMs = 30_000): Promise<void> {
+async function waitForServer(url: string, deadlineMs = 10_000): Promise<void> {
   const start = Date.now();
   let lastErr: unknown;
   while (Date.now() - start < deadlineMs) {
@@ -61,6 +84,8 @@ interface Handle {
 }
 
 async function setup(): Promise<Handle> {
+  buildRustServer();
+
   const dbDir = mkdtempSync(join(tmpdir(), 'pantry-host-integration-'));
   const dbPath = join(dbDir, 'pantry.db');
   console.log(`\n[harness] SQLite database: ${dbPath}`);
@@ -71,10 +96,12 @@ async function setup(): Promise<Handle> {
 
   const port = await getFreePort();
   const url = `http://127.0.0.1:${port}`;
-  console.log(`[harness] Spawning GraphQL server on :${port}…`);
-  // tsx (not bare node) — server has `.js` extension imports node strip-types won't rewrite.
-  const child = spawn('npx', ['tsx', 'graphql-server.ts'], {
-    cwd: APP_DIR,
+  // The Rust server writes uploads relative to its cwd (default
+  // `../app/public/uploads`), so run it from packages/server to match.
+  const uploadsDir = join(APP_DIR, 'public', 'uploads');
+  console.log(`[harness] Spawning Rust GraphQL server on :${port}…`);
+  const child = spawn(SERVER_BIN, [], {
+    cwd: SERVER_DIR,
     env: {
       ...process.env,
       SQLITE_DB_PATH: dbPath,
@@ -82,7 +109,8 @@ async function setup(): Promise<Handle> {
       ANTHROPIC_BASE_URL: mock.url,
       AI_API_KEY: 'test-key-anthropic-mock',
       ENABLE_IMAGE_PROCESSING: 'false',
-      NODE_ENV: 'test',
+      UPLOADS_DIR: uploadsDir,
+      RUST_LOG: process.env.RUST_LOG ?? 'warn',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });

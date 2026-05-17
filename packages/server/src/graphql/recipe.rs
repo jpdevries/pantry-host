@@ -824,9 +824,14 @@ impl RecipeMutation {
 
         // 2. Ask Anthropic — this is the only async-network step.
         let prompt = crate::anthropic::build_recipe_prompt(&ingredients, &cookware);
-        let generated = crate::anthropic::generate_recipes(http, &api_key, &prompt)
-            .await
-            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+        let generated = crate::anthropic::generate_recipes(
+            http,
+            &api_key,
+            config.anthropic_base_url.as_deref(),
+            &prompt,
+        )
+        .await
+        .map_err(|e| async_graphql::Error::new(e.to_string()))?;
 
         // 3. Insert each generated recipe back on a blocking thread, mapping
         //    `requiredCookware` names to ids using the snapshot we just read.

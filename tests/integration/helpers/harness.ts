@@ -3,13 +3,9 @@ import { join } from 'node:path';
 
 export interface HarnessHandle {
   url: string;
-  dbUrl: string;
+  dbPath: string;
   mockUrl: string;
   serverPid: number;
-  containerId: string;
-  containerName: string;
-  dbName: string;
-  dbUser: string;
 }
 
 const FILE = join(import.meta.dirname, '..', '__harness__.json');

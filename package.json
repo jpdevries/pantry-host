@@ -24,9 +24,7 @@
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "@types/pg": "^8.11.10",
-    "pg": "^8.13.1"
+    "@modelcontextprotocol/sdk": "^1.29.0"
   },
   "optionalDependencies": {
     "@img/sharp-darwin-x64": "^0.34.5",

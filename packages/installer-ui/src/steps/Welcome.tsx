@@ -6,7 +6,7 @@ export default function Welcome() {
   return (
     <WizardShell
       stepIndex={1}
-      totalSteps={3}
+      totalSteps={4}
       title="Welcome to your pantry."
       primary={{ label: 'Get started', onClick: () => navigate('/tailscale') }}
     >

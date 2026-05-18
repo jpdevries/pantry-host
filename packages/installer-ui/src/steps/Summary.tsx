@@ -100,10 +100,10 @@ export default function Summary({ tailscale: initialTailscale, bluesky: initialB
 
   return (
     <WizardShell
-      stepIndex={3}
-      totalSteps={3}
+      stepIndex={4}
+      totalSteps={4}
       title="Your pantry is ready."
-      back={{ label: 'Back', onClick: () => navigate('/tailscale') }}
+      back={{ label: 'Back', onClick: () => navigate('/bluesky') }}
       primary={{ label: finishing ? 'Opening…' : 'Open Pantry Host', onClick: finish, disabled: finishing }}
     >
       <p className="text-lg text-[var(--color-text-secondary)] mb-6">

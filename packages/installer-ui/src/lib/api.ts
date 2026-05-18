@@ -30,6 +30,10 @@ export type TailscaleState =
   | { state: 'connected_no_serve'; tailnet: string }
   | { state: 'configured'; url: string; tailnet: string };
 
+export type BlueskyState =
+  | { state: 'not_configured' }
+  | { state: 'configured'; handle: string; did: string };
+
 export const api = {
   getSetupStatus: () => request<SetupStatus>('/api/setup-status'),
   finishSetup: () => request<void>('/api/setup-complete', { method: 'POST', body: '{}' }),
@@ -37,4 +41,11 @@ export const api = {
   getTailscaleStatus: () => request<TailscaleState>('/api/tailscale/status'),
   connectTailscale: () => request<TailscaleState>('/api/tailscale/connect', { method: 'POST', body: '{}' }),
   enableTailscaleServe: () => request<TailscaleState>('/api/tailscale/enable-serve', { method: 'POST', body: '{}' }),
+  getBlueskyStatus: () => request<BlueskyState>('/api/bluesky/status'),
+  connectBluesky: (handle: string) =>
+    request<BlueskyState>('/api/bluesky/connect', {
+      method: 'POST',
+      body: JSON.stringify({ handle }),
+    }),
+  disconnectBluesky: () => request<BlueskyState>('/api/bluesky/disconnect', { method: 'POST', body: '{}' }),
 };

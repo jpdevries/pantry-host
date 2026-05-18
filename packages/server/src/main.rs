@@ -14,6 +14,7 @@ use tower_http::cors::{Any, CorsLayer};
 
 mod anthropic;
 mod auth;
+mod bluesky;
 mod config;
 mod db;
 mod error;
@@ -154,6 +155,9 @@ async fn main() -> anyhow::Result<()> {
             "/api/tailscale/enable-serve",
             post(routes::tailscale::enable_serve_route),
         )
+        .route("/api/bluesky/status", get(routes::bluesky::status))
+        .route("/api/bluesky/connect", post(routes::bluesky::connect))
+        .route("/api/bluesky/disconnect", post(routes::bluesky::disconnect))
         .route("/setup", get(installer::serve_index))
         .route("/setup/{*path}", get(installer::serve_index))
         .route("/_setup/static/{*path}", get(installer::serve_asset))

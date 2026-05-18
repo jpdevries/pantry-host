@@ -30,6 +30,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::auth::is_owner;
+use crate::bluesky::{read_status as read_bluesky, BlueskyState};
 use crate::routes::settings::{read_overrides, write_overrides};
 use crate::tailscale::{read_status, TailscaleState};
 use crate::AppState;
@@ -46,6 +47,7 @@ pub(crate) fn is_setup_complete(state: &AppState) -> bool {
 pub async fn setup_status(State(state): State<Arc<AppState>>) -> Response {
     let complete = is_setup_complete(&state);
     let tailscale = tailscale_for_summary(&state).await;
+    let bluesky = bluesky_for_summary(&state);
     (
         StatusCode::OK,
         [("cache-control", "private, no-store")],
@@ -53,11 +55,23 @@ pub async fn setup_status(State(state): State<Arc<AppState>>) -> Response {
             "complete": complete,
             "integrations": {
                 "tailscale": tailscale,
-                "bluesky":   { "state": "not_configured" },
+                "bluesky":   bluesky,
             },
         })),
     )
         .into_response()
+}
+
+/// Project the bluesky state onto the smaller summary shape the
+/// installer's Summary page renders — same shape Tailscale uses, so
+/// the SPA can render both rows from a shared component.
+fn bluesky_for_summary(state: &Arc<AppState>) -> serde_json::Value {
+    match read_bluesky(state) {
+        BlueskyState::NotConfigured => json!({ "state": "not_configured" }),
+        BlueskyState::Configured { handle, .. } => {
+            json!({ "state": "connected", "label": format!("@{handle}") })
+        }
+    }
 }
 
 /// Project the full TailscaleState onto the smaller summary shape the

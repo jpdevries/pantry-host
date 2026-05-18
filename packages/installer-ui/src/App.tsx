@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { api, type SetupStatus } from '@/lib/api';
 import Welcome from '@/steps/Welcome';
 import Tailscale from '@/steps/Tailscale';
+import Bluesky from '@/steps/Bluesky';
 import Summary from '@/steps/Summary';
 
 export default function App() {
@@ -29,6 +30,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Welcome />} />
         <Route path="/tailscale" element={<Tailscale />} />
+        <Route path="/bluesky" element={<Bluesky />} />
         <Route
           path="/summary"
           element={<Summary tailscale={status.integrations.tailscale} bluesky={status.integrations.bluesky} />}

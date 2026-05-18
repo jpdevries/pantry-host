@@ -15,11 +15,11 @@ export default function Tailscale() {
   // If we're landing on this step *already* on the secure tailnet origin
   // with HTTPS configured, there's nothing for the user to do here — the
   // browser address bar already confirms the handoff worked. Skip to the
-  // Summary "All set." celebration so the moment doesn't get lost in a
-  // redundant intermediate page.
+  // next step so the moment doesn't get lost in a redundant intermediate
+  // page.
   useEffect(() => {
     if (state?.state === 'configured' && onSecureOrigin(state.url)) {
-      navigate('/summary', { replace: true });
+      navigate('/bluesky', { replace: true });
     }
   }, [state, navigate]);
 
@@ -97,11 +97,11 @@ export default function Tailscale() {
   }
 
   const back = { label: 'Back', onClick: () => navigate('/') };
-  const next = { label: 'Continue', onClick: () => navigate('/summary') };
+  const next = { label: 'Continue', onClick: () => navigate('/bluesky') };
 
   if (!state) {
     return (
-      <WizardShell stepIndex={2} totalSteps={3} title="Remote access" back={back} primary={{ label: 'Continue', onClick: () => navigate('/summary'), disabled: true }}>
+      <WizardShell stepIndex={2} totalSteps={4} title="Remote access" back={back} primary={{ label: 'Continue', onClick: next.onClick, disabled: true }}>
         <p className="text-[var(--color-text-secondary)]">Checking…</p>
       </WizardShell>
     );
@@ -110,10 +110,10 @@ export default function Tailscale() {
   return (
     <WizardShell
       stepIndex={2}
-      totalSteps={3}
+      totalSteps={4}
       title="Remote access"
       back={back}
-      skip={state.state === 'configured' ? undefined : { label: 'Skip for now', onClick: () => navigate('/summary') }}
+      skip={state.state === 'configured' ? undefined : { label: 'Skip for now', onClick: next.onClick }}
       primary={{ label: busy ? 'Working…' : 'Continue', onClick: next.onClick, disabled: busy }}
     >
       <p className="text-lg text-[var(--color-text-secondary)] mb-6">
@@ -208,7 +208,7 @@ export default function Tailscale() {
             home. Open it now to finish setup on the secure connection.
           </p>
           <a
-            href={`${state.url}/setup/tailscale`}
+            href={`${state.url}/setup/bluesky`}
             className="btn-primary inline-block break-all"
           >
             Open {hostOf(state.url)}

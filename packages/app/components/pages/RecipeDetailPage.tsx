@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { gql } from '@/lib/gql';
+import { apiUrl } from '@/lib/apiUrl';
 import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
 import { ArrowsOut, ArrowsIn, Trash, Heart, Printer, Circle, CheckCircle, CalendarPlus, LinkSimple, ForkKnife, ShareNetwork, Code, Rows, Columns, GridNine, Sun, Snowflake } from '@phosphor-icons/react';
 import { enqueue } from '@/lib/offlineQueue';
@@ -1082,18 +1083,25 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
               Export HTML
             </a>
             <a
-              href={`/api/recipe-ics?slug=${recipe.slug}`}
+              // Computed client-side on click so we never bake the
+              // server-side `apiUrl()` return (`http://localhost:4001`) into
+              // SSR HTML — that URL is only reachable from the same machine
+              // the Rex server runs on, not from a user's phone. Using a
+              // button-as-link pattern via `onClick` avoids needing a real
+              // href at SSR time.
+              href="#"
               download={`${recipe.slug || 'recipe'}.ics`}
               className="flex items-center gap-2 btn-secondary text-sm"
               onClick={(e) => {
+                e.preventDefault();
+                if (!recipe.slug) return;
+                const url = new URL(`${apiUrl('/recipe-ics')}?slug=${recipe.slug}`, window.location.origin);
                 // iOS Safari can't download ICS files. Use webcal:// protocol
                 // which triggers the native Calendar app directly.
                 if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-                  e.preventDefault();
-                  const url = new URL(`/api/recipe-ics?slug=${recipe.slug}`, window.location.origin);
                   url.protocol = window.location.protocol === 'https:' ? 'webcals:' : 'webcal:';
-                  window.location.href = url.toString();
                 }
+                window.location.href = url.toString();
               }}
             >
               <CalendarPlus size={18} aria-hidden />

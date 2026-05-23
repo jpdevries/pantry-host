@@ -8,6 +8,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { processUploadedImage } from './lib/image-server.js';
 import { FEATURES } from './lib/features.js';
+import { generateRecipeICS, type ExportableRecipe } from '@pantry-host/shared/export-recipe';
 
 const PORT = parseInt(process.env.GRAPHQL_PORT ?? '4001', 10);
 
@@ -472,12 +473,115 @@ async function handleUpload(req: http.IncomingMessage, res: http.ServerResponse)
   }
 }
 
+// ── /recipe-ics — calendar export ─────────────────────────────────────────────
+// Moved here from packages/app/pages/api/recipe-ics.ts. The Rex V8 runtime
+// can't bundle `node:sqlite` (prefix specifiers aren't shimmed), and Rex's
+// V8 fetch blocks private-IP targets so an HTTP round-trip to this server
+// from a Rex API route would also fail. Living here, where node:sqlite is
+// available natively and no extra hop is needed, sidesteps both. Clients
+// hit it via `apiUrl('/recipe-ics')` from `packages/app/lib/apiUrl.ts`,
+// which resolves to this same host:port regardless of dev/prod topology.
+
+function resolveIcsPhotoUrl(photoUrl: string | null, slug: string | null, req: http.IncomingMessage): string | null {
+  if (!photoUrl) return null;
+  if (photoUrl.startsWith('http')) return photoUrl;
+  if (photoUrl.startsWith('/uploads/') && slug) {
+    const proto = (req.headers['x-forwarded-proto'] as string) || (req.headers.host?.includes('localhost') ? 'http' : 'https');
+    const host = req.headers.host;
+    if (host) return `${proto}://${host}/uploads/${slug}.jpg`;
+  }
+  return null;
+}
+
+async function fetchIcsOgImage(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    const html = await res.text();
+    const match = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    return match?.[1] || null;
+  } catch {
+    return null;
+  }
+}
+
+async function handleRecipeIcs(req: http.IncomingMessage, res: http.ServerResponse) {
+  // req.url is path + query — `/recipe-ics?slug=foo`.
+  const urlObj = new URL(req.url ?? '', `http://${req.headers.host || 'localhost'}`);
+  const slug = urlObj.searchParams.get('slug');
+  if (!slug) { res.writeHead(400); res.end('Missing slug parameter'); return; }
+
+  try {
+    const [row] = await sql`SELECT * FROM recipes WHERE slug = ${slug}` as Array<Record<string, unknown>>;
+    if (!row) { res.writeHead(404); res.end('Recipe not found'); return; }
+
+    const ingredients = await sql`
+      SELECT ingredient_name, quantity, unit, item_size, item_size_unit
+      FROM recipe_ingredients
+      WHERE recipe_id = ${row.id as string}
+      ORDER BY sort_order
+    ` as Array<{ ingredient_name: string; quantity: number | null; unit: string | null; item_size: number | null; item_size_unit: string | null }>;
+
+    const cookware = await sql`
+      SELECT c.name FROM cookware c
+      JOIN recipe_cookware rc ON rc.cookware_id = c.id
+      WHERE rc.recipe_id = ${row.id as string}
+    ` as Array<{ name: string }>;
+
+    let photoUrl = resolveIcsPhotoUrl(row.photo_url as string | null, row.slug as string | null, req);
+    if (!photoUrl && row.source_url) {
+      photoUrl = await fetchIcsOgImage(row.source_url as string);
+    }
+
+    const tagsRaw = row.tags;
+    const tags: string[] = typeof tagsRaw === 'string'
+      ? (() => { try { const p = JSON.parse(tagsRaw); return Array.isArray(p) ? p : []; } catch { return []; } })()
+      : Array.isArray(tagsRaw) ? tagsRaw : [];
+
+    const recipe: ExportableRecipe = {
+      title: row.title as string,
+      slug: row.slug as string | null,
+      description: row.description as string | null,
+      instructions: row.instructions as string,
+      servings: row.servings as number | null,
+      prepTime: row.prep_time as number | null,
+      cookTime: row.cook_time as number | null,
+      tags,
+      source: (row.source as string) ?? 'manual',
+      sourceUrl: row.source_url as string | null,
+      photoUrl,
+      requiredCookware: cookware.map((c) => c.name),
+      ingredients: ingredients.map((i) => ({
+        ingredientName: i.ingredient_name,
+        quantity: i.quantity,
+        unit: i.unit,
+        itemSize: i.item_size,
+        itemSizeUnit: i.item_size_unit,
+      })),
+    };
+
+    const ics = generateRecipeICS(recipe);
+    res.writeHead(200, { 'Content-Type': 'text/calendar; charset=utf-8' });
+    res.end(ics);
+  } catch (err) {
+    res.writeHead(500);
+    res.end(`Failed to generate ICS: ${(err as Error).message}`);
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+  // GET-only endpoints (calendar export, future read-only proxies)
+  if (req.method === 'GET' && req.url?.startsWith('/recipe-ics')) {
+    await handleRecipeIcs(req, res);
+    return;
+  }
+
   if (req.method !== 'POST') { res.writeHead(405); res.end('Method not allowed'); return; }
 
   // Multipart upload: parse with formidable directly off the req stream.
@@ -530,6 +634,7 @@ try {
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`GraphQL API ready at http://0.0.0.0:${PORT}/graphql`);
     console.log(`Recipe fetch proxy ready at http://0.0.0.0:${PORT}/fetch-recipe`);
+    console.log(`Calendar export ready at http://0.0.0.0:${PORT}/recipe-ics`);
   });
 } catch (err) {
   console.error('Database init failed:', err);

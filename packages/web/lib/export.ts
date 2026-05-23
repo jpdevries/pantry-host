@@ -29,7 +29,7 @@ export async function generateSQLDump(): Promise<string> {
   ];
 
   for (const table of TABLES) {
-    const rows = (db as any).selectObjects(`SELECT * FROM ${table}`) as Record<string, unknown>[];
+    const rows = (await db.selectObjects(`SELECT * FROM ${table}`)) as Record<string, unknown>[];
     if (rows.length === 0) continue;
 
     lines.push(`-- ${table}`);

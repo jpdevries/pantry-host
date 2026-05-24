@@ -138,7 +138,11 @@ into the normal multi-user target:
    (`pantry-server.service.d/pi-image.conf`) grants `CAP_NET_BIND_SERVICE`
    so it binds port 80 without running as root.
 3. SSH comes up (the `/boot/firmware/ssh` marker plus an explicit
-   `ssh.service` wants-symlink).
+   `ssh.service` wants-symlink). Only a single **ed25519** host key is
+   generated: `customize.sh` rewrites Pi OS's shared
+   `regenerate_ssh_host_keys` script (used by both the initramfs `firstboot`
+   and the regen service) to emit ed25519 only, dropping the RSA-3072 keygen
+   that otherwise spends ~30s behind the blue "Generating SSH keys" screen.
 
 It usually takes ~30–45 seconds from power-on to the device appearing on
 the network — roughly one boot cycle faster than the old

@@ -368,6 +368,38 @@ touch "$MOUNT_ROOT/boot/firmware/ssh"
 ln -sf /lib/systemd/system/ssh.service \
   "$MOUNT_ROOT/etc/systemd/system/multi-user.target.wants/ssh.service" 2>/dev/null || true
 
+# SSH host keys: ed25519 only ------------------------------------------------
+# Pi OS regenerates host keys on first boot — that's the ~30s blue "Generating
+# SSH keys..." screen. The work runs `ssh-keygen -A` (RSA + ECDSA + ED25519),
+# and the RSA-3072 keygen alone is what burns the time on a single-core ARMv6
+# Pi. Every ssh client this decade speaks ed25519 and its keygen is instant,
+# so we only want that one key type.
+#
+# Two paths share ONE script, /usr/lib/raspberrypi-sys-mods/regenerate_ssh_host_keys:
+#   1. the initramfs `firstboot` (cmdline `init=…/firstboot`) calls it directly
+#      behind the blue screen, then reboots;
+#   2. regenerate_ssh_host_keys.service runs it again on the next boot, then
+#      `systemctl disable`s itself.
+# Patching this single script covers both. (Masking the .service does nothing
+# for path 1 — firstboot invokes the script directly, not via systemd.) The
+# key is still generated per-device on first boot, not baked into the image.
+log "patching SSH host-key regen to ed25519-only"
+REGEN_SCRIPT="$MOUNT_ROOT/usr/lib/raspberrypi-sys-mods/regenerate_ssh_host_keys"
+if [ -f "$REGEN_SCRIPT" ]; then
+  # Same shape as the stock script (rm stale keys, generate, self-disable) —
+  # only the keygen line changes from `ssh-keygen -A` to ed25519-only.
+  cat > "$REGEN_SCRIPT" <<'REGEN'
+#!/bin/sh -e
+
+rm -f /etc/ssh/ssh_host_*_key*
+ssh-keygen -q -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "" >/dev/null
+systemctl -q disable regenerate_ssh_host_keys
+REGEN
+  chmod 0755 "$REGEN_SCRIPT"
+else
+  warn "regenerate_ssh_host_keys script not found — SSH keygen left at Pi OS default"
+fi
+
 # Make sure the prebaked user owns its home + server dir. The account was
 # created/finished in the chroot above (UID/GID 1000 — the Bookworm default
 # for the first regular user, `pi`), but the binary and server dir were

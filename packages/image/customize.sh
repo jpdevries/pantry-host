@@ -2,14 +2,16 @@
 # customize.sh — runs inside the builder container; assumes root + privileged.
 #
 # Mounts the Pi OS image read-write via a loop device, drops in pantry-server
-# + Tailscale + a generated firstrun.sh, then unmounts. The host's build.sh
-# bind-mounts everything under /work.
+# + Tailscale, bakes in all system config (hostname, WiFi, timezone, keyboard,
+# user account) offline, then unmounts. There's no first-boot script: the card
+# boots once, fully configured. The host's build.sh bind-mounts everything
+# under /work.
 #
 # Required env (set by build.sh):
 #   IMAGE_PATH         — path to the writable .img inside the container
 #   BINARY_PATH        — path to the cross-compiled pantry-server-armv6
 #   TAILSCALE_DEB_PATH — path to a downloaded tailscale_*_armhf.deb
-#   OVERLAY_DIR        — path to packages/image/overlay/
+#   SERVER_DIR         — path to packages/server/ (for the systemd unit)
 #   WIFI_SSID, WIFI_PSK, WIFI_COUNTRY, HOSTNAME, USERNAME, USER_PASSWORD,
 #   SSH_AUTHORIZED_KEYS, TIMEZONE, KEYBOARD_LAYOUT
 #
@@ -28,8 +30,8 @@ die()  { echo "[customize] error: $*" >&2; exit 1; }
 [ -f "$BINARY_PATH" ]            || die "binary missing: $BINARY_PATH"
 [ -n "${TAILSCALE_DEB_PATH:-}" ] || die "TAILSCALE_DEB_PATH not set"
 [ -f "$TAILSCALE_DEB_PATH" ]     || die "tailscale .deb missing: $TAILSCALE_DEB_PATH"
-[ -n "${OVERLAY_DIR:-}" ]        || die "OVERLAY_DIR not set"
-[ -d "$OVERLAY_DIR" ]            || die "overlay dir missing: $OVERLAY_DIR"
+[ -n "${SERVER_DIR:-}" ]         || die "SERVER_DIR not set"
+[ -d "$SERVER_DIR" ]             || die "server dir missing: $SERVER_DIR"
 
 : "${HOSTNAME:=pantry}"
 : "${USERNAME:=pi}"
@@ -107,7 +109,7 @@ ln -sf "/home/$USERNAME/server/pantry-server" "$MOUNT_ROOT/usr/local/bin/pantry-
 # override so TAILSCALE_OPERATOR matches whichever USERNAME the user picked
 # in .env.image (defaults to `pi`, matching the unit's User= field).
 log "installing pantry-server.service"
-install -m 0644 "$OVERLAY_DIR/../../server/scripts/pantry-server.service" \
+install -m 0644 "$SERVER_DIR/scripts/pantry-server.service" \
   "$MOUNT_ROOT/etc/systemd/system/pantry-server.service"
 mkdir -p "$MOUNT_ROOT/etc/systemd/system/pantry-server.service.d"
 cat > "$MOUNT_ROOT/etc/systemd/system/pantry-server.service.d/pi-image.conf" <<DROPIN
@@ -251,62 +253,120 @@ CONSOLE
 ln -sf /etc/systemd/system/pantry-console.service \
   "$MOUNT_ROOT/etc/systemd/system/multi-user.target.wants/pantry-console.service"
 
-# firstrun.sh ----------------------------------------------------------------
-# Substitute placeholders in the .tmpl with our env values via Python
-# string.Template — safe for arbitrary characters including those that
-# would break sed/envsubst (WiFi passwords with /, $, \, etc.).
-log "generating firstrun.sh"
-FIRSTRUN_TMPL="$OVERLAY_DIR/boot/firmware/firstrun.sh.tmpl"
-[ -f "$FIRSTRUN_TMPL" ] || die "missing firstrun template at $FIRSTRUN_TMPL"
-python3 <<PY > "$MOUNT_ROOT/boot/firmware/firstrun.sh"
-import os
-import re
+# Offline system config (hostname / timezone / keyboard / WiFi) -------------
+# Everything here used to run on the device via firstrun.sh, gated behind a
+# throwaway boot into kernel-command-line.target that existed only to run the
+# script and then `reboot` into multi-user — two full boot cycles. But it's
+# all static config known at build time, so we bake it straight into the
+# rootfs now. The card boots ONCE, directly into multi-user, already
+# configured: no first-boot pass, no reboot. (Services — ssh, pantry-server,
+# tailscaled — are enabled offline via their wants-symlinks elsewhere here.)
 
-src = open("$FIRSTRUN_TMPL").read()
-values = {
-    "WIFI_SSID":           os.environ.get("WIFI_SSID", ""),
-    "WIFI_PSK":            os.environ.get("WIFI_PSK", ""),
-    "WIFI_COUNTRY":        os.environ.get("WIFI_COUNTRY", "US"),
-    "HOSTNAME":            os.environ.get("HOSTNAME", "pantry"),
-    "USERNAME":            os.environ.get("USERNAME", "pi"),
-    "USER_PASSWORD_HASH":  os.environ.get("USER_PASSWORD_HASH", ""),
-    "SSH_AUTHORIZED_KEYS": os.environ.get("SSH_AUTHORIZED_KEYS", ""),
-    "TIMEZONE":            os.environ.get("TIMEZONE", "Etc/UTC"),
-    "KEYBOARD_LAYOUT":     os.environ.get("KEYBOARD_LAYOUT", "us"),
-}
-# Escape single quotes inside values so the surrounding single-quoted shell
-# strings in the template stay intact. ('foo' → 'foo'"'"'bar' style.)
-def sh_escape(v):
-    return v.replace("'", "'\"'\"'")
-def repl(m):
-    key = m.group(1)
-    if key not in values:
-        raise SystemExit(f"unknown placeholder: {{ {key} }}")
-    return sh_escape(values[key])
-out = re.sub(r"\{\{([A-Z_]+)\}\}", repl, src)
-print(out)
-PY
-chmod 0755 "$MOUNT_ROOT/boot/firmware/firstrun.sh"
-
-# Wire firstrun.sh into cmdline.txt so it actually runs on first boot. Pi
-# OS Imager does this same surgery — we append `systemd.run=…` to the
-# kernel command line, firstrun.sh removes its own entries before rebooting.
-CMDLINE="$MOUNT_ROOT/boot/firmware/cmdline.txt"
-if [ -f "$CMDLINE" ]; then
-  if ! grep -q "systemd.run=/boot/firmware/firstrun.sh" "$CMDLINE"; then
-    log "appending firstrun bootstrap to cmdline.txt"
-    # cmdline.txt is one long line; preserve it.
-    sed -i '1 s|$| systemd.run=/boot/firmware/firstrun.sh systemd.run_success_action=reboot systemd.unit=kernel-command-line.target|' "$CMDLINE"
-  fi
+# Hostname + the 127.0.1.1 line in /etc/hosts.
+log "setting hostname to '$HOSTNAME'"
+echo "$HOSTNAME" > "$MOUNT_ROOT/etc/hostname"
+if grep -q '^127\.0\.1\.1' "$MOUNT_ROOT/etc/hosts" 2>/dev/null; then
+  sed -i "s/^127\.0\.1\.1.*/127.0.1.1\t$HOSTNAME/" "$MOUNT_ROOT/etc/hosts"
 else
-  log "warning: $CMDLINE not found — firstrun.sh will not auto-execute"
+  printf '127.0.1.1\t%s\n' "$HOSTNAME" >> "$MOUNT_ROOT/etc/hosts"
+fi
+
+# Timezone: the /etc/localtime symlink + /etc/timezone name. Read at boot; the
+# zoneinfo db already lives in the rootfs, so no dpkg-reconfigure needed.
+if [ -n "$TIMEZONE" ] && [ -e "$MOUNT_ROOT/usr/share/zoneinfo/$TIMEZONE" ]; then
+  log "setting timezone to $TIMEZONE"
+  ln -sf "/usr/share/zoneinfo/$TIMEZONE" "$MOUNT_ROOT/etc/localtime"
+  echo "$TIMEZONE" > "$MOUNT_ROOT/etc/timezone"
+fi
+
+# Keyboard layout. keyboard-setup.service reads /etc/default/keyboard at boot.
+if [ -n "$KEYBOARD_LAYOUT" ] && [ -f "$MOUNT_ROOT/etc/default/keyboard" ]; then
+  log "setting keyboard layout to $KEYBOARD_LAYOUT"
+  sed -i "s/^XKBLAYOUT=.*/XKBLAYOUT=\"$KEYBOARD_LAYOUT\"/" \
+    "$MOUNT_ROOT/etc/default/keyboard"
+fi
+
+# WiFi: a NetworkManager connection profile, byte-aligned with the keyfile Pi
+# OS Imager writes (imager_custom's set_wlan) — uuid, hidden flag, [proxy]
+# section, security appended only when a PSK is set. NM scans
+# /etc/NetworkManager/system-connections/ at startup and connects autoconnect
+# profiles (the default when unspecified). The file MUST be 0600 + root-owned
+# or NM refuses to load it (its credentials-leak guard).
+if [ -n "$WIFI_SSID" ]; then
+  log "baking WiFi profile for SSID '$WIFI_SSID'"
+  install -d -m 700 "$MOUNT_ROOT/etc/NetworkManager/system-connections"
+  WIFI_UUID="$(cat /proc/sys/kernel/random/uuid)"
+  CONNFILE="$MOUNT_ROOT/etc/NetworkManager/system-connections/preconfigured.nmconnection"
+  cat > "$CONNFILE" <<NMCONN
+[connection]
+id=preconfigured
+uuid=$WIFI_UUID
+type=wifi
+[wifi]
+mode=infrastructure
+ssid=$WIFI_SSID
+hidden=false
+[ipv4]
+method=auto
+[ipv6]
+addr-gen-mode=default
+method=auto
+[proxy]
+NMCONN
+  if [ -n "$WIFI_PSK" ]; then
+    cat >> "$CONNFILE" <<NMSEC
+[wifi-security]
+key-mgmt=wpa-psk
+psk=$WIFI_PSK
+NMSEC
+  fi
+  chmod 600 "$CONNFILE"
+fi
+
+# WiFi regulatory domain. firstrun.sh used to run `raspi-config nonint
+# do_wifi_country` on the device; instead we set it at the cfg80211 layer via
+# a kernel cmdline param, so the legal 2.4 GHz channels + tx power are in
+# force before wlan0 ever comes up — no runtime step required. (Baked WiFi is
+# a build-time dev convenience; the shipping flow gathers it via captive
+# portal, at which point this whole block goes away.)
+CMDLINE="$MOUNT_ROOT/boot/firmware/cmdline.txt"
+if [ -f "$CMDLINE" ] && [ -n "$WIFI_COUNTRY" ]; then
+  if ! grep -q "cfg80211.ieee80211_regdom=" "$CMDLINE"; then
+    log "setting WiFi regulatory domain to $WIFI_COUNTRY via cmdline.txt"
+    # cmdline.txt is one long line; append to it, preserve it.
+    sed -i "1 s|\$| cfg80211.ieee80211_regdom=$WIFI_COUNTRY|" "$CMDLINE"
+  fi
+elif [ ! -f "$CMDLINE" ]; then
+  warn "$CMDLINE not found — WiFi regulatory domain not set"
+fi
+
+# Enable WiFi in NetworkManager. Stock Pi OS Lite ships
+# /var/lib/NetworkManager/NetworkManager.state with WirelessEnabled=false —
+# the radio is software-disabled at the NM level until something flips it on.
+# Normally `raspi-config nonint do_wifi_country` does that (via `nmcli radio
+# wifi on`, or — when NM isn't running, e.g. offline like here — by editing
+# this flag directly). NM owns the rfkill soft-block and re-asserts it from
+# WirelessEnabled at every startup, so this flag is the whole fix: NM unblocks
+# the radio itself once WiFi is enabled. (An external `rfkill unblock` is
+# pointless — NM clobbers it back to blocked while WirelessEnabled=false.)
+NM_STATE="$MOUNT_ROOT/var/lib/NetworkManager/NetworkManager.state"
+if [ -f "$NM_STATE" ]; then
+  log "enabling WiFi in NetworkManager (WirelessEnabled=true)"
+  sed -i 's/^WirelessEnabled=.*/WirelessEnabled=true/' "$NM_STATE"
+else
+  log "creating NetworkManager.state with WiFi enabled"
+  install -d -m 755 "$MOUNT_ROOT/var/lib/NetworkManager"
+  printf '[main]\nWirelessEnabled=true\n' > "$NM_STATE"
 fi
 
 # Enable SSH unconditionally — the user may not have set keys, but we still
-# want to be able to reach the device if WiFi works. Touch /boot/firmware/ssh
-# is Pi OS's canonical "turn SSH on" marker, supplemented by firstrun.sh
-# explicitly enabling ssh.service.
+# want to be able to reach the device if WiFi works. The /boot/firmware/ssh
+# marker is Pi OS's canonical "turn SSH on" switch; we also drop the
+# wants-symlink directly so ssh.service comes up on the first (and only) boot
+# even if the marker mechanism shifts upstream.
 touch "$MOUNT_ROOT/boot/firmware/ssh"
+ln -sf /lib/systemd/system/ssh.service \
+  "$MOUNT_ROOT/etc/systemd/system/multi-user.target.wants/ssh.service" 2>/dev/null || true
 
 # Make sure the prebaked user owns its home + server dir. The account was
 # created/finished in the chroot above (UID/GID 1000 — the Bookworm default

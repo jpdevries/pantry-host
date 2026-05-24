@@ -26,7 +26,6 @@ SERVER_DIR="$REPO_ROOT/packages/server"
 WORK_DIR="$SCRIPT_DIR/work"
 DIST_DIR="$SCRIPT_DIR/dist"
 ENV_FILE="$SCRIPT_DIR/.env.image"
-OVERLAY_DIR="$SCRIPT_DIR/overlay"
 BUILDER_TAG="pantry-host-image-builder:latest"
 
 mkdir -p "$WORK_DIR/cache" "$DIST_DIR"
@@ -205,12 +204,11 @@ docker run --rm --privileged \
   -v "$STAGING_IMG:/work/image.img" \
   -v "$BINARY_PATH:/work/pantry-server:ro" \
   -v "$TAILSCALE_DEB:/work/tailscale.deb:ro" \
-  -v "$SCRIPT_DIR:/work/image:ro" \
   -v "$SERVER_DIR:/work/server:ro" \
   -e IMAGE_PATH=/work/image.img \
   -e BINARY_PATH=/work/pantry-server \
   -e TAILSCALE_DEB_PATH=/work/tailscale.deb \
-  -e OVERLAY_DIR=/work/image/overlay \
+  -e SERVER_DIR=/work/server \
   -e SHRINK_ROOTFS="$SHRINK" \
   -e WIFI_SSID="$WIFI_SSID" \
   -e WIFI_PSK="$WIFI_PSK" \
@@ -246,17 +244,24 @@ log "done."
 ls -lh "$DIST_DIR"/$OUT_BASENAME*
 echo
 cat <<EOF
-flash with:
+flash with the companion script (lists candidate disks, verifies the
+checksum, unmounts, and dd's the newest image onto the disk you pick):
 
+    ./flash.sh
+
+or, to flash this specific image / by hand:
+
+    ./flash.sh "$FINAL"
+    # — or —
     diskutil unmountDisk $DEV_HINT
 $(if (( COMPRESS )); then
-  echo "    xzcat $FINAL | sudo dd of=$DEV_HINT bs=4M status=progress conv=fsync"
+  echo "    xzcat \"$FINAL\" | sudo dd of=$DEV_HINT bs=4M status=progress conv=fsync"
 else
-  echo "    sudo dd if=$FINAL of=$DEV_HINT bs=4M status=progress conv=fsync"
+  echo "    sudo dd if=\"$FINAL\" of=$DEV_HINT bs=4M status=progress conv=fsync"
 fi)
     sync
 
 then eject the card, plug into the Pi, and power on. The Pi joins
-'$WIFI_SSID' and the in-app installer becomes reachable at
-http://$HOSTNAME.local (or the Pi's DHCP IP) within a minute.
+'$WIFI_SSID' and http://$HOSTNAME.local (or the Pi's DHCP IP) comes up in
+~30-45 seconds — a single boot, no first-run reboot.
 EOF

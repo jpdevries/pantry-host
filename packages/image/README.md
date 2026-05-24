@@ -59,11 +59,9 @@ The first run will:
 3. Download the latest stable Tailscale `armhf` `.deb` from
    `pkgs.tailscale.com`. Cached across runs.
 4. Spin up a privileged Linux container, loop-mount the Pi OS image,
-   inject `pantry-server` + a generated `firstrun.sh` + Tailscale (via
-   `chroot` + `qemu-user-static`), then unmount. Finally it shrinks the
-   rootfs to its minimum (plus a ~200 MB margin), so the shipped `.img` is
-   ~1.4 GB instead of ~2.4 GB. `firstrun.sh` grows it back to fill the card
-   on first boot. Pass `--no-shrink` to keep the full-size image.
+   inject `pantry-server` + Tailscale (via `chroot` + `qemu-user-static`),
+   and bake in all system config (hostname, WiFi, timezone, keyboard, user
+   account) offline, then unmount.
 5. Compress and checksum the result into
    `dist/pantry-host-pi-zero-w-YYYYMMDD-HHMMSS.img.xz`.
 
@@ -124,23 +122,27 @@ sync
 
 ## First boot
 
-Plug the card in, power on. The Pi will:
+Plug the card in, power on. There's **no first-boot configuration pass and
+no reboot** — hostname, WiFi, timezone, keyboard, and the user account are
+all baked into the image at build time, so the Pi boots **once**, straight
+into the normal multi-user target:
 
-1. Expand the root filesystem to fill the SD card. The image ships with a
-   shrunk rootfs (the build trims it to keep the `.img`/`.xz` small), so
-   `firstrun.sh` calls `raspi-config nonint do_expand_rootfs` to grow it
-   back on first boot.
-2. Run `firstrun.sh` once, which configures hostname, user, WiFi,
-   timezone, keyboard, SSH, and enables `pantry-server.service` +
-   `tailscaled.service`.
-3. Reboot into the normal multi-user target. `pantry-server` listens on
-   port `80` (standard HTTP) and serves both the GraphQL API and the
-   embedded Rex SPA. The image grants the binary `CAP_NET_BIND_SERVICE`
-   via the systemd drop-in (`pantry-server.service.d/pi-image.conf`) so
-   it doesn't need to run as root.
+1. NetworkManager auto-connects to the baked WiFi profile
+   (`/etc/NetworkManager/system-connections/preconfigured.nmconnection`).
+   The regulatory domain is set via the `cfg80211.ieee80211_regdom` kernel
+   param appended to `cmdline.txt`.
+2. `pantry-server.service` and `tailscaled.service` start — both enabled
+   offline via their `multi-user.target.wants` symlinks. `pantry-server`
+   listens on port `80` (standard HTTP) and serves both the GraphQL API and
+   the embedded Rex SPA; the systemd drop-in
+   (`pantry-server.service.d/pi-image.conf`) grants `CAP_NET_BIND_SERVICE`
+   so it binds port 80 without running as root.
+3. SSH comes up (the `/boot/firmware/ssh` marker plus an explicit
+   `ssh.service` wants-symlink).
 
-It usually takes ~60–90 seconds from power-on to the device appearing on
-the network. Then:
+It usually takes ~30–45 seconds from power-on to the device appearing on
+the network — roughly one boot cycle faster than the old
+configure-then-reboot flow. Then:
 
 ```bash
 # Find the Pi
@@ -166,15 +168,20 @@ run `tailscale status`, `tailscale logout`, etc. without `sudo`.
                                               (GRAPHQL_PORT=80, CAP_NET_BIND_SERVICE,
                                                TAILSCALE_OPERATOR=$USERNAME)
 /usr/sbin/tailscaled, /usr/bin/tailscale      (apt-installed Tailscale)
-/boot/firmware/firstrun.sh                    (removed after first boot)
+/etc/hostname, /etc/hosts                     (hostname)
+/etc/NetworkManager/system-connections/preconfigured.nmconnection  (WiFi)
+/etc/localtime, /etc/timezone, /etc/default/keyboard  (locale)
+/boot/firmware/cmdline.txt                    (+ cfg80211.ieee80211_regdom=<country>)
 ```
 
 Everything else is stock Raspberry Pi OS Lite (Bookworm, 32-bit armhf).
 
 ## Troubleshooting
 
-- **First-boot log:** `/var/log/firstrun.log` on the Pi captures the
-  configuration script's output. Useful if WiFi doesn't come up.
+- **WiFi doesn't come up:** check the baked NM profile with
+  `nmcli connection show preconfigured` and the regulatory domain with
+  `iw reg get` (should match `WIFI_COUNTRY`). The profile must be `0600` +
+  root-owned or NetworkManager ignores it.
 - **pantry-server log:** `journalctl -u pantry-server` (or `-f` to tail).
 - **`docker run` returns "operation not permitted":** Docker Desktop on
   macOS needs the *Allow privileged containers* setting (Settings →

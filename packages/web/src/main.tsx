@@ -29,7 +29,7 @@ if (typeof window !== 'undefined') {
 // Initialize theme immediately
 initTheme();
 
-// Start PGlite initialization early (non-blocking)
+// Start SQLite initialization early (non-blocking)
 initDB();
 
 // Request persistent storage

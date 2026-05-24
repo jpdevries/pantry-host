@@ -10,8 +10,11 @@ export default defineConfig({
       '@': path.resolve(__dirname),
     },
   },
+  // @sqlite.org/sqlite-wasm loads the .wasm file at runtime via `new URL(...,
+  // import.meta.url)`. Excluding it from optimizeDeps keeps Vite from trying
+  // to prebundle the package, which breaks that URL.
   optimizeDeps: {
-    exclude: ['@electric-sql/pglite'],
+    exclude: ['@sqlite.org/sqlite-wasm'],
   },
   worker: {
     format: 'es',

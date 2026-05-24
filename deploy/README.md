@@ -40,7 +40,13 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now pantry-server
 sudo systemctl status pantry-server
 
-# 5. From your Mac, verify it's serving:
+# 5. Grant tailscale operator perm to the service user (one-time, persistent).
+#    Without this the installer's "Enable secure access" button returns 500
+#    because pantry-server (running as jw) can't run `tailscale serve` —
+#    Tailscale rejects with "Access denied: serve config denied".
+sudo tailscale set --operator=jw
+
+# 6. From your Mac, verify it's serving:
 curl http://pantry.local:4001/graphql \
   -H 'content-type: application/json' \
   -d '{"query":"{ kitchens { slug name } }"}'

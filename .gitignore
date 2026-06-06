@@ -16,7 +16,9 @@ packages/server/static/client/*
 packages/server/static/public/*
 !packages/server/static/public/.gitkeep
 packages/server/static/installer/*
-!packages/server/static/installer/.gitkeep
+# No .gitkeep here: build.rs `create_dir_all`s this dir at compile time, and
+# installer-ui's `vite build` (emptyOutDir: true) would delete a committed
+# placeholder on every build anyway.
 packages/server/static/manifest.json
 *.pem
 .claude/settings.local.json

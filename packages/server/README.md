@@ -70,10 +70,12 @@ What's bundled:
 | `/favicon.ico`, `/manifest.json`, `/sw.js`, `/icon-*.png`, `/pear.png` | `packages/app/public/<f>` | yes |
 | `/uploads/<f>`      | `$UPLOADS_DIR/<f>` (user-uploaded images)       | no — disk |
 
-The frontend lives in `packages/server/static/` (gitignored except for the
-`.gitkeep` placeholders); `rust-embed` picks it up at compile time. A
-`build.rs` walks the dir and emits `cargo:rerun-if-changed` for every file
-so editing the SPA invalidates the Rust binary cache.
+The frontend lives in `packages/server/static/` (gitignored build output);
+`rust-embed` picks it up at compile time. A `build.rs` `create_dir_all`s the
+embed dirs (so a fresh checkout — or an installer-ui `vite build`, which
+empties `static/installer/` first — still compiles) and walks them to emit
+`cargo:rerun-if-changed` for every file, so editing the SPA invalidates the
+Rust binary cache.
 
 ### Rebuilding the frontend
 
@@ -338,8 +340,8 @@ src/
     ├── recipe.rs         # Recipe + RecipeIngredient + queries + mutations
     ├── cookware.rs       # Cookware type + queries + mutations
     └── menu.rs           # Menu + MenuRecipe + queries + mutations
-static/                   # gitignored except for .gitkeep — populated by
-                          # scripts/sync-frontend.sh and baked in at compile
+static/                   # gitignored build output — dirs ensured by build.rs,
+                          # populated by scripts/sync-frontend.sh, baked in at compile
 ├── client/               # rex build output (JS + CSS + manifest.json)
 └── public/               # subset of packages/app/public (favicon, sw.js, …)
 ```

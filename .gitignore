@@ -4,9 +4,26 @@ node_modules
 .env
 .env.local
 .env*.local
+.env.build
+/target
+packages/server/dist/
+# Embedded frontend assets — built from packages/app and copied in by
+# packages/server/scripts/sync-frontend.sh (or build-pi.sh). Treat as build
+# output: gitignored, populated at release-build time, but the dir tree
+# (with .gitkeep) is checked in so rust-embed has something to look at.
+packages/server/static/client/*
+!packages/server/static/client/.gitkeep
+packages/server/static/public/*
+!packages/server/static/public/.gitkeep
+packages/server/static/installer/*
+# No .gitkeep here: build.rs `create_dir_all`s this dir at compile time, and
+# installer-ui's `vite build` (emptyOutDir: true) would delete a committed
+# placeholder on every build anyway.
+packages/server/static/manifest.json
 *.pem
 .claude/settings.local.json
 .claude/worktrees/
+.claude/skills/
 dist
 packages/app/public/uploads/
 packages/app/.cache/
@@ -17,6 +34,7 @@ CLAUDE.local.md
 witness/output/*
 !witness/output/.gitkeep
 tests/integration/__harness__.json
+witness-reports/
 
 # SQLite runtime + WAL/SHM sidecars (per-machine dev/test artifacts).
 # Both the app's `./pantry.db` and any *-snapshot.db files from

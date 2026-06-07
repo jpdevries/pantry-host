@@ -159,7 +159,7 @@ export default function OmniSearch({
   return (
     <section aria-labelledby="omni-search-heading" className="mb-8">
       <h1 id="omni-search-heading" className="text-3xl font-bold mb-1">
-        Search All Recipes
+        Search All Recipe Sources
       </h1>
       <p className="text-sm text-[var(--color-text-secondary)] mb-4 legible pretty max-w-prose">
         One search across every community data source at once. Each result is badged with where it came from — import any of them into your local pantry.

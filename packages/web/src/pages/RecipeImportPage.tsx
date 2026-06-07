@@ -1023,7 +1023,7 @@ function __REMOVED() {
 
 // ── Main Import Page ────────────────────────────────────────────────────────
 
-const ALL_TAB_ORDER: Tab[] = ['bluesky', 'url', 'mealdb', 'publicdomain', 'recipe-api', 'cooklang', 'wikibooks', 'cocktaildb'];
+const ALL_TAB_ORDER: Tab[] = ['url', 'bluesky', 'mealdb', 'publicdomain', 'recipe-api', 'cooklang', 'wikibooks', 'cocktaildb'];
 const TAB_LABELS: Record<Tab, string> = {
   bluesky: 'Bluesky',
   url: 'URL',

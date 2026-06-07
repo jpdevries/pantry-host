@@ -323,7 +323,7 @@ export default function RecipeImportPage() {
   // empty-state with both an inline form and a Settings link when no key
   // is configured. This matches the web package's UX.
   const COMMUNITY_TAB_ORDER: CommunityTab[] = (
-    ['bluesky', 'url', 'cooklang', 'mealdb', 'recipe-api', 'publicdomain', 'wikibooks', 'cocktaildb'] as CommunityTab[]
+    ['url', 'bluesky', 'cooklang', 'mealdb', 'recipe-api', 'publicdomain', 'wikibooks', 'cocktaildb'] as CommunityTab[]
   ).filter((k) => {
     if (k === 'cocktaildb' && !showCocktailDB) return false;
     return true;

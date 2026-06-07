@@ -1100,10 +1100,6 @@ export default function RecipeImportPage() {
       : `/import/${result.source}/${encodeURIComponent(result.id)}#stage`;
     return <Link to={to} className="block h-full">{children}</Link>;
   }, []);
-  const omniMissingSources = useMemo(
-    () => (omniRecipeApiKey ? [] : [{ id: 'recipe-api', label: 'Recipe API', note: 'add a key in the Recipe API tab' }]),
-    [omniRecipeApiKey],
-  );
   // Honor the Settings-page toggle for TheCocktailDB.
   const [showCocktailDB, setShowCocktailDB] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
@@ -1175,7 +1171,6 @@ export default function RecipeImportPage() {
       <OmniSearch
         adapters={omniAdapters}
         recipeApiKey={omniRecipeApiKey}
-        missingSources={omniMissingSources}
         renderResultLink={renderOmniLink}
         createRecipe={createOmniRecipe}
         onImported={() => navigate('/recipes#stage')}

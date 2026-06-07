@@ -19,24 +19,15 @@ import { isServer } from '../env';
 import { useOmniSearch } from '../search/useOmniSearch';
 import { RECIPE_CATEGORY_FILTERS, matchesCategories } from '../search/categories';
 import { importOmniResult, type ParsedRecipe } from '../search/importer';
-import type { OmniAdapter, OmniResult, PerSourceState } from '../search/types';
+import type { OmniAdapter, OmniResult } from '../search/types';
 
 type Mode = 'browse' | 'bulk';
-
-export interface OmniSearchMissingSource {
-  id: string;
-  label: string;
-  /** Why it isn't being searched, e.g. "add a key in the Recipe API tab". */
-  note: string;
-}
 
 export interface OmniSearchProps {
   /** Active adapters — build with `buildOmniAdapters(ctx)` and memoize. */
   adapters: OmniAdapter[];
   /** Needed to import recipe-api results (re-fetches full detail by id). */
   recipeApiKey?: string | null;
-  /** Sources intentionally not searched — shown as muted status chips. */
-  missingSources?: OmniSearchMissingSource[];
   /** Wrap a card in an internal link to the per-source import-detail page. */
   renderResultLink: (result: OmniResult, children: React.ReactNode) => React.ReactNode;
   /** Persist one imported recipe (host runs the GraphQL createRecipe mutation). */
@@ -47,25 +38,9 @@ export interface OmniSearchProps {
 
 const keyOf = (r: OmniResult) => `${r.source}:${r.id}`;
 
-function SourceChip({ label, state }: { label: string; state: PerSourceState }) {
-  let detail: React.ReactNode;
-  if (state.status === 'loading') detail = <span className="opacity-60">…</span>;
-  else if (state.status === 'done') detail = <span className="tabular-nums">{state.count}</span>;
-  else if (state.status === 'error') detail = <span className="text-red-600 dark:text-red-400">error</span>;
-  else if (state.status === 'skipped') detail = <span className="opacity-60">{state.note}</span>;
-  else detail = null;
-  return (
-    <span className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border border-[var(--color-border-card)] bg-[var(--color-bg-card)]">
-      <span className="font-medium">{label}</span>
-      {detail}
-    </span>
-  );
-}
-
 export default function OmniSearch({
   adapters,
   recipeApiKey,
-  missingSources,
   renderResultLink,
   createRecipe,
   onImported,
@@ -85,7 +60,7 @@ export default function OmniSearch({
     if (!isServer) localStorage.setItem('omni-search-mode', mode);
   }, [mode]);
 
-  const { results, perSource, loading } = useOmniSearch(adapters, query);
+  const { results, loading } = useOmniSearch(adapters, query);
 
   const filtered = useMemo(
     () => results.filter((r) => matchesCategories(r.tags, categories)),
@@ -147,15 +122,6 @@ export default function OmniSearch({
     }
   }
 
-  const chips: { id: string; label: string; state: PerSourceState }[] = [
-    ...adapters.map((a) => ({ id: a.id, label: a.label, state: perSource[a.id] ?? { status: 'idle' as const, count: 0 } })),
-    ...(missingSources ?? []).map((m) => ({
-      id: m.id,
-      label: m.label,
-      state: { status: 'skipped' as const, count: 0, note: m.note },
-    })),
-  ];
-
   return (
     <section aria-labelledby="omni-search-heading" className="mb-8">
       <h1 id="omni-search-heading" className="text-3xl font-bold mb-1">
@@ -170,16 +136,17 @@ export default function OmniSearch({
         <MagnifyingGlass size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)] pointer-events-none" aria-hidden />
         <input
           type="search"
+          name="omni-search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="eggplant parm, vegetable curry, old fashioned…"
           aria-label="Search all recipe data sources"
-          className="field-input w-full text-lg"
-          // Inline padding: clears the absolutely-positioned 20px icon at left-3.
-          // Not a `pl-11` utility because that class is unique to this shared
-          // component and Tailwind's content scan doesn't reliably emit it under
-          // Rex (gotcha #10); inline also beats .field-input's `padding` shorthand.
-          style={{ padding: '0.75rem 0.75rem 0.75rem 2.75rem' }}
+          // py-3 + pl-11 override .field-input's padding shorthand (utilities layer
+          // beats the components layer); pl-11 clears the absolutely-positioned 20px
+          // search icon at left-3. pl-11 is safelisted in the app's globals.css
+          // @source inline(...) because Rex doesn't scan this shared component for
+          // Tailwind candidates (gotcha #10); the web package scans it natively.
+          className="field-input w-full text-lg py-3 pl-11"
         />
       </div>
 
@@ -219,15 +186,6 @@ export default function OmniSearch({
           </div>
         </div>
       </div>
-
-      {/* Per-source status chips */}
-      {hasQuery && (
-        <div className="flex flex-wrap gap-2 mb-4" aria-live="polite">
-          {chips.map((c) => (
-            <SourceChip key={c.id} label={c.label} state={c.state} />
-          ))}
-        </div>
-      )}
 
       {importError && <p role="alert" className="text-sm text-red-600 dark:text-red-400 mb-4">{importError}</p>}
 

@@ -128,7 +128,7 @@ export default function CommunityDatasources() {
   return (
     <section
       aria-labelledby="community-datasources-heading"
-      className="mt-12 border-t border-[var(--color-border-card)] pt-8"
+      className="mt-12 border-t border-[var(--color-border-card)] pt-10"
     >
       <h2
         id="community-datasources-heading"

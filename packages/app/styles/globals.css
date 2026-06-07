@@ -4,6 +4,13 @@
 @source "../components";
 @source "../../shared/src/components";
 
+/* Rex 0.20.0's Tailwind ignores @source paths that resolve outside the app
+   package root, so utility classes used ONLY in packages/shared components are
+   never generated (the @source above is effectively a no-op for that dir).
+   Safelist shared-only classes here until Rex honors out-of-root @source.
+   Tracking: https://github.com/limlabs/rex/issues/246 */
+@source inline("xl:grid-cols-4 list-disc pl-5 pl-11 hover:text-[var(--color-accent)]");
+
 /* System font stacks — https://systemfontstack.com/ */
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, Adwaita Sans, Cantarell, Ubuntu, roboto, noto, helvetica, arial, sans-serif;

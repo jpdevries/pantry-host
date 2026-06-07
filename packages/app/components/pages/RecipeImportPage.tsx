@@ -244,8 +244,8 @@ export default function RecipeImportPage() {
   const [recipeApiKey, setRecipeApiKey] = useState<string | null>(null);
 
   // ── Omni Search ("Search All Recipes") fan-out wiring ──────────────────────
-  // Declared AFTER recipeApiKey above — the omniAdapters/omniMissingSources
-  // memos read it, so referencing it earlier would hit the temporal dead zone.
+  // Declared AFTER recipeApiKey above — the omniAdapters memo reads it, so
+  // referencing it earlier would hit the temporal dead zone.
   // Wikibooks: hit the self-hosted /api/wikibooks proxy. Bluesky: fetch the
   // feed firehose once and filter client-side (no full-text endpoint exists).
   const wikibooksSearch = useCallback(async (q: string): Promise<WikibooksEntry[]> => {
@@ -293,11 +293,6 @@ export default function RecipeImportPage() {
       : `/kitchens/${kitchen}/import/${result.source}/${encodeURIComponent(result.id)}#stage`;
     return <a href={href} className="block h-full">{children}</a>;
   }, [kitchen]);
-  const omniMissingSources = useMemo(
-    () => (recipeApiKey ? [] : [{ id: 'recipe-api', label: 'Recipe API', note: 'add a key in the Recipe API tab' }]),
-    [recipeApiKey],
-  );
-
   // TheCocktailDB tab visibility. Defaults to true; gets overridden by
   // /api/settings-read which merges process.env (sourced from .env.local
   // at server startup) with any /settings page overrides.
@@ -926,7 +921,6 @@ export default function RecipeImportPage() {
             <OmniSearch
               adapters={omniAdapters}
               recipeApiKey={recipeApiKey}
-              missingSources={omniMissingSources}
               renderResultLink={renderOmniLink}
               createRecipe={createOmniRecipe}
               onImported={() => router.push(`${recipesBase}#stage`)}

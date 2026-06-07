@@ -134,7 +134,7 @@ export default function CommunityDatasources() {
         id="community-datasources-heading"
         className="text-2xl font-bold mb-3"
       >
-        About the Community Datasources
+        About the Community Data Sources
       </h2>
       <p className="text-sm text-[var(--color-text-secondary)] mb-6 legible pretty max-w-prose">
         Pantry Host integrates with seven federated recipe sources, each with its own

@@ -167,14 +167,19 @@ export default function OmniSearch({
 
       {/* Search bar */}
       <div className="relative mb-4">
-        <MagnifyingGlass size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" aria-hidden />
+        <MagnifyingGlass size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)] pointer-events-none" aria-hidden />
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="eggplant parm, vegetable curry, old fashioned…"
           aria-label="Search all recipe data sources"
-          className="field-input w-full pl-11 text-lg py-3"
+          className="field-input w-full text-lg"
+          // Inline padding: clears the absolutely-positioned 20px icon at left-3.
+          // Not a `pl-11` utility because that class is unique to this shared
+          // component and Tailwind's content scan doesn't reliably emit it under
+          // Rex (gotcha #10); inline also beats .field-input's `padding` shorthand.
+          style={{ padding: '0.75rem 0.75rem 0.75rem 2.75rem' }}
         />
       </div>
 

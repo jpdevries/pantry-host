@@ -10,6 +10,8 @@ Pantry Host is a privacy-first kitchen companion for managing recipes, pantry in
 
 ## Monorepo structure
 
+> **Architecture diagrams:** see [docs/architecture.md](docs/architecture.md) — system overview, Rust-layer internals, MCP integration, and the shared-schema source of truth.
+
 ```
 pantry-host/
 ├── packages/

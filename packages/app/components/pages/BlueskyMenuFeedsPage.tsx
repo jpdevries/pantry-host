@@ -223,11 +223,6 @@ export default function BlueskyMenuFeedsPage() {
         />
       </div>
 
-      {/* Skip link */}
-      <a href="#bluesky-menus" className="sr-only focus:not-sr-only focus:inline-block focus:mb-2 focus:text-sm focus:underline focus:text-accent">
-        Skip to menus
-      </a>
-
       {/* Mode toggle */}
       <fieldset className="mb-6 card p-3 text-sm">
         <legend className="px-2 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">User Flow</legend>

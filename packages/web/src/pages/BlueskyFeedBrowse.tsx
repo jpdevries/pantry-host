@@ -271,29 +271,29 @@ export default function BlueskyFeedBrowse() {
         </datalist>
       </div>
 
-      {/* Skip link — visible only on keyboard focus */}
-      <a href="#bsky-recipes" className="sr-only focus:not-sr-only focus:inline-block focus:mb-2 focus:text-sm focus:underline focus:text-[var(--color-accent)]">
-        Skip to recipes
-      </a>
-
       {/* Filter chips */}
       {(categories.size > 0 || cuisines.size > 0) && (
-        <div className="flex flex-wrap gap-2 mb-4" role="group" aria-label="Filter recipes by category">
-          {[...categories, ...cuisines].map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              onClick={() => toggleFilter(tag)}
-              aria-pressed={activeFilters.has(tag)}
-              className="text-xs font-medium px-3 py-1.5 rounded-full border-2 transition-colors cursor-pointer"
-              style={activeFilters.has(tag)
-                ? { backgroundColor: 'var(--color-accent)', color: 'var(--color-bg-body)', borderColor: 'var(--color-accent)', fontWeight: 700 }
-                : { borderColor: 'var(--color-border-card)', color: 'var(--color-text-secondary)' }
-              }
-            >
-              {tag}
-            </button>
-          ))}
+        <div className="mb-4 relative">
+          <a href="#bsky-after-filters" className="skip-link">Skip filters</a>
+          <p id="bsky-filter-label" className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Filter by category</p>
+          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="bsky-filter-label">
+            {[...categories, ...cuisines].map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => toggleFilter(tag)}
+                aria-pressed={activeFilters.has(tag)}
+                className="text-xs font-medium px-3 py-1.5 rounded-full border-2 transition-colors cursor-pointer"
+                style={activeFilters.has(tag)
+                  ? { backgroundColor: 'var(--color-accent)', color: 'var(--color-bg-body)', borderColor: 'var(--color-accent)', fontWeight: 700 }
+                  : { borderColor: 'var(--color-border-card)', color: 'var(--color-text-secondary)' }
+                }
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+          <div id="bsky-after-filters" tabIndex={-1} className="sr-only">Skipped filters</div>
         </div>
       )}
 
@@ -345,7 +345,6 @@ export default function BlueskyFeedBrowse() {
             onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && selected.size > 0) { e.preventDefault(); handleBulkImport(); } }}
             ariaKeyshortcuts="Meta+Enter"
           >
-            <div id="bsky-recipes" className="sr-only" />
             {filtered.map((item) => {
               const isSelected = selected.has(item.atUri);
               const photo = item.recipe.photoUrl ? (

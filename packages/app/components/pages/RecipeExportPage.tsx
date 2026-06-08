@@ -222,8 +222,9 @@ export default function RecipeExportPage() {
         <h1 className="text-4xl font-bold mb-4">Export Recipes</h1>
 
         {tagCloud.length > 0 && (
-          <details className="mb-8">
+          <details className="mb-8 relative">
             <summary id="export-tag-filter-label" className="text-sm text-secondary cursor-pointer hover:underline">Select by tag</summary>
+            <a href="#export-after-filters" className="skip-link">Skip filters</a>
             <div className="flex flex-wrap gap-2 mt-3" role="group" aria-labelledby="export-tag-filter-label">
               {tagCloud.map(([tag, count]) => (
                   <button
@@ -241,6 +242,7 @@ export default function RecipeExportPage() {
                   </button>
               ))}
             </div>
+            <div id="export-after-filters" tabIndex={-1} className="sr-only">Skipped filters</div>
           </details>
         )}
 

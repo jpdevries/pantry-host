@@ -166,7 +166,8 @@ export default function OmniSearch({
           </div>
         </fieldset>
 
-        <div>
+        <div className="relative">
+          <a href="#omni-after-filters" className="skip-link">Skip filters</a>
           <p id="omni-filter-label" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Filter by category</p>
           <div className="flex flex-wrap gap-2" role="group" aria-labelledby="omni-filter-label">
             {RECIPE_CATEGORY_FILTERS.map((f) => {
@@ -192,6 +193,7 @@ export default function OmniSearch({
               );
             })}
           </div>
+          <div id="omni-after-filters" tabIndex={-1} className="sr-only">Skipped filters</div>
         </div>
       </div>
 

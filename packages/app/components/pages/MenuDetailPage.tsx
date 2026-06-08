@@ -293,7 +293,8 @@ export default function MenuDetailPage({ menuId, initialMenu }: Props) {
       )}
 
       {availableFilters.length > 0 && (
-        <div className="mt-6 mb-8">
+        <div className="mt-6 mb-8 relative">
+          <a href="#menu-after-filters" className="skip-link">Skip filters</a>
           <p id="filter-desc" className="text-xs text-[var(--color-text-secondary)] mb-2">Filter dishes by dietary preference</p>
           <div className="flex flex-wrap gap-2" role="group" aria-labelledby="filter-desc">
           {availableFilters.map((f) => {
@@ -324,6 +325,7 @@ export default function MenuDetailPage({ menuId, initialMenu }: Props) {
             </button>
           )}
           </div>
+          <div id="menu-after-filters" tabIndex={-1} className="sr-only">Skipped filters</div>
         </div>
       )}
 

@@ -315,11 +315,6 @@ export default function RecipesPage() {
         className="field-input w-full mb-4"
       />
 
-      {/* Skip link — visible only on keyboard focus */}
-      <a href="#recipe-list" className="sr-only focus:not-sr-only focus:inline-block focus:mb-2 focus:text-sm focus:underline focus:text-[var(--color-accent)]">
-        Skip to recipes
-      </a>
-
       {favoritesOnly && (
         <div className="mb-4 inline-flex items-center gap-2">
           <span
@@ -341,7 +336,8 @@ export default function RecipesPage() {
       )}
 
       {availableFilters.length > 0 && (
-        <div className="mb-6">
+        <div className="mb-6 relative">
+          <a href="#recipes-after-filters" className="skip-link">Skip filters</a>
           <p id="filter-desc" className="text-xs text-[var(--color-text-secondary)] mb-2">Filter by tag</p>
           <div className="flex flex-wrap gap-2" role="group" aria-labelledby="filter-desc">
             {availableFilters.map((f) => (
@@ -369,6 +365,7 @@ export default function RecipesPage() {
               </button>
             )}
           </div>
+          <div id="recipes-after-filters" tabIndex={-1} className="sr-only">Skipped filters</div>
         </div>
       )}
 

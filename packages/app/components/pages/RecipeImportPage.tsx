@@ -1,5 +1,5 @@
 import Head from 'next/head';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { gql } from '@/lib/gql';
 import { isApiOnline, API_STATUS_EVENT } from '@/lib/apiStatus';
@@ -53,6 +53,12 @@ import {
 } from '@pantry-host/shared/recipe-api';
 import CommunityDatasources from '@pantry-host/shared/components/CommunityDatasources';
 import ImportGrid, { captureActiveElement, restoreFocus } from '@pantry-host/shared/components/ImportGrid';
+import OmniSearch from '@pantry-host/shared/components/OmniSearch';
+import { buildOmniAdapters } from '@pantry-host/shared/search/sources';
+import type { OmniResult, BlueskyOmniHit } from '@pantry-host/shared/search/types';
+import type { ParsedRecipe } from '@pantry-host/shared/search/importer';
+import { blueskyToRecipe, type BlueskyRecipeRecord } from '@pantry-host/shared/bluesky';
+import BlueskyFeedBrowse from './BlueskyFeedBrowse';
 
 // ── Cooklang detail cache + throttled fetcher ──────────────────────────────
 //
@@ -224,8 +230,8 @@ export default function RecipeImportPage() {
   const clDebounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Community tab state
-  type CommunityTab = 'url' | 'cooklang' | 'mealdb' | 'cocktaildb' | 'publicdomain' | 'wikibooks' | 'recipe-api';
-  const ALL_COMMUNITY_TABS: CommunityTab[] = ['url', 'cooklang', 'mealdb', 'cocktaildb', 'publicdomain', 'wikibooks', 'recipe-api'];
+  type CommunityTab = 'bluesky' | 'url' | 'cooklang' | 'mealdb' | 'cocktaildb' | 'publicdomain' | 'wikibooks' | 'recipe-api';
+  const ALL_COMMUNITY_TABS: CommunityTab[] = ['bluesky', 'url', 'cooklang', 'mealdb', 'cocktaildb', 'publicdomain', 'wikibooks', 'recipe-api'];
   const [communityTab, setCommunityTab] = useState<CommunityTab>(() => {
     if (isServer) return 'url';
     const urlTab = new URLSearchParams(window.location.search).get('tab');
@@ -236,6 +242,57 @@ export default function RecipeImportPage() {
   // the owner-gated /api/recipe-api-key route. Guests on HTTP LAN IPs get
   // null and the tab stays hidden.
   const [recipeApiKey, setRecipeApiKey] = useState<string | null>(null);
+
+  // ── Omni Search ("Search All Recipes") fan-out wiring ──────────────────────
+  // Declared AFTER recipeApiKey above — the omniAdapters memo reads it, so
+  // referencing it earlier would hit the temporal dead zone.
+  // Wikibooks: hit the self-hosted /api/wikibooks proxy. Bluesky: fetch the
+  // feed firehose once and filter client-side (no full-text endpoint exists).
+  const wikibooksSearch = useCallback(async (q: string): Promise<WikibooksEntry[]> => {
+    const res = await fetch(`/api/wikibooks?q=${encodeURIComponent(q)}&limit=24`);
+    if (!res.ok) return [];
+    const d = (await res.json()) as { results?: WikibooksEntry[] };
+    return d.results ?? [];
+  }, []);
+  const blueskyFeedRef = useRef<Promise<BlueskyOmniHit[]> | null>(null);
+  const blueskySearch = useCallback(async (q: string): Promise<BlueskyOmniHit[]> => {
+    if (!blueskyFeedRef.current) {
+      blueskyFeedRef.current = (async () => {
+        try {
+          const res = await fetch('https://feed.pantryhost.app/api/recipes?limit=100');
+          if (!res.ok) return [];
+          const data = (await res.json()) as { recipes: Array<{ atUri: string; handle: string; value: BlueskyRecipeRecord }> };
+          return data.recipes.map((r) => {
+            const parsed = blueskyToRecipe(r.value, r.atUri, r.handle);
+            return { atUri: r.atUri, title: parsed.title, image: parsed.photoUrl ?? null, tags: parsed.tags, handle: r.handle };
+          });
+        } catch {
+          return [];
+        }
+      })();
+    }
+    const all = await blueskyFeedRef.current;
+    const ql = q.toLowerCase();
+    return all.filter((h) => h.title.toLowerCase().includes(ql) || (h.tags ?? []).some((t) => t.toLowerCase().includes(ql)));
+  }, []);
+  const omniAdapters = useMemo(
+    () => buildOmniAdapters({ recipeApiKey, wikibooks: wikibooksSearch, bluesky: blueskySearch }),
+    [recipeApiKey, wikibooksSearch, blueskySearch],
+  );
+  const createOmniRecipe = useCallback(async (recipe: ParsedRecipe) => {
+    await gql(CREATE_RECIPE, {
+      title: recipe.title, description: recipe.description ?? null, instructions: recipe.instructions,
+      servings: recipe.servings ?? null, prepTime: recipe.prepTime ?? null, cookTime: recipe.cookTime ?? null,
+      tags: recipe.tags ?? [], photoUrl: recipe.photoUrl ?? null, sourceUrl: recipe.sourceUrl ?? null,
+      ingredients: recipe.ingredients, kitchenSlug: kitchen,
+    });
+  }, [kitchen]);
+  const renderOmniLink = useCallback((result: OmniResult, children: React.ReactNode) => {
+    const href = result.source === 'bluesky'
+      ? `/kitchens/${kitchen}/at/${result.id.replace(/^at:\/\//, '')}#stage`
+      : `/kitchens/${kitchen}/import/${result.source}/${encodeURIComponent(result.id)}#stage`;
+    return <a href={href} className="block h-full">{children}</a>;
+  }, [kitchen]);
   // TheCocktailDB tab visibility. Defaults to true; gets overridden by
   // /api/settings-read which merges process.env (sourced from .env.local
   // at server startup) with any /settings page overrides.
@@ -261,7 +318,7 @@ export default function RecipeImportPage() {
   // empty-state with both an inline form and a Settings link when no key
   // is configured. This matches the web package's UX.
   const COMMUNITY_TAB_ORDER: CommunityTab[] = (
-    ['url', 'cooklang', 'mealdb', 'recipe-api', 'publicdomain', 'wikibooks', 'cocktaildb'] as CommunityTab[]
+    ['url', 'bluesky', 'cooklang', 'mealdb', 'recipe-api', 'publicdomain', 'wikibooks', 'cocktaildb'] as CommunityTab[]
   ).filter((k) => {
     if (k === 'cocktaildb' && !showCocktailDB) return false;
     return true;
@@ -857,22 +914,18 @@ export default function RecipeImportPage() {
       <main id="stage" className="max-sm:min-h-screen px-4 py-10 md:px-8 max-w-3xl mx-auto">
         <div className="mb-8">
           <a href={`${recipesBase}#stage`} className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] mb-4 inline-block">← Recipes</a>
-
-          <a href={`${recipesBase}/feeds/bluesky#stage`} className="mb-6 flex items-center gap-4 card p-4 rounded-xl hover:border-accent transition-colors">
-            <svg fill="currentColor" viewBox="0 0 600 530" width={32} height={28} aria-hidden="true" className="shrink-0 opacity-60" xmlns="http://www.w3.org/2000/svg">
-              <path d="M135.72 44.03C202.216 93.951 273.74 195.17 299.91 249.49c26.17-54.32 97.694-155.539 164.19-205.46C512.18 8.005 590 -19.728 590 69.04c0 17.726-10.155 148.928-16.111 170.208-20.703 73.984-96.144 92.854-163.25 81.433 117.262 19.96 147.131 86.084 82.654 152.208-122.385 125.621-175.86-31.511-189.563-71.807-2.512-7.387-3.687-10.832-3.69-7.905-.003-2.927-1.179.518-3.69 7.905-13.704 40.296-67.18 197.428-189.563 71.807-64.477-66.124-34.61-132.251 82.65-152.208-67.105 11.421-142.548-7.45-163.25-81.433C20.232 217.968 10.077 86.766 10.077 69.04c0-88.768 77.82-61.035 125.9-25.01z" />
-            </svg>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm">Browse recipes from Bluesky</p>
-              <p className="text-xs text-[var(--color-text-secondary)]">Discover recipes shared on AT Protocol by the community</p>
-            </div>
-          </a>
-
-          <h1 className="text-4xl font-bold">Import Recipes</h1>
         </div>
 
         {step === 'input' && (
           <div className="space-y-6">
+            <OmniSearch
+              adapters={omniAdapters}
+              recipeApiKey={recipeApiKey}
+              renderResultLink={renderOmniLink}
+              createRecipe={createOmniRecipe}
+              onImported={() => router.push(`${recipesBase}#stage`)}
+            />
+
             <div className="p-6 border border-[var(--color-border-card)] bg-[var(--color-bg-card)]">
               <h2 className="text-lg font-bold mb-1">Upload a file</h2>
               <p className="text-sm text-[var(--color-text-secondary)] mb-4">
@@ -899,11 +952,15 @@ export default function RecipeImportPage() {
 
           {/* Import tabs — URL + Community Recipes */}
           <div>
+            <h2 className="text-2xl font-bold mb-1">Import Recipes from Specific Data Source</h2>
+            <p className="text-sm text-[var(--color-text-secondary)] mb-4 legible pretty max-w-prose">
+              Prefer to browse one source at a time? Pick a data source below.
+            </p>
 
             {/* Tab toggle */}
             <div className="flex gap-1 mb-6 border-b border-[var(--color-border-card)] overflow-x-auto" role="tablist" aria-label="Recipe sources">
               {COMMUNITY_TAB_ORDER.map((key) => {
-                const label = key === 'url' ? 'URL' : key === 'cooklang' ? 'Cooklang' : key === 'mealdb' ? 'TheMealDB' : key === 'publicdomain' ? 'Public Domain' : key === 'wikibooks' ? 'Wikibooks' : key === 'cocktaildb' ? 'TheCocktailDB' : 'Recipe API';
+                const label = key === 'bluesky' ? 'Bluesky' : key === 'url' ? 'URL' : key === 'cooklang' ? 'Cooklang' : key === 'mealdb' ? 'TheMealDB' : key === 'publicdomain' ? 'Public Domain' : key === 'wikibooks' ? 'Wikibooks' : key === 'cocktaildb' ? 'TheCocktailDB' : 'Recipe API';
                 const active = communityTab === key;
                 return (
                   <button
@@ -930,6 +987,12 @@ export default function RecipeImportPage() {
                 );
               })}
             </div>
+
+            {communityTab === 'bluesky' && (
+              <div role="tabpanel" id="tabpanel-bluesky" aria-labelledby="tab-bluesky">
+                <BlueskyFeedBrowse />
+              </div>
+            )}
 
             {communityTab === 'url' && (<div role="tabpanel" id="tabpanel-url" aria-labelledby="tab-url">
               <div className={`${!apiOnline ? 'opacity-50' : ''}`} {...(!apiOnline ? { inert: '' } : {})}>

@@ -1,46 +1,67 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { gql } from '@/lib/gql';
-import { listBlueskyCollections, type BlueskyCollectionRecord } from '@pantry-host/shared/bluesky';
-import { importBlueskyCollection } from '@pantry-host/shared/bluesky-import';
+import { listBlueskyRecipes, blueskyToRecipe, type ParsedRecipe, type BlueskyRecipeRecord } from '@pantry-host/shared/bluesky';
 import ImportGrid, { captureActiveElement } from '@pantry-host/shared/components/ImportGrid';
+import PixabayImage from '@pantry-host/shared/components/PixabayImage';
 
 const FEED_API = 'https://feed.pantryhost.app/api/handles';
 const FEED_RECIPES_API = 'https://feed.pantryhost.app/api/recipes';
 const PAGE_SIZE = 50;
-const COLLECTION_LEXICON = 'exchange.recipe.collection';
 
 const SEED_HANDLES = [
   'joshhuckabee.com', 'recipe.exchange', 'pixeline.be',
   'stephenhunter.xyz', 'bmann.ca', 'rdur.dev',
 ];
 
-interface FeedCollection {
+interface FeedRecipe {
   atUri: string;
-  name: string;
-  description: string | null;
-  recipeCount: number;
+  recipe: ParsedRecipe;
   handle: string;
 }
 
-const BLUESKY_VIEWBOX = '0 0 600 530';
-const BLUESKY_PATH = 'M135.72 44.03C202.216 93.951 273.74 195.17 299.91 249.49c26.17-54.32 97.694-155.539 164.19-205.46C512.18 8.005 590 -19.728 590 69.04c0 17.726-10.155 148.928-16.111 170.208-20.703 73.984-96.144 92.854-163.25 81.433 117.262 19.96 147.131 86.084 82.654 152.208-122.385 125.621-175.86-31.511-189.563-71.807-2.512-7.387-3.687-10.832-3.69-7.905-.003-2.927-1.179.518-3.69 7.905-13.704 40.296-67.18 197.428-189.563 71.807-64.477-66.124-34.61-132.251 82.65-152.208-67.105 11.421-142.548-7.45-163.25-81.433C20.232 217.968 10.077 86.766 10.077 69.04c0-88.768 77.82-61.035 125.9-25.01z';
+const CREATE_MUTATION = `mutation(
+  $title: String!, $instructions: String!, $ingredients: [RecipeIngredientInput!]!,
+  $description: String, $servings: Int, $prepTime: Int, $cookTime: Int,
+  $tags: [String!], $photoUrl: String, $sourceUrl: String, $kitchenSlug: String
+) {
+  createRecipe(
+    title: $title, instructions: $instructions, ingredients: $ingredients,
+    description: $description, servings: $servings, prepTime: $prepTime, cookTime: $cookTime,
+    tags: $tags, photoUrl: $photoUrl, sourceUrl: $sourceUrl, kitchenSlug: $kitchenSlug
+  ) { id slug }
+}`;
 
-export default function BlueskyMenuFeedsPage() {
+/**
+ * The reusable Bluesky feed browse experience — search, tag filters, dual-mode
+ * (Browse/Bulk), cursor pagination. Rendered both standalone at
+ * `/recipes/feeds/bluesky` (via BlueskyFeedsPage, which adds the page chrome)
+ * and embedded as the first tab of the Import page. The legacy route stays
+ * alive for deep links.
+ */
+export default function BlueskyFeedBrowse() {
   const kitchen = useParams<{ kitchen?: string }>().kitchen ?? 'home';
   const navigate = useNavigate();
-  const [collections, setCollections] = useState<FeedCollection[]>([]);
+  const [recipes, setRecipes] = useState<FeedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pixabayKey] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('pixabay-api-key') : null
+  );
+  const [pixabayEnabled] = useState<boolean>(() =>
+    typeof window !== 'undefined' && localStorage.getItem('pixabay-fallback-enabled') === 'true'
+  );
+  const pixabayActive = pixabayEnabled && !!pixabayKey;
   const [search, setSearch] = useState('');
+  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
   const [mode, setMode] = useState<'bulk' | 'browse'>(() => {
     if (typeof window === 'undefined') return 'browse';
-    return (localStorage.getItem('bsky-menu-feeds-mode') as 'bulk' | 'browse') || 'browse';
+    return (localStorage.getItem('bsky-feeds-mode') as 'bulk' | 'browse') || 'browse';
   });
   useEffect(() => {
-    if (typeof window !== 'undefined') localStorage.setItem('bsky-menu-feeds-mode', mode);
+    if (typeof window !== 'undefined') localStorage.setItem('bsky-feeds-mode', mode);
   }, [mode]);
 
   // Server-side feed (preferred) → falls back to per-handle XRPC fan-out.
@@ -48,30 +69,25 @@ export default function BlueskyMenuFeedsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [serverFeedAvailable, setServerFeedAvailable] = useState(true);
 
-  // Focus + screen-reader handling for Load more.
   const focusIdxRef = useRef<number | null>(null);
   const loadMoreBtnRef = useRef<HTMLButtonElement | null>(null);
   const [announcement, setAnnouncement] = useState('');
 
   useEffect(() => {
     (async () => {
-      // Try the aggregated feed first — same endpoint as recipes, filtered
-      // by collection lexicon.
       try {
-        const res = await fetch(`${FEED_RECIPES_API}?collection=${encodeURIComponent(COLLECTION_LEXICON)}&limit=${PAGE_SIZE}`);
+        const res = await fetch(`${FEED_RECIPES_API}?limit=${PAGE_SIZE}`);
         if (res.ok) {
           const data = (await res.json()) as {
-            recipes: Array<{ atUri: string; did: string; handle: string; value: BlueskyCollectionRecord; createdAt: string }>;
+            recipes: Array<{ atUri: string; did: string; handle: string; value: BlueskyRecipeRecord; createdAt: string }>;
             cursor: string | null;
           };
-          const converted: FeedCollection[] = data.recipes.map((r) => ({
+          const converted: FeedRecipe[] = data.recipes.map((r) => ({
             atUri: r.atUri,
             handle: r.handle,
-            name: r.value.name,
-            description: r.value.text ?? null,
-            recipeCount: r.value.recipes?.length ?? 0,
+            recipe: blueskyToRecipe(r.value, r.atUri, r.handle),
           }));
-          setCollections(converted);
+          setRecipes(converted);
           setCursor(data.cursor);
           setLoading(false);
           return;
@@ -80,7 +96,6 @@ export default function BlueskyMenuFeedsPage() {
         // fall through
       }
 
-      // Fallback: legacy per-handle fan-out.
       setServerFeedAvailable(false);
       let handles: string[];
       try {
@@ -96,19 +111,19 @@ export default function BlueskyMenuFeedsPage() {
       }
 
       const results = await Promise.allSettled(
-        handles.map((h) => listBlueskyCollections(h))
+        handles.map((h) => listBlueskyRecipes(h))
       );
 
-      const all: FeedCollection[] = [];
+      const all: FeedRecipe[] = [];
       for (const r of results) {
         if (r.status === 'fulfilled') {
-          for (const item of r.value.collections) {
+          for (const item of r.value.recipes) {
             all.push({ ...item, handle: r.value.handle });
           }
         }
       }
 
-      setCollections(all);
+      setRecipes(all);
       setLoading(false);
     })();
   }, []);
@@ -117,25 +132,23 @@ export default function BlueskyMenuFeedsPage() {
     if (!cursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const res = await fetch(`${FEED_RECIPES_API}?collection=${encodeURIComponent(COLLECTION_LEXICON)}&limit=${PAGE_SIZE}&cursor=${encodeURIComponent(cursor)}`);
+      const res = await fetch(`${FEED_RECIPES_API}?limit=${PAGE_SIZE}&cursor=${encodeURIComponent(cursor)}`);
       if (res.ok) {
         const data = (await res.json()) as {
-          recipes: Array<{ atUri: string; did: string; handle: string; value: BlueskyCollectionRecord; createdAt: string }>;
+          recipes: Array<{ atUri: string; did: string; handle: string; value: BlueskyRecipeRecord; createdAt: string }>;
           cursor: string | null;
         };
-        const converted: FeedCollection[] = data.recipes.map((r) => ({
+        const converted: FeedRecipe[] = data.recipes.map((r) => ({
           atUri: r.atUri,
           handle: r.handle,
-          name: r.value.name,
-          description: r.value.text ?? null,
-          recipeCount: r.value.recipes?.length ?? 0,
+          recipe: blueskyToRecipe(r.value, r.atUri, r.handle),
         }));
-        setCollections((prev) => {
+        setRecipes((prev) => {
           focusIdxRef.current = prev.length;
           return [...prev, ...converted];
         });
         setCursor(data.cursor);
-        setAnnouncement(`Loaded ${converted.length} more menus.${data.cursor ? '' : ' End of feed.'}`);
+        setAnnouncement(`Loaded ${converted.length} more recipes.${data.cursor ? '' : ' End of feed.'}`);
       }
     } catch {
       // ignore — button stays enabled for retry
@@ -143,9 +156,6 @@ export default function BlueskyMenuFeedsPage() {
     setLoadingMore(false);
   }
 
-  // After the grid re-renders with new cards, move keyboard focus to the
-  // first new card so Tab continues naturally and screen readers announce
-  // the new context.
   useEffect(() => {
     if (focusIdxRef.current === null) return;
     const idx = focusIdxRef.current;
@@ -159,16 +169,41 @@ export default function BlueskyMenuFeedsPage() {
         target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
     });
-  }, [collections.length]);
+  }, [recipes.length]);
 
-  const filtered = collections.filter((c) => {
+  const categories = new Set<string>();
+  const cuisines = new Set<string>();
+  for (const { recipe } of recipes) {
+    for (const tag of recipe.tags) {
+      const lower = tag.toLowerCase();
+      if (['dinner', 'breakfast', 'lunch', 'snack', 'dessert', 'side', 'soup', 'entree', 'appetizer'].includes(lower)) categories.add(tag);
+      else if (['american', 'italian', 'indian', 'mexican', 'japanese', 'chinese', 'thai', 'french', 'middle_eastern', 'korean', 'mediterranean'].includes(lower)) cuisines.add(tag);
+    }
+  }
+
+  const filtered = recipes.filter((r) => {
     if (search) {
       const q = search.toLowerCase();
-      if (!c.name.toLowerCase().includes(q) &&
-          !c.description?.toLowerCase().includes(q)) return false;
+      if (!r.recipe.title.toLowerCase().includes(q) &&
+          !r.recipe.tags.some((t) => t.toLowerCase().includes(q)) &&
+          !r.recipe.description?.toLowerCase().includes(q)) return false;
+    }
+    if (activeFilters.size > 0) {
+      const recipeTags = new Set(r.recipe.tags.map((t) => t.toLowerCase()));
+      for (const f of activeFilters) {
+        if (!recipeTags.has(f.toLowerCase())) return false;
+      }
     }
     return true;
   });
+
+  function toggleFilter(tag: string) {
+    setActiveFilters((prev) => {
+      const next = new Set(prev);
+      next.has(tag) ? next.delete(tag) : next.add(tag);
+      return next;
+    });
+  }
 
   function toggleSelect(atUri: string) {
     setSelected((prev) => {
@@ -185,10 +220,24 @@ export default function BlueskyMenuFeedsPage() {
     setImportProgress({ done: 0, total: selected.size });
     let done = 0;
     for (const atUri of selected) {
+      const item = recipes.find((r) => r.atUri === atUri);
+      if (!item) { done++; continue; }
       try {
-        await importBlueskyCollection({ atUri, gql, kitchenSlug: kitchen });
+        await gql(CREATE_MUTATION, {
+          title: item.recipe.title,
+          description: item.recipe.description ?? null,
+          instructions: item.recipe.instructions,
+          servings: item.recipe.servings ?? null,
+          prepTime: item.recipe.prepTime ?? null,
+          cookTime: item.recipe.cookTime ?? null,
+          tags: item.recipe.tags ?? [],
+          photoUrl: item.recipe.photoUrl ?? null,
+          sourceUrl: item.recipe.sourceUrl,
+          ingredients: item.recipe.ingredients,
+          kitchenSlug: kitchen,
+        });
       } catch (err) {
-        console.error('Collection import failed:', err);
+        console.error('Import failed:', err);
       }
       done++;
       setImportProgress({ done, total: selected.size });
@@ -196,39 +245,57 @@ export default function BlueskyMenuFeedsPage() {
     }
     setImporting(false);
     setImportProgress(null);
-    navigate(`/kitchens/${kitchen}/menus#stage`);
+    navigate(`/kitchens/${kitchen}/recipes#stage`);
   }
 
   return (
-    <div>
-      {/* Header */}
-      <div className="mb-6">
-        <Link to="/menus#stage" className="text-sm text-[var(--color-text-secondary)] hover:underline mb-4 inline-block">
-          &larr; Menus
-        </Link>
-        <div className="flex items-center gap-3 mb-2">
-          <svg fill="currentColor" viewBox={BLUESKY_VIEWBOX} width={28} height={24} aria-hidden="true" className="opacity-60 shrink-0">
-            <path d={BLUESKY_PATH} />
-          </svg>
-          <h1 id="bluesky-menus" className="text-3xl font-bold">Bluesky Menus</h1>
-        </div>
-        <p className="text-sm text-[var(--color-text-secondary)]">
-          Browsing {loading ? '…' : `${collections.length} menus from ${new Set(collections.map((c) => c.handle)).size} publishers`} on AT Protocol
-        </p>
-      </div>
+    <>
+      <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+        Browsing {loading ? '…' : `${recipes.length} recipes from ${new Set(recipes.map((r) => r.handle)).size} publishers`} on AT Protocol
+      </p>
 
       {/* Search */}
       <div className="mb-4">
-        <label htmlFor="bsky-menu-search" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Search</label>
+        <label htmlFor="bsky-search" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-1 block">Search</label>
         <input
-          id="bsky-menu-search"
+          id="bsky-search"
           type="search"
-          placeholder="weeknight dinners"
+          list="bsky-suggestions"
+          placeholder="mushroom risotto"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="field-input w-full"
         />
+        <datalist id="bsky-suggestions">
+          {[...categories, ...cuisines].map((tag) => <option key={tag} value={tag} />)}
+        </datalist>
       </div>
+
+      {/* Filter chips */}
+      {(categories.size > 0 || cuisines.size > 0) && (
+        <div className="mb-4 relative">
+          <a href="#bsky-after-filters" className="skip-link">Skip filters</a>
+          <p id="bsky-filter-label" className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Filter by category</p>
+          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="bsky-filter-label">
+            {[...categories, ...cuisines].map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => toggleFilter(tag)}
+                aria-pressed={activeFilters.has(tag)}
+                className="text-xs font-medium px-3 py-1.5 rounded-full border-2 transition-colors cursor-pointer"
+                style={activeFilters.has(tag)
+                  ? { backgroundColor: 'var(--color-accent)', color: 'var(--color-bg-body)', borderColor: 'var(--color-accent)', fontWeight: 700 }
+                  : { borderColor: 'var(--color-border-card)', color: 'var(--color-text-secondary)' }
+                }
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+          <div id="bsky-after-filters" tabIndex={-1} className="sr-only">Skipped filters</div>
+        </div>
+      )}
 
       {/* Mode toggle */}
       <fieldset className="mb-6 card p-3 text-sm">
@@ -237,7 +304,7 @@ export default function BlueskyMenuFeedsPage() {
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="radio"
-              name="bsky-menu-mode"
+              name="bsky-mode"
               value="browse"
               checked={mode === 'browse'}
               onChange={() => setMode('browse')}
@@ -248,7 +315,7 @@ export default function BlueskyMenuFeedsPage() {
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="radio"
-              name="bsky-menu-mode"
+              name="bsky-mode"
               value="bulk"
               checked={mode === 'bulk'}
               onChange={() => setMode('bulk')}
@@ -268,7 +335,7 @@ export default function BlueskyMenuFeedsPage() {
         </div>
       )}
 
-      {/* Collection grid */}
+      {/* Recipe grid */}
       {!loading && (
         <>
           <ImportGrid
@@ -280,25 +347,32 @@ export default function BlueskyMenuFeedsPage() {
           >
             {filtered.map((item) => {
               const isSelected = selected.has(item.atUri);
+              const photo = item.recipe.photoUrl ? (
+                <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
+                  <img src={item.recipe.photoUrl} alt={item.recipe.title} className="w-full h-full object-cover" loading="lazy" />
+                </div>
+              ) : pixabayActive ? (
+                <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">
+                  <PixabayImage recipe={{ id: item.atUri, title: item.recipe.title }} apiKey={pixabayKey!} alt={item.recipe.title} inCard />
+                </div>
+              ) : null;
 
-              const body = (
-                <div className="p-4 flex-1 flex flex-col">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm leading-snug mb-1 line-clamp-2">{item.name}</h3>
-                    {item.description && (
-                      <p className="text-xs text-[var(--color-text-secondary)] mb-1 line-clamp-2">{item.description}</p>
-                    )}
-                    <p className="text-xs text-[var(--color-text-secondary)]">
-                      {item.recipeCount} {item.recipeCount === 1 ? 'recipe' : 'recipes'} · @{item.handle}
-                    </p>
-                  </div>
+              const titleBlock = (
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-sm leading-snug mb-1 line-clamp-2">{item.recipe.title}</h3>
+                  <p className="text-xs text-[var(--color-text-secondary)]">@{item.handle}</p>
+                </div>
+              );
+
+              const tags = item.recipe.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {item.recipe.tags.filter((t) => t !== 'bluesky').slice(0, 4).map((t) => (
+                    <span key={t} className="tag text-[10px]">{t}</span>
+                  ))}
                 </div>
               );
 
               if (mode === 'browse') {
-                // Path-scoped so the at:// detail page reads the kitchen
-                // from useParams, same pattern as every other kitchen
-                // route. /at/... also works (alias for home kitchen).
                 const path = `/kitchens/${kitchen}/at/${item.atUri.replace(/^at:\/\//, '')}#stage`;
                 return (
                   <Link
@@ -307,13 +381,18 @@ export default function BlueskyMenuFeedsPage() {
                     data-bsky-card
                     className="card rounded-xl overflow-hidden flex flex-col transition-colors hover:border-[var(--color-accent)]"
                   >
-                    {body}
+                    {photo}
+                    <div className="p-4 flex-1 flex flex-col">
+                      {titleBlock}
+                      {tags}
+                    </div>
                   </Link>
                 );
               }
 
               return (
                 <label key={item.atUri} data-bsky-card className={`card rounded-xl overflow-hidden flex flex-col cursor-pointer transition-colors group ${isSelected ? 'border-[var(--color-accent)]' : ''}`}>
+                  {photo}
                   <div className="p-4 flex-1 flex flex-col">
                     <div className="flex items-start gap-3">
                       <input
@@ -322,16 +401,9 @@ export default function BlueskyMenuFeedsPage() {
                         onChange={() => toggleSelect(item.atUri)}
                         className="mt-1 w-4 h-4 shrink-0 accent-[var(--color-accent)]"
                       />
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm leading-snug mb-1 line-clamp-2">{item.name}</h3>
-                        {item.description && (
-                          <p className="text-xs text-[var(--color-text-secondary)] mb-1 line-clamp-2">{item.description}</p>
-                        )}
-                        <p className="text-xs text-[var(--color-text-secondary)]">
-                          {item.recipeCount} {item.recipeCount === 1 ? 'recipe' : 'recipes'} · @{item.handle}
-                        </p>
-                      </div>
+                      {titleBlock}
                     </div>
+                    {tags}
                   </div>
                   {isSelected && selected.size > 0 && (
                     <button type="button" onClick={(e) => { e.preventDefault(); handleBulkImport(); }} className="hidden group-focus-within:block btn-primary text-xs mx-3 mb-3 w-[calc(100%-1.5rem)]">
@@ -364,7 +436,7 @@ export default function BlueskyMenuFeedsPage() {
                 onClick={loadMore}
                 disabled={loadingMore}
                 aria-busy={loadingMore}
-                aria-describedby="bluesky-menus"
+                aria-describedby="bluesky-recipes"
                 className="btn-secondary disabled:opacity-50"
               >
                 {loadingMore ? 'Loading…' : 'Load more'}
@@ -372,7 +444,6 @@ export default function BlueskyMenuFeedsPage() {
             </div>
           )}
 
-          {/* SR-only live region for "Loaded N more menus" updates. */}
           <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
             {announcement}
           </div>
@@ -380,13 +451,13 @@ export default function BlueskyMenuFeedsPage() {
       )}
 
       {!loading && filtered.length === 0 && (
-        <p className="text-center text-[var(--color-text-secondary)] py-12">No menus match your search.</p>
+        <p className="text-center text-[var(--color-text-secondary)] py-12">No recipes match your search.</p>
       )}
 
       {/* Footer */}
       <p className="text-center text-xs text-[var(--color-text-secondary)] mt-8">
-        Powered by <a href="https://atproto.com" target="_blank" rel="noopener noreferrer" className="underline">AT Protocol</a> · Aggregated at <a href="https://feed.pantryhost.app/api/recipes?collection=exchange.recipe.collection" target="_blank" rel="noopener noreferrer" className="underline">feed.pantryhost.app</a>
+        Powered by <a href="https://atproto.com" target="_blank" rel="noopener noreferrer" className="underline">AT Protocol</a> · Handle registry at <a href="https://feed.pantryhost.app/api/handles" target="_blank" rel="noopener noreferrer" className="underline">feed.pantryhost.app</a>
       </p>
-    </div>
+    </>
   );
 }

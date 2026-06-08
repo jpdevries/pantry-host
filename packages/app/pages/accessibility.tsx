@@ -11,7 +11,9 @@ export default function AccessibilityPage() {
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary" />
       </Head>
-      <AccessibilityPreferences />
+      <main id="stage" className="max-sm:min-h-screen">
+        <AccessibilityPreferences />
+      </main>
     </>
   );
 }

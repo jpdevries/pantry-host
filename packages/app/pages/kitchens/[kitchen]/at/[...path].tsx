@@ -14,6 +14,9 @@ export default function KitchenAtRoute() {
     const match = window.location.pathname.match(/^\/kitchens\/[^/]+\/at\/(.+)$/);
     setWildcard(match ? match[1] : '');
   }, []);
-  if (wildcard === null) return null;
-  return <AtImportPage wildcard={wildcard} />;
+  return (
+    <main id="stage" className="max-sm:min-h-screen">
+      {wildcard !== null && <AtImportPage wildcard={wildcard} />}
+    </main>
+  );
 }

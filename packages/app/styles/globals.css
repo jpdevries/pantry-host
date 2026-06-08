@@ -4,12 +4,11 @@
 @source "../components";
 @source "../../shared/src/components";
 
-/* Rex 0.20.0's Tailwind ignores @source paths that resolve outside the app
-   package root, so utility classes used ONLY in packages/shared components are
-   never generated (the @source above is effectively a no-op for that dir).
-   Safelist shared-only classes here until Rex honors out-of-root @source.
-   Tracking: https://github.com/limlabs/rex/issues/246 */
-@source inline("xl:grid-cols-4 list-disc pl-5 pl-11 hover:text-[var(--color-accent)]");
+/* Safelist: Rex 0.20.2's Tailwind scanner still splits candidates on `&`/`>`/`,`/`=`
+   inside `[…]` (only `()` got the #248 fix), so the child-combinator variants used
+   only in the shared QRCodeModal (QR-SVG sizing) aren't picked up by the @source
+   scan above. inline() bypasses the scanner. Remove once limlabs/rex#253 lands. */
+@source inline("[&>svg]:w-64 [&>svg]:h-64 [&>svg]:rounded-lg");
 
 /* System font stacks — https://systemfontstack.com/ */
 @theme {

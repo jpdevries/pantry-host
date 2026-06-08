@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.38.0",
-    "@limlabs/rex": "^0.20.0",
+    "@limlabs/rex": "^0.20.2",
     "@phosphor-icons/react": "^2.1.10",
     "@pothos/core": "^4.3.0",
     "@zxing/browser": "^0.1.5",
@@ -28,11 +28,11 @@
   "devDependencies": {
     "@types/formidable": "^3.4.5",
     "@types/node": "^22.0.0",
-    "postgres": "^3.4.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
+    "postgres": "^3.4.5",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.0",
     "typescript": "^5.7.2"

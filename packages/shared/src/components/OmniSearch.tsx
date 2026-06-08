@@ -260,6 +260,20 @@ export default function OmniSearch({
                     <input type="checkbox" checked={isSel} onChange={() => toggleSelect(r)} className="mt-1 w-4 h-4 shrink-0 accent-accent" />
                     {metaBlock}
                   </div>
+                  {/* Escape hatch: when a checked card is focused, the next tab stop is
+                      an Import CTA — so keyboard users don't have to tab through every
+                      remaining result to reach the bottom button. See feedback_counting_tabs. */}
+                  {isSel && selectedCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); handleBulkImport(); }}
+                      disabled={importing}
+                      aria-busy={importing}
+                      className="hidden group-focus-within:block btn-primary text-xs mx-3 mb-3 w-[calc(100%-1.5rem)]"
+                    >
+                      {importing && importProgress ? `Importing ${importProgress.done}/${importProgress.total}…` : `Import ${selectedCount} selected`}
+                    </button>
+                  )}
                 </label>
               );
             })}

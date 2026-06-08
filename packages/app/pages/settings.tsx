@@ -80,7 +80,9 @@ export default function AppSettingsPage() {
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary" />
       </Head>
-      <AppSettingsInner />
+      <main id="stage" className="max-sm:min-h-screen">
+        <AppSettingsInner />
+      </main>
     </>
   );
 }

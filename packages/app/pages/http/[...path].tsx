@@ -7,5 +7,9 @@
 import UrlImportCommon from '@/components/UrlImportCommon';
 
 export default function HttpImportPage() {
-  return <UrlImportCommon scheme="http" />;
+  return (
+    <main id="stage" className="max-sm:min-h-screen">
+      <UrlImportCommon scheme="http" />
+    </main>
+  );
 }

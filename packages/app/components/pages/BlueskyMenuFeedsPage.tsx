@@ -193,7 +193,7 @@ export default function BlueskyMenuFeedsPage() {
   }
 
   return (
-    <div>
+    <main id="stage" className="max-sm:min-h-screen px-4 py-10 md:px-8 max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-6">
         <a href={`${menusBase}#stage`} className="text-sm text-[var(--color-text-secondary)] hover:underline mb-4 inline-block">
@@ -376,6 +376,6 @@ export default function BlueskyMenuFeedsPage() {
       <p className="text-center text-xs text-[var(--color-text-secondary)] mt-8">
         Powered by <a href="https://atproto.com" target="_blank" rel="noopener noreferrer" className="underline">AT Protocol</a> · Aggregated at <a href="https://feed.pantryhost.app/api/recipes?collection=exchange.recipe.collection" target="_blank" rel="noopener noreferrer" className="underline">feed.pantryhost.app</a>
       </p>
-    </div>
+    </main>
   );
 }

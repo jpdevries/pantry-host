@@ -9,5 +9,9 @@
 import UrlImportCommon from '@/components/UrlImportCommon';
 
 export default function HttpsImportPage() {
-  return <UrlImportCommon scheme="https" />;
+  return (
+    <main id="stage" className="max-sm:min-h-screen">
+      <UrlImportCommon scheme="https" />
+    </main>
+  );
 }

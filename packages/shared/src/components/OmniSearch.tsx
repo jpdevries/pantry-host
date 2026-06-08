@@ -167,8 +167,8 @@ export default function OmniSearch({
         </fieldset>
 
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Filter by category</p>
-          <div className="flex flex-wrap gap-2">
+          <p id="omni-filter-label" className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">Filter by category</p>
+          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="omni-filter-label">
             {RECIPE_CATEGORY_FILTERS.map((f) => {
               const on = categories.includes(f.key);
               return (
@@ -177,7 +177,15 @@ export default function OmniSearch({
                   type="button"
                   aria-pressed={on}
                   onClick={() => toggleCategory(f.key)}
-                  className={`text-xs px-3 py-1 rounded-full border transition-colors ${on ? 'border-accent bg-[var(--color-accent-subtle)] text-accent' : 'border-[var(--color-border-card)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
+                  // Active state via inline style (CSS tokens), mirroring
+                  // RecipesIndexPage's filter pills for visual parity — and so the
+                  // accent fill renders under Rex, whose Tailwind scan doesn't emit
+                  // border-accent/text-accent from this shared component (gotcha #10).
+                  className="text-xs font-medium px-3 py-1.5 rounded-full border-2 transition-colors"
+                  style={on
+                    ? { backgroundColor: 'var(--color-accent)', color: 'var(--color-bg-body)', borderColor: 'var(--color-accent)', fontWeight: 700 }
+                    : { borderColor: 'var(--color-border-card)', color: 'var(--color-text-secondary)' }
+                  }
                 >
                   {f.label}
                 </button>

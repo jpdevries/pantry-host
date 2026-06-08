@@ -282,7 +282,7 @@ export default function BlueskyFeedBrowse() {
       </a>
 
       {(categories.size > 0 || cuisines.size > 0) && (
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4" role="group" aria-label="Filter recipes by category">
           {[...categories, ...cuisines].map((tag) => (
             <button
               key={tag}

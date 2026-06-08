@@ -223,8 +223,8 @@ export default function RecipeExportPage() {
 
         {tagCloud.length > 0 && (
           <details className="mb-8">
-            <summary className="text-sm text-secondary cursor-pointer hover:underline">Select by tag</summary>
-            <div className="flex flex-wrap gap-2 mt-3">
+            <summary id="export-tag-filter-label" className="text-sm text-secondary cursor-pointer hover:underline">Select by tag</summary>
+            <div className="flex flex-wrap gap-2 mt-3" role="group" aria-labelledby="export-tag-filter-label">
               {tagCloud.map(([tag, count]) => (
                   <button
                     key={tag}

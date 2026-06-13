@@ -61,35 +61,40 @@ export function RaspberryPi() {
         No Worries with a Pi&nbsp;Zero&nbsp;W
       </h2>
       <p className="text-center text-[var(--color-text-secondary)] text-sm sm:text-base max-w-2xl mx-auto mb-10 leading-relaxed">
-        The backend is a single ~3&nbsp;MB Rust binary with the app and an embedded
-        SQLite database baked&nbsp;in. No Docker, no separate database, no Node&nbsp;runtime
-        to babysit.<br />It runs on every Raspberry&nbsp;Pi from the Zero&nbsp;W on&nbsp;up.
+        Most self&#8209;hosted apps want Docker, a separate database, and a Node&nbsp;runtime
+        humming in the background. Pantry&nbsp;Host&rsquo;s backend is a single ~3&nbsp;MB Rust
+        binary with the app and an embedded SQLite database baked&nbsp;in &mdash; no Docker,
+        no database server, no&nbsp;Node.<br />It runs happily on a humble little board
+        that costs less than a bag of groceries, like the $15 Pi&nbsp;Zero&nbsp;W.
       </p>
       <div className="grid sm:grid-cols-3 gap-6">
         <div className="rounded-xl border border-[var(--color-border-card)] bg-[var(--color-bg-card)] p-5">
-          <h3 className="text-lg font-bold mb-2">Pi Zero&nbsp;W</h3>
+          <h3 className="text-lg font-bold mb-2">Tiny footprint</h3>
           <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-            Around $15 for the board featuring 512&nbsp;MB RAM, 32&#8209;bit ARMv6. The native Pantry Host binary fits with room
-            to&nbsp;spare &mdash; switch off image processing to stay extra&nbsp;light.
+            No Docker daemon, no database process, no Node. Just a few megabytes of
+            binary and a SQLite&nbsp;file. It runs where a heavier stack won&rsquo;t even&nbsp;boot;
+            switch off image processing to stay lighter&nbsp;still.
           </p>
         </div>
         <div className="rounded-xl border border-[var(--color-border-card)] bg-[var(--color-bg-card)] p-5">
-          <h3 className="text-lg font-bold mb-2">Pi 3 · 4 · 5</h3>
+          <h3 className="text-lg font-bold mb-2">Scales up too</h3>
           <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-            More RAM and 64&#8209;bit headroom for responsive image variants and
-            faster&nbsp;everything &mdash; the same binary, no extra&nbsp;setup.
+            Give it more cores and 64&#8209;bit RAM such as a newer Pi, an old laptop, or a
+            Mac&nbsp;Mini for more demanding features like responsive image variants.<br />
+            Same binary, no extra&nbsp;setup.
           </p>
         </div>
         <div className="rounded-xl border border-[var(--color-border-card)] bg-[var(--color-bg-card)] p-5">
           <h3 className="text-lg font-bold mb-2">Flash &amp; boot</h3>
           <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-            Write the bootable image to an SD&nbsp;card, power on, and a first&#8209;boot
-            wizard gets you online in about two&nbsp;minutes.
+            We ship a prebuilt image for the Pi&nbsp;Zero&nbsp;W: write it to an SD&nbsp;card,
+            power on, and a first&#8209;boot wizard gets you online in about two&nbsp;minutes.<br />
+            Other boards build their own from source for&nbsp;now.
           </p>
         </div>
       </div>
       <p className="text-center text-xs text-[var(--color-text-secondary)] mt-6">
-        ARMv6, ARMv7, and ARM64 all supported &mdash; every Pi from the Zero&nbsp;W&nbsp;up.
+        ARMv6, ARMv7, and ARM64 &mdash; every Raspberry&nbsp;Pi is&nbsp;covered.
       </p>
     </section>
   );

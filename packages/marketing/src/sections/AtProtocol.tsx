@@ -160,7 +160,7 @@ export default function AtProtocol() {
       </div>
 
       <p className="text-center text-xs text-[var(--color-text-secondary)] mt-8 max-w-2xl mx-auto pretty">
-        Coming next: one-tap publish to your own PDS from within Pantry&nbsp;Host. Expected in <time dateTime="2026">v0.2</time>.
+        Coming next: one-tap publish to your own PDS from within Pantry&nbsp;Host. Expected in <time dateTime="2026">v0.5</time>.
       </p>
     </section>
   );

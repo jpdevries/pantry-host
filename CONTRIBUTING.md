@@ -23,11 +23,11 @@ When a standard, format, or community already exists, use it. When the user's da
 
 ### Borrowed, not owned
 
-External data (Pixabay images, NutritionFacts from recipe-api.com, community recipes from federated sources) is displayed with attribution but never persisted as if it were ours. Borrowed data can be cleared at any time, is never written to Postgres or PGlite, and the UI makes clear what is local and what is sourced.
+External data (Pixabay images, NutritionFacts from recipe-api.com, community recipes from federated sources) is displayed with attribution but never persisted as if it were ours. Borrowed data can be cleared at any time, is never written to the local SQLite database, and the UI makes clear what is local and what is sourced.
 
 ### Your data, your hardware
 
-No cloud accounts, no subscriptions. Data lives in PostgreSQL on your server or PGlite in your browser. The only outbound request is the optional AI feature (to Anthropic, with your own key). Remote access is opt-in via Tailscale or SSH — the app is LAN-only by default.
+No cloud accounts, no subscriptions. Data lives in SQLite on your server, or in your browser via SQLite-WASM (OPFS) in the PWA. The only outbound request is the optional AI feature (to Anthropic, with your own key). Remote access is opt-in via Tailscale or SSH — the app is LAN-only by default.
 
 ## Development
 

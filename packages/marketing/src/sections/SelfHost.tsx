@@ -26,7 +26,8 @@ export function Docker() {
       <p className="text-center text-[var(--color-text-secondary)] text-sm sm:text-base max-w-2xl mx-auto mb-10 leading-relaxed">
         Clone the repo, run <code className="font-mono text-[var(--color-text-primary)]">docker compose up</code>,
         and open <code className="font-mono text-[var(--color-text-primary)]">localhost:3000</code>.
-        PostgreSQL, the app, and the API start together. Data persists in Docker&nbsp;volumes.
+        The app and API start together with an embedded SQLite&nbsp;database &mdash; nothing
+        else to install or manage. Data persists in a Docker&nbsp;volume.
       </p>
       <div className="max-w-xl mx-auto rounded-xl border border-[var(--color-border-card)] bg-[var(--color-bg-card)] p-5 font-mono text-sm leading-relaxed">
         <p className="text-[var(--color-text-secondary)]">
@@ -57,36 +58,38 @@ export function RaspberryPi() {
         <IconRaspberryPi />
       </div>
       <h2 className="text-3xl sm:text-4xl font-bold text-center mb-4">
-        Runs on a Raspberry&nbsp;Pi
+        No Worries with a Pi&nbsp;Zero&nbsp;W
       </h2>
       <p className="text-center text-[var(--color-text-secondary)] text-sm sm:text-base max-w-2xl mx-auto mb-10 leading-relaxed">
-        A Raspberry Pi 4 or 5 makes a perfect always&#8209;on kitchen companion.
-        Same <code className="font-mono text-[var(--color-text-primary)]">docker compose up</code>,
-        same app. Plug it in, connect to Wi&#8209;Fi, and every device in
-        your home can reach it.
+        The backend is a single ~3&nbsp;MB Rust binary with the app and an embedded
+        SQLite database baked&nbsp;in. No Docker, no separate database, no Node&nbsp;runtime
+        to babysit.<br />It runs on every Raspberry&nbsp;Pi from the Zero&nbsp;W on&nbsp;up.
       </p>
       <div className="grid sm:grid-cols-3 gap-6">
         <div className="rounded-xl border border-[var(--color-border-card)] bg-[var(--color-bg-card)] p-5">
-          <h3 className="text-lg font-bold mb-2">Pi 5</h3>
+          <h3 className="text-lg font-bold mb-2">Pi Zero&nbsp;W</h3>
           <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-            4–8 GB RAM. Builds and runs with no&nbsp;issues.
+            Around $15 for the board featuring 512&nbsp;MB RAM, 32&#8209;bit ARMv6. The native Pantry Host binary fits with room
+            to&nbsp;spare &mdash; switch off image processing to stay extra&nbsp;light.
           </p>
         </div>
         <div className="rounded-xl border border-[var(--color-border-card)] bg-[var(--color-bg-card)] p-5">
-          <h3 className="text-lg font-bold mb-2">Pi 4</h3>
+          <h3 className="text-lg font-bold mb-2">Pi 3 · 4 · 5</h3>
           <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-            4 GB+ recommended. 2 GB models may need swap for the initial&nbsp;build.
+            More RAM and 64&#8209;bit headroom for responsive image variants and
+            faster&nbsp;everything &mdash; the same binary, no extra&nbsp;setup.
           </p>
         </div>
         <div className="rounded-xl border border-[var(--color-border-card)] bg-[var(--color-bg-card)] p-5">
-          <h3 className="text-lg font-bold mb-2">Cross-build</h3>
+          <h3 className="text-lg font-bold mb-2">Flash &amp; boot</h3>
           <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-            Build the Docker image on your Mac or PC, transfer to the Pi. First&nbsp;start is&nbsp;instant.
+            Write the bootable image to an SD&nbsp;card, power on, and a first&#8209;boot
+            wizard gets you online in about two&nbsp;minutes.
           </p>
         </div>
       </div>
       <p className="text-center text-xs text-[var(--color-text-secondary)] mt-6">
-        Requires ARM64 (64-bit). Pi 3 and older 32-bit models are&nbsp;not&nbsp;supported.
+        ARMv6, ARMv7, and ARM64 all supported &mdash; every Pi from the Zero&nbsp;W&nbsp;up.
       </p>
     </section>
   );

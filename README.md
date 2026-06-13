@@ -6,7 +6,7 @@
 
 A self-hosted Progressive Web&nbsp;App for managing your kitchen. Track your pantry and cookware, import recipes from URLs or `at://` AT Protocol URIs, generate AI-suggested meals from what you already have, and take your grocery list, fully informed by a recipe queue, to the store — even offline.
 
-Built with Rex (React + rolldown), GraphQL (Pothos + graphql-yoga), PostgreSQL, and Tailwind CSS. Runs great on a Mac Mini, or whatever.
+Built with Rex (React + rolldown), GraphQL (Pothos + graphql-yoga), SQLite (Node's built-in `node:sqlite`), and Tailwind CSS. Runs great on a Mac Mini, or whatever.
 
 Want to access the API away from home? You can't. Unless you set up a [Tailscale](https://tailscale.com/) mesh network, an SSH tunnel (`ssh -L 3000:localhost:3000 your-mac`), or a reverse proxy like [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-tunnel/) — but that's on you. By default, the app is only reachable on your local network, and that's the point.
 
@@ -23,8 +23,7 @@ Want to access the API away from home? You can't. Unless you set up a [Tailscale
 
 ## Requirements
 
-- Node.js 18+
-- PostgreSQL 14+
+- Node.js 22+ (the database is embedded via Node's built-in `node:sqlite` — no separate database server to install)
 - An AI API key (only required for AI recipe generation) — [Anthropic](https://console.anthropic.com/)
 
 ---
@@ -58,7 +57,7 @@ cd pantry-host
 docker compose up -d
 ```
 
-Open [http://localhost:3000](http://localhost:3000). PostgreSQL and the app start automatically — the database schema is applied on first boot.
+Open [http://localhost:3000](http://localhost:3000). The app and GraphQL API start with an embedded SQLite database — the schema is applied automatically on first boot. There's no separate database server to run.
 
 To enable AI recipe generation, pass your API key:
 
@@ -101,7 +100,7 @@ docker load < pantry-host-arm64.tar.gz
 docker compose up -d
 ```
 
-**Not supported:** Pi 3 and older (32-bit ARMv7) — the Rex runtime requires ARM64.
+**Smaller or 32-bit Pis (Pi Zero W, Pi 1–3 in 32-bit mode):** The Docker image is ARM64-only — the Rex runtime ships no 32-bit Linux binary. For those boards, use the native Rust backend instead: a single ~3 MB binary with the app and SQLite baked in, plus a flashable first-boot image. See [`packages/server`](packages/server/README.md).
 
 **Save disk space:** Disable image variant generation to keep only the original upload (no WebP/JPEG/grayscale variants):
 
@@ -126,15 +125,9 @@ Your devices can then access Pantry Host at `https://your-machine.tailnet-name.t
 
 Pantry Host is designed to run on a always-on home machine (a Mac Mini works well) and be accessed by devices on your local network via IP address. No cloud account, no subscription, no data leaving your home.
 
-### 1. Set up PostgreSQL
+### 1. The database
 
-Install PostgreSQL if you haven't already:
-
-```bash
-brew install postgresql@16
-brew services start postgresql@16
-createdb pantry_host
-```
+There's nothing to install. Pantry Host uses an embedded SQLite database via Node's built-in `node:sqlite`. The database file (`pantry.db` by default) is created automatically on first run, and the schema is applied on connect.
 
 ### 2. Configure environment
 
@@ -145,12 +138,12 @@ cp .env.example .env.local
 Edit `.env.local`:
 
 ```
-DATABASE_URL=postgres://your-mac-username@localhost:5432/pantry_host
+SQLITE_DB_PATH=./pantry.db
 AI_PROVIDER=anthropic
 AI_API_KEY=sk-ant-...
 ```
 
-`AI_PROVIDER` and `AI_API_KEY` are only needed for AI recipe generation. Everything else works without them.
+`SQLITE_DB_PATH` is optional — it defaults to `./pantry.db`. `AI_PROVIDER` and `AI_API_KEY` are only needed for AI recipe generation; everything else works without them.
 
 ### 3. Run as a persistent service with pm2
 
@@ -242,14 +235,14 @@ If you want to reach the app while away from home without exposing it to the pub
 
 ### Backups
 
-The app's data lives entirely in PostgreSQL. A simple daily dump is enough:
+The app's data lives entirely in a single SQLite file (`pantry.db`). The safe way to copy it while the app is running is SQLite's online backup, which produces a consistent snapshot even mid-write:
 
 ```bash
 # Add to crontab: crontab -e
-0 2 * * * pg_dump pantry_host > ~/backups/pantry_host_$(date +\%Y\%m\%d).sql
+0 2 * * * sqlite3 /path/to/pantry.db ".backup '$HOME/backups/pantry_host_$(date +\%Y\%m\%d).db'"
 ```
 
-Store those dumps on a Time Machine volume or external drive and you're covered.
+(A plain `cp` is only safe with the app stopped — otherwise you can capture a half-written WAL.) Store those snapshots on a Time Machine volume or external drive and you're covered. Uploaded images live separately under `packages/app/public/uploads` — back those up too.
 
 ---
 
@@ -311,7 +304,7 @@ See [INTEGRATIONS.md](INTEGRATIONS.md#openclaw-whatsapp-telegram-discord) for th
 
 | Variable | Required | Description |
 |---|---|---|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `SQLITE_DB_PATH` | No | Path to the SQLite database file (default: `./pantry.db`) |
 | `AI_PROVIDER` | No | AI provider for recipe generation (default: `anthropic`) |
 | `AI_API_KEY` | No | API key for the configured AI provider |
 | `GRAPHQL_PORT` | No | GraphQL server port (default: `4001`) |

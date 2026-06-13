@@ -100,7 +100,7 @@ Add to `.vscode/mcp.json`:
 [OpenClaw](https://openclaw.ai) is a self-hosted AI agent gateway that connects AI models to messaging platforms. With the MCP plugin, your household can text your pantry from WhatsApp, Telegram, Discord, Slack, Signal, or iMessage.
 
 ```
-User (WhatsApp) → OpenClaw → MCP plugin → Pantry Host (:5001) → GraphQL → Postgres
+User (WhatsApp) → OpenClaw → MCP plugin → Pantry Host (:5001) → GraphQL → SQLite
 ```
 
 **Example conversations:**
@@ -170,7 +170,7 @@ Or with Docker (port 5001 is exposed when `ENABLE_MCP=true`).
 [IronClaw](https://github.com/nearai/ironclaw) is a Rust-based, privacy-first AI agent with built-in messaging channels (Telegram, Slack, Signal, CLI). It connects to Pantry Host via MCP HTTP and auto-discovers all 28 tools — your household can text the pantry from Telegram.
 
 ```
-User (Telegram) → IronClaw → MCP HTTP (:5001) → GraphQL (:4001) → Postgres
+User (Telegram) → IronClaw → MCP HTTP (:5001) → GraphQL (:4001) → SQLite
 ```
 
 **Example conversations:**
@@ -292,7 +292,7 @@ With IronClaw running, you can ask Siri about your pantry and hear the answer sp
 ```
 "Hey Siri, Pantry" → dictate
   → iOS Shortcut → Relay (:3004) → IronClaw gateway (:3001)
-    → Claude Haiku → MCP (:5001) → GraphQL (:4001) → Postgres
+    → Claude Haiku → MCP (:5001) → GraphQL (:4001) → SQLite
       → response → Siri speaks it
 ```
 

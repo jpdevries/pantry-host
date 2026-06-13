@@ -34,7 +34,7 @@ const principles = [
   {
     title: 'Sits in your DB',
     description:
-      'On self-host: a JSONB column on your Postgres. In the browser PWA: PGlite in IndexedDB. Either way, your data, your hardware. MCP agents on your LAN can read it for diet-aware planning.',
+      'On self-host: a JSON column in your SQLite database. In the browser PWA: SQLite-WASM in OPFS. Either way, your data, your hardware. MCP agents on your LAN can read it for diet-aware planning.',
     icon: Barcode,
   },
 ];

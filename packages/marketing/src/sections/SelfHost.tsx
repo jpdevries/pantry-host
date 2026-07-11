@@ -61,10 +61,10 @@ export function RaspberryPi() {
         No Worries with a Pi&nbsp;Zero&nbsp;W
       </h2>
       <p className="text-center text-[var(--color-text-secondary)] text-sm sm:text-base max-w-2xl mx-auto mb-10 leading-relaxed">
-        Most self&#8209;hosted apps want Docker, a separate database, and a Node&nbsp;runtime
+        Most self&#8209;hosted apps require Docker, a separate database, and a Node&nbsp;runtime
         humming in the background. Pantry&nbsp;Host&rsquo;s backend is a single ~3&nbsp;MB Rust
         binary with the app and an embedded SQLite database baked&nbsp;in &mdash; no Docker,
-        no database server, no&nbsp;Node.<br />It runs happily on a humble little board
+        no database server, no&nbsp;Node.<br />Pantry Host runs happily on a humble little board
         that costs less than a bag of groceries, like the $15 Pi&nbsp;Zero&nbsp;W.
       </p>
       <div className="grid sm:grid-cols-3 gap-6">

@@ -9,6 +9,7 @@ import ImageBoundary from '@pantry-host/shared/components/ImageBoundary';
 import { NutritionSource } from '@pantry-host/shared/components/NutritionSource';
 import { readFavorites, toggleFavorite } from '@pantry-host/shared/favorites';
 import PublishToBlueskyButton from '@pantry-host/shared/components/PublishToBlueskyButton';
+import { fetchPhotoForPublish } from '@/lib/publish-photo';
 import { AllergensLine } from '@pantry-host/shared/components/AllergensLine';
 import { getAllergenIcon } from '@pantry-host/shared/components/allergen-icons';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
@@ -861,6 +862,7 @@ export default function RecipeDetailPage() {
               createdAt: recipe.createdAt,
               groceryIngredients: recipe.groceryIngredients,
             }}
+            fetchPhoto={fetchPhotoForPublish}
           />
         </div>
       </div>

@@ -60,6 +60,10 @@ export type PublishToBlueskyButtonProps = (RecipeProps | MenuProps) & {
   /** Optional callback after a successful publish, e.g. to show a
    *  toast or re-render the page. */
   onPublished?: (result: { uri: string; cid: string; dryRun: boolean }) => void;
+  /** Override how `photoUrl` resolves to image bytes — the web PWA
+   *  passes an OPFS-aware resolver for its `opfs://` scheme. Omit
+   *  for the default plain-fetch resolver. */
+  fetchPhoto?: (photoUrl: string) => Promise<Blob | null>;
 };
 
 // ── Component ────────────────────────────────────────────────────────────
@@ -147,6 +151,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
           agent: pubAgent,
           handle,
           rkey: receipt?.uri ? rkeyFromUri(receipt.uri) ?? undefined : undefined,
+          fetchPhoto: props.fetchPhoto,
         });
         const newReceipt: PublishReceipt = {
           uri: res.uri,
@@ -169,6 +174,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
             agent: pubAgent,
             handle,
             rkey: receipt?.uri ? rkeyFromUri(receipt.uri) ?? undefined : undefined,
+            fetchPhoto: props.fetchPhoto,
           },
         );
         // Record every recipe we inline-published so the next

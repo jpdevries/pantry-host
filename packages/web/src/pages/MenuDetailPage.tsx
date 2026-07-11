@@ -8,6 +8,7 @@ import { classifyRecipeCourse, COURSE_LABELS } from '@pantry-host/shared/constan
 import PixabayImage from '@pantry-host/shared/components/PixabayImage';
 import { clearPixabayCache } from '@pantry-host/shared/pixabay';
 import PublishToBlueskyButton from '@pantry-host/shared/components/PublishToBlueskyButton';
+import { fetchPhotoForPublish } from '@/lib/publish-photo';
 
 interface Recipe {
   id: string;
@@ -323,6 +324,7 @@ export default function MenuDetailPage() {
               groceryIngredients: mr.recipe.groceryIngredients,
             })),
           }}
+          fetchPhoto={fetchPhotoForPublish}
         />
       </div>
       </div>

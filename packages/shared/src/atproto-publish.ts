@@ -15,7 +15,12 @@
  * `BlueskyCollectionRecord` in `bluesky.ts` so the read and write
  * paths round-trip cleanly — import a recipe, edit it, publish it
  * back, import it again; nothing is lost that wasn't lossy on the
- * way in.
+ * way in. That includes photos: `photoUrl` is fetched, downscaled
+ * to fit the PDS blob cap, uploaded via `uploadBlob`, and attached
+ * as `embed.images` — the same field the import path reads.
+ * Photo failures (CORS, decode, oversize) log a warning and the
+ * publish proceeds without the image; a photo never blocks a
+ * publish.
  *
  * Scope for v0.2: recipes + collections. No pantry / cookware /
  * kitchen lexicons, no multi-device sync. See
@@ -26,6 +31,7 @@
 import type {
   BlueskyRecipeRecord,
   BlueskyCollectionRecord,
+  BlueskyRecipeImage,
 } from './bluesky';
 import { getRecord } from './bluesky';
 import { minutesToIsoDuration } from './recipe-api';
@@ -95,6 +101,10 @@ export interface PublishAgent {
           collection: string;
           rkey: string;
         }) => Promise<unknown>;
+        uploadBlob: (
+          data: Uint8Array,
+          opts?: { encoding?: string },
+        ) => Promise<{ data: { blob: unknown } }>;
       };
     };
   };
@@ -110,6 +120,12 @@ export interface PublishOptions {
   dryRun?: boolean;
   /** Override the rkey (used by putRecord on re-publish). */
   rkey?: string;
+  /** Resolve a recipe's `photoUrl` to image bytes. Defaults to
+   *  `fetchPhotoBlob` (plain `fetch`), which covers the app's
+   *  `/uploads/…` paths and CORS-permissive external URLs. The web
+   *  PWA passes an OPFS-aware resolver for its `opfs://` photo
+   *  scheme. Return null to skip the photo. */
+  fetchPhoto?: (photoUrl: string) => Promise<Blob | null>;
 }
 
 export interface PublishResult {
@@ -183,6 +199,120 @@ function mintDryRunRef(did: string, collection: string): { uri: string; cid: str
     // synthetic.
     cid: `bafyreidryrun${rand.padEnd(46, '0')}`,
   };
+}
+
+// ── Photo upload ─────────────────────────────────────────────────────────
+
+/** Stay under the common 1 MB PDS blob cap with headroom for the
+ *  multipart envelope. */
+const MAX_PHOTO_BYTES = 950_000;
+/** Longest edge after downscale — matches the largest variant the
+ *  app's own upload pipeline keeps (1200w) plus slack for portrait. */
+const MAX_PHOTO_DIM = 1600;
+
+/** Default `fetchPhoto` — plain fetch. Works for the app's
+ *  same-origin `/uploads/…` paths, `blob:`/`data:` URLs, and
+ *  external URLs whose hosts send CORS headers. Returns null (never
+ *  throws) when the URL can't be fetched — a missing photo must not
+ *  block a publish. */
+export async function fetchPhotoBlob(photoUrl: string): Promise<Blob | null> {
+  if (typeof fetch === 'undefined') return null;
+  if (photoUrl.startsWith('opfs://')) {
+    // Web-PWA scheme — needs the OPFS-aware resolver from the web
+    // package (see PublishOptions.fetchPhoto).
+    console.warn('[atproto-publish] opfs:// photo needs a fetchPhoto override; skipping', photoUrl);
+    return null;
+  }
+  try {
+    const res = await fetch(photoUrl);
+    if (!res.ok) return null;
+    return await res.blob();
+  } catch {
+    console.warn('[atproto-publish] photo fetch failed (CORS?); publishing without it', photoUrl);
+    return null;
+  }
+}
+
+/** Decode, downscale to MAX_PHOTO_DIM, and re-encode as JPEG until
+ *  the blob fits MAX_PHOTO_BYTES. Small images pass through
+ *  untouched (GIFs keep their animation that way). Returns null if
+ *  the bytes don't decode as an image. Browser-only — publish
+ *  always runs client-side, behind the OAuth session. */
+async function prepareImage(
+  blob: Blob,
+): Promise<{ blob: Blob; width: number; height: number } | null> {
+  if (typeof createImageBitmap === 'undefined') return null;
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(blob);
+  } catch {
+    return null;
+  }
+  const { width, height } = bitmap;
+
+  if (blob.size <= MAX_PHOTO_BYTES && Math.max(width, height) <= MAX_PHOTO_DIM) {
+    bitmap.close();
+    return { blob, width, height };
+  }
+
+  const scale = Math.min(1, MAX_PHOTO_DIM / Math.max(width, height));
+  const w = Math.max(1, Math.round(width * scale));
+  const h = Math.max(1, Math.round(height * scale));
+
+  const canvas = new OffscreenCanvas(w, h);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    bitmap.close();
+    return null;
+  }
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close();
+
+  for (const quality of [0.85, 0.7, 0.5]) {
+    const out = await canvas.convertToBlob({ type: 'image/jpeg', quality });
+    if (out.size <= MAX_PHOTO_BYTES) return { blob: out, width: w, height: h };
+  }
+  // Pathological image — skip rather than fail the publish.
+  return null;
+}
+
+/** Fetch + prepare + upload the recipe's photo, returning the
+ *  `embed` block for the record — or undefined when there's no
+ *  photo or any step fails. `app.bsky.embed.images` is the $type
+ *  the Bluesky CDN understands, which is what makes the imported
+ *  `${BSKY_CDN}/${did}/${cid}@jpeg` URLs on the read path work. */
+async function buildPhotoEmbed(
+  recipe: PublishableRecipe,
+  opts: PublishOptions,
+): Promise<BlueskyRecipeRecord['embed'] | undefined> {
+  if (!recipe.photoUrl) return undefined;
+  try {
+    const fetcher = opts.fetchPhoto ?? fetchPhotoBlob;
+    const raw = await fetcher(recipe.photoUrl);
+    if (!raw) return undefined;
+    const prepared = await prepareImage(raw);
+    if (!prepared) return undefined;
+    const bytes = new Uint8Array(await prepared.blob.arrayBuffer());
+    const res = await opts.agent.com.atproto.repo.uploadBlob(bytes, {
+      encoding: prepared.blob.type || 'image/jpeg',
+    });
+    return {
+      $type: 'app.bsky.embed.images',
+      images: [
+        {
+          alt: recipe.title,
+          // The live BlobRef instance from @atproto/api serializes to
+          // the `{ $type: 'blob', ref: { $link } }` JSON shape that
+          // BlueskyRecipeImage describes.
+          image: res.data.blob as BlueskyRecipeImage['image'],
+          aspectRatio: { width: prepared.width, height: prepared.height },
+        },
+      ],
+    };
+  } catch (err) {
+    console.warn('[atproto-publish] photo upload failed; publishing without it', err);
+    return undefined;
+  }
 }
 
 // ── Record builders ──────────────────────────────────────────────────────
@@ -304,8 +434,15 @@ export async function publishRecipe(
     const { uri, cid } = mintDryRunRef(opts.agent.did, LEXICON_RECIPE);
     // eslint-disable-next-line no-console
     console.info('[atproto-publish dry-run] recipe', { uri, cid, record });
+    if (recipe.photoUrl) {
+      // eslint-disable-next-line no-console
+      console.info('[atproto-publish dry-run] would upload photo', recipe.photoUrl);
+    }
     return { uri, cid, dryRun: true, record };
   }
+
+  const embed = await buildPhotoEmbed(recipe, opts);
+  if (embed) record.embed = embed;
 
   const res = opts.rkey
     ? await opts.agent.com.atproto.repo.putRecord({

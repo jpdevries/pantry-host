@@ -69,9 +69,20 @@
     "./components/UrlRecipeDetail": "./src/components/UrlRecipeDetail.tsx",
     "./components/QRCodeModal": "./src/components/QRCodeModal.tsx",
     "./components/ImageBoundary": "./src/components/ImageBoundary.tsx",
-    "./sql/schema": "./src/sql/schema.ts"
+    "./sql/schema": "./src/sql/schema.ts",
+    "./atproto-publish": "./src/atproto-publish.ts",
+    "./pds-published": "./src/pds-published.ts",
+    "./contexts/BlueskyAuth": "./src/contexts/BlueskyAuth.tsx",
+    "./components/BlueskyCallback": "./src/components/BlueskyCallback.tsx",
+    "./components/BlueskySignInModal": "./src/components/BlueskySignInModal.tsx",
+    "./components/PublishPreviewModal": "./src/components/PublishPreviewModal.tsx",
+    "./components/PublishToBlueskyButton": "./src/components/PublishToBlueskyButton.tsx",
+    "./components/BlueskyAccountStatus": "./src/components/BlueskyAccountStatus.tsx"
   },
   "dependencies": {
+    "@atproto/api": "^0.19.9",
+    "@atproto/oauth-client-browser": "^0.3.41",
+    "@atproto/oauth-types": "^0.6.3",
     "@radix-ui/react-dialog": "^1.1.15",
     "qrcode": "^1.5.4"
   },

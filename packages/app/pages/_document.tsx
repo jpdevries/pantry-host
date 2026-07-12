@@ -50,6 +50,14 @@ export default function Document() {
             GraphQL lives on a dedicated port (:4443). `apiUrl()` reads
             this meta before falling back to its heuristic. */}
         {process.env.PUBLIC_API_ORIGIN && <meta name="api-origin" content={process.env.PUBLIC_API_ORIGIN} />}
+        {/* Rex doesn't inline process.env into client bundles, so the
+            publish dry-run flag rides the same meta channel as
+            default-palette / api-origin. isDryRun() in
+            @pantry-host/shared reads it browser-side; absent means
+            dry-run (safe default). */}
+        {process.env.ATPROTO_PUBLISH_DRY_RUN && (
+          <meta name="atproto-publish-dry-run" content={process.env.ATPROTO_PUBLISH_DRY_RUN} />
+        )}
         {/* SHOW_COCKTAILDB no longer injected here — RecipeImportPage fetches
             it from /api/settings-read so /settings overrides take effect
             without a server restart. */}

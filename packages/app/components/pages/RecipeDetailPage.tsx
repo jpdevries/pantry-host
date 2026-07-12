@@ -21,6 +21,7 @@ import { NutritionSource } from '@pantry-host/shared/components/NutritionSource'
 import { AllergensLine } from '@pantry-host/shared/components/AllergensLine';
 import { getAllergenIcon } from '@pantry-host/shared/components/allergen-icons';
 import { readFavorites, toggleFavorite } from '@pantry-host/shared/favorites';
+import PublishToBlueskyButton from '@pantry-host/shared/components/PublishToBlueskyButton';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem } from '@pantry-host/shared/grocery-status';
 import { isOwner } from '@/lib/isTrustedNetwork';
@@ -65,6 +66,7 @@ export interface Recipe {
   stepPhotos: string[];
   lastMadeAt: string | null;
   queued: boolean;
+  createdAt: string | null;
   ingredients: RecipeIngredient[];
   /** Recursively-unfurled ingredient list — same shape as `ingredients`,
    *  but sub-recipes are expanded to their constituents. Used by the
@@ -77,7 +79,7 @@ export const RECIPE_QUERY = `
   query Recipe($id: String!) {
     recipe(id: $id) {
       id slug title description instructions servings prepTime cookTime
-      tags requiredCookware { id name brand } source sourceUrl photoUrl stepPhotos lastMadeAt queued
+      tags requiredCookware { id name brand } source sourceUrl photoUrl stepPhotos lastMadeAt queued createdAt
       ingredients { ingredientName quantity unit itemSize itemSizeUnit sourceRecipeId }
       groceryIngredients { ingredientName quantity unit itemSize itemSizeUnit }
       usedIn { id slug title cookTime prepTime servings source tags photoUrl queued }
@@ -1149,6 +1151,30 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
               </button>
             )}
           </div>
+          {owner && (
+            /* Share to Bluesky — distinct from the flat export row
+               because it requires OAuth, honors dry-run, and writes to
+               a third-party PDS. Owner-only gate matches Edit/Delete. */
+            <div className="mt-6 flex justify-center">
+              <PublishToBlueskyButton
+                kind="recipe"
+                recipe={{
+                  id: recipe.id,
+                  title: recipe.title,
+                  description: recipe.description,
+                  instructions: recipe.instructions,
+                  servings: recipe.servings,
+                  prepTime: recipe.prepTime,
+                  cookTime: recipe.cookTime,
+                  tags: recipe.tags,
+                  sourceUrl: recipe.sourceUrl,
+                  photoUrl: recipe.photoUrl,
+                  createdAt: recipe.createdAt,
+                  groceryIngredients: recipe.groceryIngredients,
+                }}
+              />
+            </div>
+          )}
         </div>
 
         <hr style={{ borderColor: 'var(--color-border-card)' }} />

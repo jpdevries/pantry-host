@@ -1,13 +1,12 @@
-import { LinkSimple, RssSimple, QrCode, IdentificationCard, Share, Globe } from '@phosphor-icons/react';
+import { LinkSimple, RssSimple, QrCode, Butterfly, IdentificationCard, Share, Globe } from '@phosphor-icons/react';
 
 /**
  * AT Protocol federation section.
  *
  * Frames what's live today: at:// deep-linking, the feed.pantryhost.app
- * firehose indexer, and QR sharing. The one remaining milestone (one-tap
- * publish from Pantry Host back to the user's PDS) is noted as a single
- * muted "Coming next" line at the bottom — honest without burying the
- * shipped work.
+ * firehose indexer, QR sharing, and one-tap publish back to the user's
+ * own PDS (shipped v0.5 — the round trip is closed: import a recipe,
+ * edit it, publish it back, import it again).
  *
  * Visual style mirrors `Integrations.tsx` so the page reads as one
  * coherent story about open ecosystems.
@@ -23,6 +22,12 @@ const BLUESKY_PATH =
 // Sample AT URI used by the "Open by AT URI" tile to prove the deep-link
 // path works. Stable because it's a `recipe.exchange` publisher we index.
 const SAMPLE_AT_HREF = 'https://my.pantryhost.app/at/did:plc:7ojp52ncy5ay6ldsj3db6joj/exchange.recipe.recipe/01KKVFB0KTWVFXG493PZQG6T83#stage';
+
+// A real collection published from inside Pantry Host — the "Share to
+// Bluesky" tile links to it as live proof the write path works. (JP's
+// Wine Night menu, first real exchange.recipe.collection publish,
+// 2026-07-12.)
+const SAMPLE_COLLECTION_HREF = 'https://my.pantryhost.app/at/did:plc:sdholscvfyetmgtt2xkkr26g/exchange.recipe.collection/3mqgba3mz522b#stage';
 
 const liveTiles = [
   {
@@ -51,6 +56,16 @@ const liveTiles = [
     description: (
       <>
         Every detail page has a Share button that opens a QR&nbsp;code &mdash; scan it from your phone to pick the recipe up where you left off, or hand it to a&nbsp;friend.
+      </>
+    ),
+  },
+  {
+    title: 'Publish to your PDS',
+    icon: Butterfly,
+    href: SAMPLE_COLLECTION_HREF,
+    description: (
+      <>
+        Sign in with Bluesky and share any recipe &mdash; or a whole menu &mdash; to your own PDS in one tap. Photos ride along, sources keep their attribution, and you preview the exact record before it leaves your&nbsp;kitchen.
       </>
     ),
   },
@@ -99,11 +114,11 @@ export default function AtProtocol() {
         AT&nbsp;Protocol, first-class
       </h2>
       <p className="text-center text-[var(--color-text-secondary)] text-sm sm:text-base max-w-2xl mx-auto mb-12 leading-relaxed pretty">
-        Every <code className="text-xs">exchange.recipe</code> record is available to browse and import as a recipe in Pantry&nbsp;Host. Paste an <code className="text-xs">at://</code> URL, scan a QR, or browse the live feed. The source record stays on its author&rsquo;s PDS, and imports go straight to your own hardware. Pantry&nbsp;Host infrastructure never stores&nbsp;either.
+        Every <code className="text-xs">exchange.recipe</code> record is available to browse and import as a recipe in Pantry&nbsp;Host &mdash; and now the round trip is closed: publish your own recipes and menus back to the network. Paste an <code className="text-xs">at://</code> URL, scan a QR, browse the live feed, or share to Bluesky in one tap. Source records stay on their author&rsquo;s PDS, imports go straight to your own hardware, and what you publish lives on <em>your</em> PDS. Pantry&nbsp;Host infrastructure never stores&nbsp;any of&nbsp;it.
       </p>
 
-      {/* 3-up — What's live today */}
-      <div className="grid md:grid-cols-3 gap-6 mb-10">
+      {/* 4-up — What's live today */}
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         {liveTiles.map((tile) => {
           const inner = (
             <>
@@ -160,7 +175,7 @@ export default function AtProtocol() {
       </div>
 
       <p className="text-center text-xs text-[var(--color-text-secondary)] mt-8 max-w-2xl mx-auto pretty">
-        Coming next: one-tap publish to your own PDS from within Pantry&nbsp;Host. Expected in <time dateTime="2026">v0.5</time>.
+        One-tap publish shipped in <time dateTime="2026">v0.5</time> &mdash; the tile above links to a real menu published from inside Pantry&nbsp;Host, living on its author&rsquo;s&nbsp;PDS.
       </p>
     </section>
   );

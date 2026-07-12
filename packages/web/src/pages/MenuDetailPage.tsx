@@ -7,18 +7,30 @@ import { Trash, ArrowsOut, ArrowsIn } from '@phosphor-icons/react';
 import { classifyRecipeCourse, COURSE_LABELS } from '@pantry-host/shared/constants';
 import PixabayImage from '@pantry-host/shared/components/PixabayImage';
 import { clearPixabayCache } from '@pantry-host/shared/pixabay';
+import PublishToBlueskyButton from '@pantry-host/shared/components/PublishToBlueskyButton';
+import { fetchPhotoForPublish } from '@/lib/publish-photo';
 
 interface Recipe {
   id: string;
   slug: string | null;
   title: string;
   description: string | null;
+  instructions: string;
   cookTime: number | null;
   prepTime: number | null;
   servings: number | null;
   tags: string[];
   photoUrl: string | null;
+  sourceUrl: string | null;
+  createdAt: string | null;
   queued: boolean;
+  groceryIngredients: Array<{
+    ingredientName: string;
+    quantity: number | null;
+    unit: string | null;
+    itemSize: number | null;
+    itemSizeUnit: string | null;
+  }>;
 }
 
 interface MenuRecipe {
@@ -36,15 +48,20 @@ interface Menu {
   sourceUrl: string | null;
   active: boolean;
   category: string | null;
+  createdAt: string | null;
   recipes: MenuRecipe[];
 }
 
 const MENU_QUERY = `query($id: String!) {
   menu(id: $id) {
-    id slug title description sourceUrl active category
+    id slug title description sourceUrl active category createdAt
     recipes {
       id course sortOrder
-      recipe { id slug title description cookTime prepTime servings tags photoUrl queued }
+      recipe {
+        id slug title description instructions cookTime prepTime servings tags
+        photoUrl sourceUrl createdAt queued
+        groceryIngredients { ingredientName quantity unit itemSize itemSizeUnit }
+      }
     }
   }
 }`;
@@ -283,6 +300,34 @@ export default function MenuDetailPage() {
           </div>
         </>
       )}
+
+      {/* Publish to AT Protocol — requires auth, honors dry-run. */}
+      <div className="no-print mt-16 pt-8 border-t border-[var(--color-border-card)] flex justify-center">
+        <PublishToBlueskyButton
+          kind="menu"
+          menu={{
+            id: menu.id,
+            title: menu.title,
+            description: menu.description,
+            createdAt: menu.createdAt,
+            recipes: menu.recipes.map((mr) => ({
+              id: mr.recipe.id,
+              title: mr.recipe.title,
+              description: mr.recipe.description,
+              instructions: mr.recipe.instructions,
+              servings: mr.recipe.servings,
+              prepTime: mr.recipe.prepTime,
+              cookTime: mr.recipe.cookTime,
+              tags: mr.recipe.tags,
+              sourceUrl: mr.recipe.sourceUrl,
+              photoUrl: mr.recipe.photoUrl,
+              createdAt: mr.recipe.createdAt,
+              groceryIngredients: mr.recipe.groceryIngredients,
+            })),
+          }}
+          fetchPhoto={fetchPhotoForPublish}
+        />
+      </div>
       </div>
     </div>
   );

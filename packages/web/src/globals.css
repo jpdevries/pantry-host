@@ -810,6 +810,15 @@
     font-family: Menlo, Consolas, Monaco, Adwaita Mono, Liberation Mono, Lucida Console, monospace;
   }
 
+  /* Background body — mirror of the app's hand-rolled utilities; the
+     shared Modal (and friends) depend on these. Keep in sync with
+     packages/app/styles/globals.css. */
+  .bg-body {
+    background-color: var(--color-bg-body);
+  }
+  .bg-body-translucent {
+    background-color: color-mix(in srgb, var(--color-bg-body) 90%, transparent);
+  }
   .text-secondary {
     color: var(--color-text-secondary);
   }

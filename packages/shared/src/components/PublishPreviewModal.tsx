@@ -96,16 +96,24 @@ export default function PublishPreviewModal({
 
   const collection = mode.kind === 'collection' ? LEXICON_COLLECTION : LEXICON_RECIPE;
 
-  if (result) {
-    return (
-      <Modal open={open} onClose={onClose} title="Published to Bluesky">
-        <PublishSuccessStep result={result} onClose={onClose} />
-      </Modal>
-    );
-  }
-
   return (
-    <Modal open={open} onClose={onClose} title="Publish to Bluesky">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={result ? 'Published to Bluesky' : 'Publish to Bluesky'}
+    >
+      {/* Persistent live region: mounted (empty) alongside the
+          preview, so the success text lands as a *change* to an
+          existing region. A live region that first appears already
+          containing content is skipped by several screen reader /
+          browser combos — this is what makes the announcement
+          reliable, not the visible confirmation below. */}
+      <div role="status" className="sr-only">
+        {result ? announcementFor(result) : ''}
+      </div>
+      {result ? (
+        <PublishSuccessStep result={result} onClose={onClose} />
+      ) : (
       <div className="flex flex-col max-h-[85vh]">
         {/* Header */}
         <header className="px-5 pt-5 pb-3 border-b border-[var(--color-border-card)]">
@@ -206,6 +214,7 @@ export default function PublishPreviewModal({
           </button>
         </footer>
       </div>
+      )}
     </Modal>
   );
 }
@@ -216,6 +225,20 @@ function atUriToSharePath(uri: string): string | null {
   const parts = uri.replace(/^at:\/\//, '').split('/');
   if (parts.length !== 3) return null;
   return `/at/${parts[0]}/${parts[1]}/${parts[2]}#stage`;
+}
+
+/** Screen-reader announcement injected into the persistent live
+ *  region when the publish completes. Mirrors the visible copy. */
+function announcementFor(result: PublishSuccessInfo): string {
+  const what =
+    result.kind === 'collection'
+      ? result.inlinePublished
+        ? `${result.inlinePublished} recipe${result.inlinePublished === 1 ? '' : 's'} and the collection`
+        : 'The collection'
+      : 'The recipe';
+  return result.dryRun
+    ? `Dry run complete. ${what} would have been written to @${result.handle}'s PDS. Nothing left this device.`
+    : `Published to Bluesky. ${what} ${result.kind === 'collection' && result.inlinePublished ? 'were' : 'was'} written to @${result.handle}'s PDS.`;
 }
 
 function PublishSuccessStep({
@@ -267,7 +290,9 @@ function PublishSuccessStep({
 
   return (
     <div className="flex flex-col max-h-[85vh]">
-      <div role="status" className="px-5 pt-5 pb-4 space-y-3">
+      {/* Announcement is handled by the persistent live region in
+          the parent — no role=status here or it would double-fire. */}
+      <div className="px-5 pt-5 pb-4 space-y-3">
         <h2 ref={headingRef} tabIndex={-1} className="text-lg font-bold outline-none">
           {result.dryRun ? 'Dry run complete' : 'Published to Bluesky'}
         </h2>

@@ -209,13 +209,34 @@ function StepPhotos({ steps, sourceUrl, dbStepPhotos }: { steps: string[]; sourc
   );
 }
 
+/** Cache seeds outlive deploys: an entry written by an older code era
+ *  can be missing arrays this page's render iterates, and a crash
+ *  during the seed render is a PERMANENT white screen — the crash also
+ *  prevents the fetch that would repair the cache (seen in prod:
+ *  'e.ingredients is not iterable' loop on a stale seed). Only trust a
+ *  seed whose load-bearing arrays are actually arrays; a rejected seed
+ *  just means skeleton UI until the fetch repopulates. */
+function isRenderableRecipeShape(r: Recipe): boolean {
+  return (
+    Array.isArray(r.ingredients) &&
+    Array.isArray(r.groceryIngredients) &&
+    Array.isArray(r.tags) &&
+    Array.isArray(r.requiredCookware) &&
+    Array.isArray(r.stepPhotos) &&
+    Array.isArray(r.usedIn)
+  );
+}
+
 export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
   const kitchen = useKitchen();
   const router = useRouter();
   const recipesBase = `/kitchens/${kitchen}/recipes`;
 
   const cacheKey = `cache:recipe:${recipeId}`;
-  const cachedRecipe = isBrowser ? cacheGet<Recipe>(cacheKey) : null;
+  // (initialRecipe comes from this build's own GSSP, so it's always
+  // shape-current — only the localStorage seed needs vetting.)
+  const rawCached = isBrowser ? cacheGet<Recipe>(cacheKey) : null;
+  const cachedRecipe = rawCached && isRenderableRecipeShape(rawCached) ? rawCached : null;
   const seedRecipe = initialRecipe ?? cachedRecipe;
   const [recipe, setRecipe] = useState<Recipe | null>(seedRecipe);
   const [notFound, setNotFound] = useState(false);

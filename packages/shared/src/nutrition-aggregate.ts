@@ -202,7 +202,13 @@ export function aggregateNutrition(input: AggregateInput): AggregateResult {
   const contributors: Contributor[] = [];
   const missing: MissingIngredient[] = [];
 
-  for (const ing of input.ingredients) {
+  // `?? []`: callers can be fed recipe objects from untrusted shapes —
+  // e.g. a localStorage cache entry written by an older code era that
+  // lacked `ingredients`. A missing list must degrade to "no nutrition
+  // data", never crash the page render (seen in prod: stale cache seed
+  // → 'ingredients is not iterable' → permanent white-screen loop,
+  // because the crash also prevents the fetch that would repair it).
+  for (const ing of input.ingredients ?? []) {
     const pantry = findPantryItem(input.lookup, ing.ingredientName);
     if (!pantry) {
       missing.push({ name: ing.ingredientName, reason: 'no-match', qty: ing.quantity, unit: ing.unit });
@@ -260,7 +266,7 @@ export function aggregateAllergens(input: {
     if (substance) seen.add(substance);
   }
   // Metadata-based: derived from scanned barcode data.
-  for (const ing of input.ingredients) {
+  for (const ing of input.ingredients ?? []) {
     const pantry = findPantryItem(input.lookup, ing.ingredientName);
     const meta = safeParseMeta(pantry?.productMeta);
     if (!meta?.allergens_tags) continue;

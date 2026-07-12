@@ -167,8 +167,11 @@ const AUTO_TAG_RE = /^(bluesky|recipe-api|cooklang|mealdb|cocktaildb|publicdomai
 
 /** Resolve the effective dry-run flag. Defaults to `true` — a deploy
  *  that doesn't explicitly set the var stays safe. Reads the Vite
- *  import.meta.env when available (browser bundler) and falls back
- *  to process.env on Rex SSR / Node. */
+ *  import.meta.env when available (web: Vite inlines it), then the
+ *  `atproto-publish-dry-run` meta tag (app: Rex doesn't inline
+ *  process.env into client bundles, so _document.tsx rides the flag
+ *  in on the same meta channel as default-palette), then process.env
+ *  (Rex SSR / Node). */
 export function isDryRun(): boolean {
   // Vite (web package)
   try {
@@ -178,7 +181,14 @@ export function isDryRun(): boolean {
   } catch {
     // import.meta not available (Rex/Node) — fall through
   }
-  // Rex / Node
+  // Rex client (meta tag injected by _document.tsx)
+  if (typeof document !== 'undefined') {
+    const meta = document
+      .querySelector('meta[name="atproto-publish-dry-run"]')
+      ?.getAttribute('content');
+    if (meta != null) return meta !== 'false';
+  }
+  // Rex SSR / Node
   if (typeof process !== 'undefined' && process.env) {
     const nodeFlag = process.env.ATPROTO_PUBLISH_DRY_RUN ?? process.env.VITE_ATPROTO_PUBLISH_DRY_RUN;
     if (nodeFlag !== undefined) return String(nodeFlag) !== 'false';

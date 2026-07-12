@@ -1,8 +1,13 @@
 /**
  * AT Protocol publish client — turns a Pantry Host recipe or menu
  * into an `exchange.recipe.{recipe,collection}` record and pushes
- * it to the signed-in user's PDS via `com.atproto.repo.createRecord`
- * (or `putRecord` on re-publish).
+ * it to the signed-in user's PDS via `com.atproto.repo.putRecord` at
+ * a deterministic rkey derived from the local id (`rkeyForLocal`), so
+ * publish is idempotent: first publish and every re-publish target
+ * one record. Any device can find an already-published record by
+ * reading `getRecord(did, collection, rkeyForLocal(id))` — see
+ * `findPublishedRecord` — which is how the CTA reflects publish state
+ * across devices without a shared database.
  *
  * Dry-run is the default. Set `VITE_ATPROTO_PUBLISH_DRY_RUN=false`
  * (web) or `ATPROTO_PUBLISH_DRY_RUN=false` (app) to actually push
@@ -454,18 +459,18 @@ export async function publishRecipe(
   const embed = await buildPhotoEmbed(recipe, opts);
   if (embed) record.embed = embed;
 
-  const res = opts.rkey
-    ? await opts.agent.com.atproto.repo.putRecord({
-        repo: opts.agent.did,
-        collection: LEXICON_RECIPE,
-        rkey: opts.rkey,
-        record: { ...record, $type: LEXICON_RECIPE },
-      })
-    : await opts.agent.com.atproto.repo.createRecord({
-        repo: opts.agent.did,
-        collection: LEXICON_RECIPE,
-        record: { ...record, $type: LEXICON_RECIPE },
-      });
+  // Deterministic rkey (from the local id) unless an explicit rkey is
+  // given. putRecord creates-or-overwrites, so first publish and every
+  // re-publish hit one record — no duplicate on a second device or a
+  // cleared cache. `opts.rkey` still wins for records published before
+  // this change (their original rkey rides in on the localStorage receipt).
+  const rkey = opts.rkey ?? rkeyForLocal(recipe.id);
+  const res = await opts.agent.com.atproto.repo.putRecord({
+    repo: opts.agent.did,
+    collection: LEXICON_RECIPE,
+    rkey,
+    record: { ...record, $type: LEXICON_RECIPE },
+  });
   return { uri: res.data.uri, cid: res.data.cid, dryRun: false, record };
 }
 
@@ -516,8 +521,10 @@ export async function publishCollection(
         }
       }
     }
-    // Inline publish
-    const res = await publishRecipe(r, opts);
+    // Inline publish — never inherit the menu's rkey (that would write
+    // every child to the menu's key). Each child gets its own
+    // deterministic rkey keyed to the recipe id.
+    const res = await publishRecipe(r, { ...opts, rkey: undefined });
     recipePublishes.push({ recipeId: r.id, result: res, ref: { uri: res.uri, cid: res.cid } });
   }
 
@@ -536,18 +543,13 @@ export async function publishCollection(
     };
   }
 
-  const res = opts.rkey
-    ? await opts.agent.com.atproto.repo.putRecord({
-        repo: opts.agent.did,
-        collection: LEXICON_COLLECTION,
-        rkey: opts.rkey,
-        record: { ...collectionRecord, $type: LEXICON_COLLECTION },
-      })
-    : await opts.agent.com.atproto.repo.createRecord({
-        repo: opts.agent.did,
-        collection: LEXICON_COLLECTION,
-        record: { ...collectionRecord, $type: LEXICON_COLLECTION },
-      });
+  const rkey = opts.rkey ?? rkeyForLocal(menu.id);
+  const res = await opts.agent.com.atproto.repo.putRecord({
+    repo: opts.agent.did,
+    collection: LEXICON_COLLECTION,
+    rkey,
+    record: { ...collectionRecord, $type: LEXICON_COLLECTION },
+  });
   return {
     recipePublishes,
     collection: { uri: res.data.uri, cid: res.data.cid, dryRun: false, record: collectionRecord },
@@ -574,4 +576,49 @@ export async function unpublish(atUri: string, opts: PublishOptions): Promise<{ 
 export function rkeyFromUri(atUri: string): string | null {
   const parts = atUri.replace(/^at:\/\//, '').split('/');
   return parts.length === 3 ? parts[2] : null;
+}
+
+/** Deterministic record key derived from a local recipe/menu id.
+ *  The same local id always maps to the same rkey on the PDS, so a
+ *  first publish and every re-publish target one record — no
+ *  duplicates — and any device that knows the local id can find the
+ *  published record by reading `getRecord(did, collection, rkey)`
+ *  without a stored receipt. Local ids are UUIDs, which are already
+ *  valid rkeys; sanitize + length-cap defensively for any other id
+ *  scheme (rkey syntax: 1–512 of [A-Za-z0-9._~:-], never "." / ".."). */
+export function rkeyForLocal(localId: string): string {
+  const safe = localId.replace(/[^A-Za-z0-9._~:-]/g, '-').slice(0, 512);
+  return safe === '' || safe === '.' || safe === '..' ? `ph-${safe || 'x'}` : safe;
+}
+
+/** Does a record still exist at this AT URI? Public read (no auth).
+ *  Used to reconcile a stored receipt against PDS reality — e.g. the
+ *  record was deleted from another client. */
+export async function recordExists(atUri: string): Promise<boolean> {
+  const parts = atUri.replace(/^at:\/\//, '').split('/');
+  if (parts.length !== 3) return false;
+  try {
+    await getRecord<unknown>(parts[0], parts[1], parts[2]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Look up whether a local recipe/menu is already published on a
+ *  DID's PDS, by its deterministic rkey. Returns the live
+ *  `{ uri, cid }` if present, or null (including on 404). Powers
+ *  cross-device CTA state: a second device resolves the same rkey
+ *  and adopts the record without ever having a local receipt. */
+export async function findPublishedRecord(
+  did: string,
+  collection: string,
+  localId: string,
+): Promise<{ uri: string; cid: string } | null> {
+  try {
+    const rec = await getRecord<unknown>(did, collection, rkeyForLocal(localId));
+    return { uri: rec.uri, cid: rec.cid };
+  } catch {
+    return null;
+  }
 }

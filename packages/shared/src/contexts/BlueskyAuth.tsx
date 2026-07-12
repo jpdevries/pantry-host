@@ -97,6 +97,17 @@ function getProdClientId(): string {
   return 'https://pantryhost.app/client-metadata.json';
 }
 
+/** Everything Share-to-Bluesky needs, as granular atproto OAuth
+ *  scopes: full CRUD on both exchange.recipe.* collections (publish,
+ *  re-publish via putRecord, unpublish via deleteRecord) plus image
+ *  blob upload for recipe photos. The bare `atproto` scope only
+ *  grants identity — PDSes enforce per-collection `repo:` scopes on
+ *  record writes. Must match the `scope` in
+ *  packages/marketing/public/client-metadata.json (hosted client)
+ *  and is baked into the loopback client_id below (dev). */
+export const ATPROTO_PUBLISH_OAUTH_SCOPE =
+  'atproto repo:exchange.recipe.recipe repo:exchange.recipe.collection blob:image/*';
+
 /** Loopback-safe or hosted-metadata-safe? We key off origin. The
  *  atproto OAuth spec requires the loopback path to use
  *  `127.0.0.1` / `[::1]` — `localhost` won't be accepted by the
@@ -168,7 +179,14 @@ export function BlueskyAuthProvider({
             port: window.location.port,
             pathname: '/',
           } as Location;
-          const clientId = buildLoopbackClientId(loc);
+          // Bake the publish scopes into the loopback client_id —
+          // the AS derives the client's allowed scopes from these
+          // query params, so signInRedirect's `scope` must be
+          // covered here or the token request is rejected.
+          const bare = buildLoopbackClientId(loc);
+          const clientIdUrl = new URL(bare);
+          clientIdUrl.searchParams.set('scope', ATPROTO_PUBLISH_OAUTH_SCOPE);
+          const clientId = clientIdUrl.href;
           const clientMetadata = (atprotoLoopbackClientMetadata as (cid: string) => unknown)(clientId);
           c = new BrowserOAuthClient({
             clientMetadata,
@@ -277,11 +295,8 @@ export function BlueskyAuthProvider({
       // signInRedirect never resolves in the happy path — the
       // browser navigates away. Let the caller's promise stay
       // pending so any loading UI stays on.
-      // Only `atproto` scope is needed for com.atproto.repo.* writes.
-      // `transition:generic` would be required to touch app.bsky.*
-      // endpoints (posts, feeds, profiles) — we don't.
       await client.signInRedirect(clean, {
-        scope: 'atproto',
+        scope: ATPROTO_PUBLISH_OAUTH_SCOPE,
       });
     },
     [client],

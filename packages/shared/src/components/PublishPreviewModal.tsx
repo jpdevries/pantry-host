@@ -15,7 +15,9 @@
  * bundle light and the preview 100% accurate (no tokenizer drift).
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import QRCode from 'qrcode';
+import { Check, Copy } from '@phosphor-icons/react';
 import Modal from './Modal';
 import { LEXICON_COLLECTION, LEXICON_RECIPE } from '../atproto-publish';
 import type { BlueskyCollectionRecord, BlueskyRecipeRecord } from '../bluesky';
@@ -42,11 +44,26 @@ export type PreviewMode =
       existingUri?: string;
     };
 
+/** Receipt for the success step shown after a publish completes. */
+export interface PublishSuccessInfo {
+  uri: string;
+  dryRun: boolean;
+  handle: string;
+  kind: 'recipe' | 'collection';
+  /** Collection publishes: how many child recipes were published
+   *  inline ahead of the collection record. */
+  inlinePublished?: number;
+}
+
 export interface PublishPreviewModalProps {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
   mode: PreviewMode;
+  /** Non-null after a successful publish — swaps the preview body
+   *  for the confirmation step (status message, copyable AT URI,
+   *  share QR). */
+  result?: PublishSuccessInfo | null;
   /** True when the modal is sitting on a dry-run-enabled build.
    *  Shown as a banner and woven into the Publish button label. */
   dryRun: boolean;
@@ -69,6 +86,7 @@ export default function PublishPreviewModal({
   handle,
   pending,
   error,
+  result,
 }: PublishPreviewModalProps) {
   // Reset any transient confirm-click state when the modal reopens.
   const [confirmed, setConfirmed] = useState(false);
@@ -77,6 +95,14 @@ export default function PublishPreviewModal({
   }, [open]);
 
   const collection = mode.kind === 'collection' ? LEXICON_COLLECTION : LEXICON_RECIPE;
+
+  if (result) {
+    return (
+      <Modal open={open} onClose={onClose} title="Published to Bluesky">
+        <PublishSuccessStep result={result} onClose={onClose} />
+      </Modal>
+    );
+  }
 
   return (
     <Modal open={open} onClose={onClose} title="Publish to Bluesky">
@@ -181,6 +207,137 @@ export default function PublishPreviewModal({
         </footer>
       </div>
     </Modal>
+  );
+}
+
+/** Turn an at:// URI into the app's own shareable detail URL —
+ *  both tiers serve /at/{did}/{collection}/{rkey}. */
+function atUriToSharePath(uri: string): string | null {
+  const parts = uri.replace(/^at:\/\//, '').split('/');
+  if (parts.length !== 3) return null;
+  return `/at/${parts[0]}/${parts[1]}/${parts[2]}#stage`;
+}
+
+function PublishSuccessStep({
+  result,
+  onClose,
+}: {
+  result: PublishSuccessInfo;
+  onClose: () => void;
+}) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const [copied, setCopied] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState('');
+
+  const sharePath = atUriToSharePath(result.uri);
+  const shareUrl =
+    !result.dryRun && sharePath && typeof window !== 'undefined'
+      ? `${window.location.origin}${sharePath}`
+      : null;
+
+  // Announce + move focus so the confirmation is heard, not just seen.
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!shareUrl) return;
+    // PNG data URL at 2× the rendered 112px so it stays crisp on
+    // retina. (Raw SVG needs [&>svg] sizing — Rex can't scan those
+    // variants out of shared components; see CLAUDE.md gotcha #10.)
+    QRCode.toDataURL(shareUrl, {
+      width: 224,
+      margin: 2,
+      color: { dark: '#000000', light: '#ffffff' },
+    }).then(setQrDataUrl);
+  }, [shareUrl]);
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(result.uri);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  const what =
+    result.kind === 'collection'
+      ? result.inlinePublished
+        ? `${result.inlinePublished} recipe${result.inlinePublished === 1 ? '' : 's'} and the collection`
+        : 'The collection'
+      : 'The recipe';
+
+  return (
+    <div className="flex flex-col max-h-[85vh]">
+      <div role="status" className="px-5 pt-5 pb-4 space-y-3">
+        <h2 ref={headingRef} tabIndex={-1} className="text-lg font-bold outline-none">
+          {result.dryRun ? 'Dry run complete' : 'Published to Bluesky'}
+        </h2>
+        <p className="text-sm text-[var(--color-text-secondary)] pretty">
+          {result.dryRun ? (
+            <>
+              {what} would have been written to <strong>@{result.handle}</strong>&rsquo;s PDS.
+              Nothing left this device — the receipt below is local only.
+            </>
+          ) : (
+            <>
+              {what} {result.kind === 'collection' && result.inlinePublished ? 'were' : 'was'}{' '}
+              written to <strong>@{result.handle}</strong>&rsquo;s PDS.
+            </>
+          )}
+        </p>
+      </div>
+
+      <div className="overflow-y-auto px-5 pb-4 flex-1 space-y-4">
+        <section>
+          <h3 className="text-xs uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
+            AT URI
+          </h3>
+          <div className="flex items-center gap-2">
+            <code className="text-[11px] font-mono flex-1 min-w-0 truncate bg-[var(--color-bg-card)] border border-[var(--color-border-card)] rounded-lg px-3 py-2">
+              {result.uri}
+            </code>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="btn-secondary px-3 py-1.5 shrink-0"
+              aria-label="Copy AT URI"
+            >
+              {copied ? <Check size={16} aria-hidden /> : <Copy size={16} aria-hidden />}
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+        </section>
+
+        {shareUrl && (
+          <section>
+            <h3 className="text-xs uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
+              Share
+            </h3>
+            <div className="flex items-start gap-4">
+              {qrDataUrl && (
+                <img
+                  src={qrDataUrl}
+                  alt=""
+                  aria-hidden="true"
+                  className="w-28 h-28 shrink-0 rounded-lg border border-[var(--color-border-card)]"
+                />
+              )}
+              <p className="text-xs text-[var(--color-text-secondary)] pretty">
+                Scan to open the published record on another device, or share the link:{' '}
+                <a href={sharePath!} className="underline break-all">
+                  {shareUrl}
+                </a>
+              </p>
+            </div>
+          </section>
+        )}
+      </div>
+
+      <footer className="px-5 pt-3 pb-4 border-t border-[var(--color-border-card)] flex justify-end">
+        <button type="button" onClick={onClose} className="btn-secondary px-3 py-1.5">
+          Done
+        </button>
+      </footer>
+    </div>
   );
 }
 

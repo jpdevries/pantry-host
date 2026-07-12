@@ -20,7 +20,10 @@
 import { useMemo, useState } from 'react';
 import { Butterfly, CaretDown } from '@phosphor-icons/react';
 import BlueskySignInModal from './BlueskySignInModal';
-import PublishPreviewModal, { type PreviewMode } from './PublishPreviewModal';
+import PublishPreviewModal, {
+  type PreviewMode,
+  type PublishSuccessInfo,
+} from './PublishPreviewModal';
 import { useBlueskyAuth } from '../contexts/BlueskyAuth';
 import {
   buildCollectionRecord,
@@ -75,6 +78,9 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
   const [menuOpen, setMenuOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Non-null after a successful publish — keeps the modal open on
+  // its confirmation step instead of silently closing.
+  const [publishResult, setPublishResult] = useState<PublishSuccessInfo | null>(null);
 
   const id = props.kind === 'recipe' ? props.recipe.id : props.menu.id;
   const [receipt, setReceipt] = useState<PublishReceipt | null>(() =>
@@ -162,6 +168,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
         };
         setPublishReceipt('recipe', props.recipe.id, newReceipt);
         setReceipt(newReceipt);
+        setPublishResult({ uri: res.uri, dryRun: res.dryRun, handle, kind: 'recipe' });
         props.onPublished?.({ uri: res.uri, cid: res.cid, dryRun: res.dryRun });
       } else {
         const { collection, recipePublishes } = await publishCollection(
@@ -199,13 +206,21 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
         };
         setPublishReceipt('menu', props.menu.id, newReceipt);
         setReceipt(newReceipt);
+        setPublishResult({
+          uri: collection.uri,
+          dryRun: collection.dryRun,
+          handle,
+          kind: 'collection',
+          inlinePublished: recipePublishes.filter((p) => p.result).length,
+        });
         props.onPublished?.({
           uri: collection.uri,
           cid: collection.cid,
           dryRun: collection.dryRun,
         });
       }
-      setPreviewOpen(false);
+      // Modal stays open — it flips to the confirmation step now
+      // that publishResult is set.
     } catch (err: any) {
       setError(err?.message ?? 'Publish failed');
     } finally {
@@ -323,9 +338,13 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
         {previewMode && (
           <PublishPreviewModal
             open={previewOpen}
-            onClose={() => setPreviewOpen(false)}
+            onClose={() => {
+              setPreviewOpen(false);
+              setPublishResult(null);
+            }}
             onConfirm={handlePublish}
             mode={previewMode}
+            result={publishResult}
             dryRun={dry}
             handle={handle}
             pending={pending}
@@ -355,9 +374,13 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
       {previewMode && (
         <PublishPreviewModal
           open={previewOpen}
-          onClose={() => setPreviewOpen(false)}
+          onClose={() => {
+            setPreviewOpen(false);
+            setPublishResult(null);
+          }}
           onConfirm={handlePublish}
           mode={previewMode}
+          result={publishResult}
           dryRun={dry}
           handle={handle}
           pending={pending}

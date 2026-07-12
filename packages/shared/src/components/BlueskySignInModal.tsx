@@ -19,10 +19,16 @@ import { useBlueskyAuth } from '../contexts/BlueskyAuth';
 export interface BlueskySignInModalProps {
   open: boolean;
   onClose: () => void;
+  /** 'redirect' (default) navigates this page through the OAuth
+   *  dance. 'popup' runs OAuth in a nested popup and keeps this page
+   *  alive — required in the publish broker, where navigating would
+   *  sever `window.opener` (PDS auth pages send COOP) and lose the
+   *  in-memory publish request. */
+  mode?: 'redirect' | 'popup';
 }
 
-export default function BlueskySignInModal({ open, onClose }: BlueskySignInModalProps) {
-  const { signIn, isReady, error: ctxError } = useBlueskyAuth();
+export default function BlueskySignInModal({ open, onClose, mode = 'redirect' }: BlueskySignInModalProps) {
+  const { signIn, signInPopup, isReady, error: ctxError } = useBlueskyAuth();
   const [handle, setHandle] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -32,8 +38,16 @@ export default function BlueskySignInModal({ open, onClose }: BlueskySignInModal
     setLocalError(null);
     setSubmitting(true);
     try {
-      await signIn(handle);
-      // signIn navigates away; this line rarely runs.
+      if (mode === 'popup') {
+        // Resolves once the user finishes in the nested popup; this
+        // page (and modal) stays mounted throughout.
+        await signInPopup(handle);
+        setSubmitting(false);
+        onClose();
+      } else {
+        await signIn(handle);
+        // signIn navigates away; this line rarely runs.
+      }
     } catch (err: any) {
       setLocalError(err?.message ?? 'Sign-in failed');
       setSubmitting(false);
@@ -87,7 +101,7 @@ export default function BlueskySignInModal({ open, onClose }: BlueskySignInModal
               disabled={submitting || !handle.trim() || !isReady}
               className="px-3 py-1.5 text-sm rounded-md bg-[var(--color-accent)] text-[var(--color-bg-body)] font-semibold disabled:bg-[var(--color-bg-card)] disabled:text-[var(--color-text-secondary)] disabled:border disabled:border-[var(--color-border-card)]"
             >
-              {submitting ? 'Redirecting…' : !isReady ? 'Loading…' : 'Continue'}
+              {submitting ? (mode === 'popup' ? 'Waiting for sign-in…' : 'Redirecting…') : !isReady ? 'Loading…' : 'Continue'}
             </button>
           </div>
         </form>

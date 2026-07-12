@@ -59,9 +59,11 @@ export default function PublishBrokerPage() {
     document.title = 'Publish to Bluesky — Pantry Host';
   }, []);
 
-  // Handshake: announce readiness to the opener (repeats naturally
-  // after an OAuth redirect lands us back here), accept the FIRST
-  // request, ignore everything after.
+  // Handshake: announce readiness to the opener, accept the FIRST
+  // request, ignore everything after. NOTE: this page must never
+  // navigate — the PDS auth pages send COOP headers that would sever
+  // window.opener for good, orphaning us from the requester. That's
+  // why sign-in below uses the popup flow, not the redirect flow.
   useEffect(() => {
     function onMessage(event: MessageEvent) {
       if (acceptedRef.current) return;
@@ -245,7 +247,9 @@ export default function PublishBrokerPage() {
         <p className="text-sm text-[var(--color-danger)] pretty">{phase.message} — you can close this window and try again.</p>
       )}
 
-      <BlueskySignInModal open={signInOpen} onClose={() => setSignInOpen(false)} />
+      {/* mode="popup": OAuth in a nested popup so THIS page never
+          navigates (see handshake note above). */}
+      <BlueskySignInModal mode="popup" open={signInOpen} onClose={() => setSignInOpen(false)} />
     </main>
   );
 }

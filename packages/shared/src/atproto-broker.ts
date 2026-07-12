@@ -13,7 +13,7 @@
  *
  *   self-hosted page ──window.open──▶ my.pantryhost.app/publish-broker
  *        │                                   │
- *        │◀───────── ph-broker:ready ────────│  (repeats after OAuth redirects)
+ *        │◀───────── ph-broker:ready ────────│
  *        │────────── ph-broker:request ─────▶│  (payload; Blobs structured-clone)
  *        │                                   │  user reviews + CONFIRMS in popup
  *        │                                   │──▶ PDS (putRecord, browser-side)
@@ -190,9 +190,12 @@ const POPUP_FEATURES = 'width=480,height=760,noopener=no';
  * opens immediately on the click tick, and slow prep (photo Blob
  * collection) resolves while the popup is still loading.
  *
- * The ready→request handshake repeats: if the popup navigates away for
- * OAuth sign-in and comes back, it pings ready again and the payload is
- * re-sent (Blobs and all) — the requester's promise just stays pending.
+ * The broker popup never navigates: OAuth sign-in runs in a NESTED
+ * popup (BlueskyAuth's signInPopup), because the PDS auth pages send
+ * COOP headers that would sever window.opener on a redirect round-trip
+ * and orphan the broker from us. The requester's promise stays pending
+ * across sign-in; the re-send-on-ready handling below is defensive
+ * (e.g. a manual reload of the popup before the request is accepted).
  */
 export function publishViaBroker(
   request: BrokerRequest | Promise<BrokerRequest>,

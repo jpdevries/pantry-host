@@ -56,6 +56,14 @@ export interface BlueskyAuthState {
   /** Kick off the OAuth redirect. Never resolves in the happy
    *  path — the browser navigates away. Throws if not ready. */
   signIn: (handleInput: string) => Promise<void>;
+  /** Sign in WITHOUT navigating this page: OAuth runs in a nested
+   *  popup and the session lands here via BroadcastChannel. Required
+   *  wherever navigation would destroy in-memory state — the publish
+   *  broker popup MUST use this, because the PDS auth pages send COOP
+   *  headers that permanently sever `window.opener` on a redirect
+   *  round-trip, orphaning the broker from its requester. Resolves
+   *  once signed in. Must be called from a user gesture. */
+  signInPopup: (handleInput: string) => Promise<void>;
   /** Revoke tokens and drop local session state. */
   signOut: () => Promise<void>;
   /** Human-readable status for error toasts / debug. */
@@ -69,6 +77,9 @@ const DEFAULT_STATE: BlueskyAuthState = {
   handle: null,
   agent: null,
   signIn: async () => {
+    throw new Error('BlueskyAuthProvider not mounted');
+  },
+  signInPopup: async () => {
     throw new Error('BlueskyAuthProvider not mounted');
   },
   signOut: async () => {
@@ -269,6 +280,11 @@ export function BlueskyAuthProvider({
         }
         if (!cancelled) setIsReady(true);
       } catch (err: any) {
+        // We're the throwaway callback page of a signInPopup flow:
+        // init() already handed the session to the opening window via
+        // BroadcastChannel and the opener is about to close us. Not an
+        // error — just don't flash one while we're being closed.
+        if (err?.code === 'LOGIN_CONTINUED_IN_PARENT_WINDOW') return;
         if (!cancelled) {
           console.error('[BlueskyAuth] init failed', err);
           setError(err?.message ?? 'Failed to initialize Bluesky auth');
@@ -305,6 +321,35 @@ export function BlueskyAuthProvider({
     [client],
   );
 
+  const signInPopup = useCallback(
+    async (handleInput: string) => {
+      if (!client) throw new Error('Bluesky auth not ready');
+      const clean = handleInput.trim().replace(/^@/, '');
+      if (!clean) throw new Error('Enter a Bluesky handle');
+      // No awaits before this call — signInPopup opens its window
+      // synchronously and must still be inside the click gesture or
+      // popup blockers eat it. Resolves (via BroadcastChannel from the
+      // callback page) once the user finishes on the PDS; THIS page
+      // never navigates.
+      const s = await client.signInPopup(clean, {
+        scope: ATPROTO_PUBLISH_OAUTH_SCOPE,
+      });
+      // Same session-application as the init() restore path.
+      setSession(s);
+      setDid(s.did);
+      const { Agent } = await import('@atproto/api');
+      const a = new Agent(s as any);
+      setAgent(a);
+      try {
+        const profile = await a.com.atproto.repo.describeRepo({ repo: s.did });
+        setHandle((profile?.data as any)?.handle || s.did);
+      } catch {
+        setHandle(s.did);
+      }
+    },
+    [client],
+  );
+
   const signOut = useCallback(async () => {
     if (!client || !did) return;
     try {
@@ -326,10 +371,11 @@ export function BlueskyAuthProvider({
       handle,
       agent,
       signIn,
+      signInPopup,
       signOut,
       error,
     }),
-    [isReady, session, did, handle, agent, signIn, signOut, error],
+    [isReady, session, did, handle, agent, signIn, signInPopup, signOut, error],
   );
 
   return <BlueskyAuthContext.Provider value={value}>{children}</BlueskyAuthContext.Provider>;

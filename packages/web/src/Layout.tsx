@@ -85,18 +85,21 @@ export default function Layout() {
   }, [location.pathname]);
 
   // Scroll to #stage on route change — React Router doesn't handle hash
-  // scrolling. Use window.scrollTo (not scrollIntoView) so the reset is
-  // instant and document-level — survives the layout shift when a new
-  // route renders a loading skeleton first and then swaps in the real
-  // content (e.g. the /import/{source}/{id} preview pages). Double-RAF
-  // ensures React's commit + style recalc are done before we scroll.
-  // `#stage` is always at document top in this Layout, so (0,0) is the
-  // same target without depending on the element being measurable.
+  // scrolling. Target the element with an *instant* scrollIntoView: on
+  // narrow viewports the header carries `min-h-[100svh]` (a full-height
+  // hero), so `#stage` is NOT at document top — scrolling to (0,0) leaves
+  // the user stranded on the hero, one viewport above the content. An
+  // instant (behavior: 'auto') scrollIntoView still survives the loading
+  // -skeleton layout shift that motivated the old (0,0) reset — #stage's
+  // own top is stable (it sits directly under the fixed-height header),
+  // it's the skeleton *inside* it that shifts — while also honoring the
+  // element's `scroll-mt-20` clearance. Double-RAF ensures React's commit
+  // + style recalc are done before we measure.
   useEffect(() => {
     if (location.hash === '#stage') {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+          document.getElementById('stage')?.scrollIntoView({ behavior: 'auto' });
         });
       });
     }

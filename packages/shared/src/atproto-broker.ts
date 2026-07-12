@@ -144,14 +144,25 @@ export function shouldUseBroker(): boolean {
 // ── Requester-side helpers ───────────────────────────────────────────────
 
 /** Fetch each photoUrl into a Blob from the REQUESTER's context, where
- *  `/uploads/…` paths are same-origin. Failures are skipped — a photo
- *  never blocks a publish (same policy as direct publishing). */
-export async function collectPhotoBlobs(photoUrls: Array<string | null | undefined>): Promise<Record<string, Blob>> {
+ *  `/uploads/…` paths are same-origin. Pass `fetchPhoto` to override
+ *  resolution for schemes plain fetch can't reach — the web PWA's
+ *  `opfs://` photos need its OPFS-aware resolver here just like they
+ *  do for direct publishes. Failures are skipped — a photo never
+ *  blocks a publish (same policy as direct publishing). */
+export async function collectPhotoBlobs(
+  photoUrls: Array<string | null | undefined>,
+  fetchPhoto?: (photoUrl: string) => Promise<Blob | null>,
+): Promise<Record<string, Blob>> {
   const out: Record<string, Blob> = {};
   const unique = [...new Set(photoUrls.filter((u): u is string => !!u))];
   await Promise.all(
     unique.map(async (url) => {
       try {
+        if (fetchPhoto) {
+          const blob = await fetchPhoto(url);
+          if (blob) out[url] = blob;
+          return;
+        }
         const res = await fetch(url);
         if (res.ok) out[url] = await res.blob();
       } catch {

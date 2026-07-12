@@ -400,7 +400,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
     const request = (async (): Promise<BrokerRequest> => {
       const rkey = usableReceipt(receipt) ? rkeyFromUri(receipt.uri) ?? undefined : undefined;
       if (props.kind === 'recipe') {
-        const photoBlobs = await collectPhotoBlobs([props.recipe.photoUrl]);
+        const photoBlobs = await collectPhotoBlobs([props.recipe.photoUrl], props.fetchPhoto);
         return { type: BROKER_REQUEST, action: 'publish', kind: 'recipe', recipe: props.recipe, rkey, photoBlobs, dryRun: dry };
       }
       const existingRefs: Record<string, { uri: string; cid: string }> = {};
@@ -408,7 +408,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
         const cr = getPublishReceipt('recipe', r.id);
         if (usableReceipt(cr)) existingRefs[r.id] = { uri: cr.uri, cid: cr.cid };
       }
-      const photoBlobs = await collectPhotoBlobs(props.menu.recipes.map((r) => r.photoUrl));
+      const photoBlobs = await collectPhotoBlobs(props.menu.recipes.map((r) => r.photoUrl), props.fetchPhoto);
       return { type: BROKER_REQUEST, action: 'publish', kind: 'menu', menu: props.menu, rkey, existingRefs, photoBlobs, dryRun: dry };
     })();
     setPending(true);

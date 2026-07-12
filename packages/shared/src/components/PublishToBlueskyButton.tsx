@@ -253,7 +253,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
         <button
           type="button"
           onClick={() => setSignInOpen(true)}
-          className={`btn-primary ${props.compact ? 'px-3 py-1.5' : ''}`}
+          className={`btn-secondary ${props.compact ? 'px-3 py-1.5' : ''}`}
           aria-label="Share to Bluesky — sign-in required"
         >
           <Butterfly size={iconSize} weight="light" aria-hidden />
@@ -342,7 +342,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
       <button
         type="button"
         onClick={() => setPreviewOpen(true)}
-        className={`btn-primary ${props.compact ? 'px-3 py-1.5' : ''}`}
+        className={`btn-secondary ${props.compact ? 'px-3 py-1.5' : ''}`}
       >
         <Butterfly size={iconSize} weight="light" aria-hidden />
         Share to Bluesky

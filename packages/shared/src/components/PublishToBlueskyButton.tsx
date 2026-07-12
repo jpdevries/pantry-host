@@ -89,6 +89,14 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
 
   const dry = isDryRun();
 
+  /** A receipt only counts as "already on the PDS" if it came from a
+   *  real publish — or if this run is itself a dry run (all pretend,
+   *  so pretend-reuse is consistent). A real publish must never
+   *  reuse a dry receipt: its DRYRUN- uri / synthetic cid point at a
+   *  record that doesn't exist on any PDS. */
+  const usableReceipt = (r: PublishReceipt | null): r is PublishReceipt =>
+    r !== null && (dry || !r.dryRun);
+
   // Build the preview payload lazily so dry-run mints a fresh
   // synthetic URI per open.
   const previewMode = useMemo<PreviewMode | null>(() => {
@@ -97,14 +105,14 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
       return {
         kind: 'recipe',
         record: buildRecipeRecord(props.recipe),
-        existingUri: receipt?.uri,
+        existingUri: usableReceipt(receipt) ? receipt.uri : undefined,
       };
     }
     // Collection: plan per-child action
     const plan: Extract<PreviewMode, { kind: 'collection' }>['plan'] = props.menu.recipes.map(
       (r) => {
         const childReceipt = getPublishReceipt('recipe', r.id);
-        if (childReceipt) {
+        if (usableReceipt(childReceipt)) {
           return { recipeId: r.id, title: r.title, action: 'reuse-published' };
         }
         if (r.sourceUrl?.startsWith('at://')) {
@@ -136,7 +144,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
       kind: 'collection',
       record: buildCollectionRecord(props.menu, placeholderRefs),
       plan,
-      existingUri: receipt?.uri,
+      existingUri: usableReceipt(receipt) ? receipt.uri : undefined,
     };
     // `receipt` kept for `existingUri` — other deps implicitly
     // handled by `previewOpen` toggling.
@@ -156,7 +164,9 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
         const res = await publishRecipe(props.recipe, {
           agent: pubAgent,
           handle,
-          rkey: receipt?.uri ? rkeyFromUri(receipt.uri) ?? undefined : undefined,
+          // A dry receipt's DRYRUN- rkey must not leak into a real
+          // putRecord — fall through to createRecord instead.
+          rkey: usableReceipt(receipt) ? rkeyFromUri(receipt.uri) ?? undefined : undefined,
           fetchPhoto: props.fetchPhoto,
         });
         const newReceipt: PublishReceipt = {
@@ -175,12 +185,12 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
           props.menu,
           (recipeId) => {
             const r = getPublishReceipt('recipe', recipeId);
-            return r ? { uri: r.uri, cid: r.cid } : null;
+            return usableReceipt(r) ? { uri: r.uri, cid: r.cid } : null;
           },
           {
             agent: pubAgent,
             handle,
-            rkey: receipt?.uri ? rkeyFromUri(receipt.uri) ?? undefined : undefined,
+            rkey: usableReceipt(receipt) ? rkeyFromUri(receipt.uri) ?? undefined : undefined,
             fetchPhoto: props.fetchPhoto,
           },
         );
@@ -233,8 +243,12 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
     setPending(true);
     setError(null);
     try {
-      const pubAgent = agent as unknown as PublishAgent;
-      await unpublish(receipt.uri, { agent: pubAgent, handle: handle ?? receipt.handle });
+      // A dry receipt points at a record that was never written —
+      // there's nothing to delete on the PDS. Just clear locally.
+      if (!receipt.dryRun) {
+        const pubAgent = agent as unknown as PublishAgent;
+        await unpublish(receipt.uri, { agent: pubAgent, handle: handle ?? receipt.handle });
+      }
       clearPublishReceipt(props.kind, id);
       setReceipt(null);
       setMenuOpen(false);

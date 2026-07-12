@@ -8,8 +8,13 @@
  * Replaces the Cloudflare Worker + Cron approach that scraped
  * recipe.exchange. Now fully independent.
  *
- * API: GET /api/handles → JSON array of active recipe publishers
- *      GET /health      → { status: 'ok' }
+ * API: GET  /api/handles  → JSON array of active recipe publishers
+ *      GET  /health       → 200 { status: 'ok' } while events flow;
+ *                           500 { status: 'stalled' } when the firehose
+ *                           has gone quiet (Fly's check restarts us)
+ *      POST /api/backfill?did=… → pull a publisher's exchange.recipe.*
+ *                           records straight from their PDS (recovers
+ *                           records published while the firehose was down)
  */
 
 import express from 'express';
@@ -178,12 +183,28 @@ async function resolvePds(did: string): Promise<string> {
 
 let eventsProcessed = 0;
 let recipesFound = 0;
+// Liveness signals for the watchdog + /health. `lastEventAt` starts at
+// connect time (not 0) so a fresh boot isn't reported as stalled before
+// the first event arrives.
+let lastEventAt = 0;
+let lastSeq: number | undefined;
+let firehose: Firehose | null = null;
 
-function startFirehose() {
+// A healthy relay tail delivers identity/account events network-wide
+// every few seconds — 90s of silence means the socket is dead, not idle.
+const STALE_MS = 90_000;
+const WATCHDOG_INTERVAL_MS = 30_000;
+
+function saveCursor() {
+  if (lastSeq) setCursorStmt.run(lastSeq);
+}
+
+function connectFirehose() {
   const cursor = savedCursor();
   console.log(`[firehose] Starting from cursor: ${cursor ?? 'latest'}`);
+  lastEventAt = Date.now();
 
-  const firehose = new Firehose({
+  firehose = new Firehose({
     relay: FIREHOSE_URL,
     cursor,
     // Only surface events for the collections we care about — the relay
@@ -197,6 +218,7 @@ function startFirehose() {
     unauthenticatedHandles: true,
     handleEvent: async (event: any) => {
       eventsProcessed++;
+      lastEventAt = Date.now();
 
       if (event.event === 'create' || event.event === 'update') {
         const collection = event.collection;
@@ -249,8 +271,8 @@ function startFirehose() {
         // Handle change or did doc update — refresh our stored handle.
         if (event.handle && typeof event.handle === 'string') {
           updatePublisherHandleStmt.run(event.handle, event.did);
-          handleCache.set(event.did, event.handle);
-          console.log(`[firehose] identity update: ${event.did} -> @${event.handle}`);
+          const cached = identityCache.get(event.did);
+          if (cached) identityCache.set(event.did, { ...cached, handle: event.handle });
         }
       } else if (event.event === 'account') {
         // Takedown/deactivation: hide publisher + remove their records.
@@ -264,34 +286,57 @@ function startFirehose() {
         }
       }
 
-      // Persist cursor periodically (every 1000 events). The event carries
-      // `seq` per @atproto/sync types; older versions exposed `cursor`.
+      // Track the seq on every event; persist periodically (every 1000
+      // events) and on shutdown/reconnect. The event carries `seq` per
+      // @atproto/sync types; older versions exposed `cursor`.
       const seq = event.seq ?? event.cursor;
+      if (seq) lastSeq = seq;
       if (seq && eventsProcessed % 1000 === 0) {
         setCursorStmt.run(seq);
       }
     },
-    onError: (err) => {
+    onError: (err: Error) => {
       console.error('[firehose] Error:', err);
     },
   });
 
   firehose.start();
   console.log('[firehose] Subscription started');
+}
 
-  // Persist cursor on shutdown
-  process.on('SIGINT', () => {
-    console.log('[firehose] Shutting down, saving cursor...');
-    firehose.destroy();
+function startFirehose() {
+  connectFirehose();
+
+  // Watchdog — the websocket can die without an error or close event
+  // ever reaching us (observed in prod: index went stale for 3 weeks
+  // while /health kept saying ok). If the stream goes quiet, save the
+  // cursor and reconnect. Runs forever; a reconnect that itself stalls
+  // just gets retried on the next tick.
+  setInterval(() => {
+    const quietMs = Date.now() - lastEventAt;
+    if (quietMs < STALE_MS) return;
+    console.warn(`[firehose] no events for ${Math.round(quietMs / 1000)}s — reconnecting`);
+    saveCursor();
+    try {
+      firehose?.destroy();
+    } catch (err) {
+      console.warn('[firehose] destroy failed (continuing to reconnect):', err);
+    }
+    connectFirehose();
+  }, WATCHDOG_INTERVAL_MS).unref();
+
+  // Persist cursor on shutdown — actually save it, not just say so.
+  const shutdown = (signal: string) => {
+    console.log(`[firehose] ${signal} received, saving cursor ${lastSeq ?? '(none)'}…`);
+    saveCursor();
+    try {
+      firehose?.destroy();
+    } catch { /* already dead */ }
     db.close();
     process.exit(0);
-  });
-  process.on('SIGTERM', () => {
-    console.log('[firehose] SIGTERM received, saving cursor...');
-    firehose.destroy();
-    db.close();
-    process.exit(0);
-  });
+  };
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
 // ── One-time backfill ───────────────────────────────────────
@@ -383,17 +428,23 @@ const app = express();
 
 app.use((_req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   next();
 });
 
 app.get('/health', (_req, res) => {
-  res.json({
-    status: 'ok',
+  // A healthy firehose never goes quiet — identity/account events flow
+  // network-wide every few seconds. Report 500 when stalled so Fly's
+  // 30s health check surfaces the wedge instead of masking it.
+  const secondsSinceLastEvent = lastEventAt ? Math.round((Date.now() - lastEventAt) / 1000) : null;
+  const stalled = lastEventAt > 0 && Date.now() - lastEventAt > STALE_MS;
+  res.status(stalled ? 500 : 200).json({
+    status: stalled ? 'stalled' : 'ok',
     service: 'feed.pantryhost.app',
     eventsProcessed,
     recipesFound,
+    secondsSinceLastEvent,
   });
 });
 
@@ -407,6 +458,44 @@ app.get('/api/handles', (_req, res) => {
   const rows = listHandles.all();
   res.setHeader('Cache-Control', 'public, max-age=60');
   res.json(rows);
+});
+
+// ── On-demand backfill ───────────────────────────────────────
+// Recovers records published while the firehose was down: pulls a DID's
+// exchange.recipe.* records straight from their PDS and upserts them.
+// Safe to expose publicly — it can only index real records that already
+// exist on the DID's own PDS, which is exactly what the firehose does
+// anyway. Per-DID cooldown keeps us from hammering anyone's PDS.
+
+const backfillCooldown = new Map<string, number>();
+const BACKFILL_COOLDOWN_MS = 60_000;
+
+app.post('/api/backfill', async (req, res) => {
+  const did = typeof req.query.did === 'string' ? req.query.did.trim() : '';
+  if (!/^did:(plc:[a-z2-7]+|web:[A-Za-z0-9.%:-]+)$/.test(did)) {
+    res.status(400).json({ error: 'did query param required (did:plc:… or did:web:…)' });
+    return;
+  }
+  const last = backfillCooldown.get(did) ?? 0;
+  if (Date.now() - last < BACKFILL_COOLDOWN_MS) {
+    res.status(429).json({ error: 'backfill for this DID ran recently — try again in a minute' });
+    return;
+  }
+  backfillCooldown.set(did, Date.now());
+
+  try {
+    // Ensure a publisher row exists — /api/recipes JOINs on it, so
+    // backfilled records for an unknown DID would otherwise be invisible.
+    const handle = await resolveHandle(did);
+    upsertStmt.run(did, handle);
+    const recipes = await backfillRecordsForDid(did, LEXICON_RECIPE);
+    const collections = await backfillRecordsForDid(did, LEXICON_COLLECTION);
+    console.log(`[backfill] on-demand ${did} (@${handle}): ${recipes} recipes + ${collections} collections`);
+    res.json({ did, handle, recipes, collections });
+  } catch (err) {
+    console.error(`[backfill] on-demand error for ${did}:`, err);
+    res.status(502).json({ error: 'backfill failed' });
+  }
 });
 
 // ── PLU lookup ───────────────────────────────────────────────────

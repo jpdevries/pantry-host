@@ -111,8 +111,13 @@ export const DEFAULT_BROKER_URL = 'https://my.pantryhost.app/publish-broker';
  *  channel as atproto-publish-dry-run), then the hosted default. */
 export function brokerUrl(): string {
   try {
+    // Exact `import.meta.env.VITE_X` token required — Vite's env
+    // replacement doesn't recognize optional-chained (`?.`) access,
+    // so that "defensive" spelling silently reads undefined forever.
+    // The try/catch handles non-Vite bundlers (Rex: env is undefined
+    // → TypeError → caught).
     // @ts-expect-error import.meta.env is a Vite-ism
-    const vite = import.meta?.env?.VITE_ATPROTO_BROKER_URL;
+    const vite = import.meta.env.VITE_ATPROTO_BROKER_URL;
     if (vite) return String(vite);
   } catch {
     /* not vite */

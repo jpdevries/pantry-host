@@ -85,8 +85,11 @@ const BlueskyAuthContext = createContext<BlueskyAuthState>(DEFAULT_STATE);
  *  staging. Defaults to pantryhost.app. */
 function getProdClientId(): string {
   try {
+    // Exact `import.meta.env.VITE_X` token required — Vite's env
+    // replacement doesn't recognize optional-chained access; the
+    // try/catch covers non-Vite bundlers.
     // @ts-expect-error Vite-ism
-    const fromVite = import.meta?.env?.VITE_ATPROTO_CLIENT_ID;
+    const fromVite = import.meta.env.VITE_ATPROTO_CLIENT_ID;
     if (fromVite) return String(fromVite);
   } catch {
     /* not vite */

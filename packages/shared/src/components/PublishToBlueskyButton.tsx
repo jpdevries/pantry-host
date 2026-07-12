@@ -17,7 +17,7 @@
  * so the UI is honest about what's about to happen.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Butterfly, CaretDown } from '@phosphor-icons/react';
 import BlueskySignInModal from './BlueskySignInModal';
 import PublishPreviewModal, {
@@ -28,9 +28,13 @@ import { useBlueskyAuth } from '../contexts/BlueskyAuth';
 import {
   buildCollectionRecord,
   buildRecipeRecord,
+  findPublishedRecord,
   isDryRun,
+  LEXICON_COLLECTION,
+  LEXICON_RECIPE,
   publishCollection,
   publishRecipe,
+  recordExists,
   rkeyFromUri,
   unpublish,
   type PublishableMenu,
@@ -88,6 +92,54 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
   );
 
   const dry = isDryRun();
+
+  // Reconcile local state against the PDS (the real cross-device source
+  // of truth) once the session is ready. Runs at most once per item per
+  // sign-in. localStorage is a fast optimistic cache; the PDS decides.
+  //  - a real receipt that no longer resolves (deleted elsewhere) is cleared
+  //  - with no receipt, a record at the deterministic rkey is adopted,
+  //    so a second device / cleared cache shows "View on Bluesky"
+  // Skipped in dry-run: synthetic receipts don't resolve on any PDS.
+  const reconciledRef = useRef(false);
+  useEffect(() => {
+    if (dry || !isSignedIn || !agent) return;
+    if (reconciledRef.current) return;
+    reconciledRef.current = true;
+    const did = (agent as unknown as PublishAgent).did;
+    const collection = props.kind === 'recipe' ? LEXICON_RECIPE : LEXICON_COLLECTION;
+    const local = getPublishReceipt(props.kind, id);
+    let cancelled = false;
+    (async () => {
+      if (local && !local.dryRun) {
+        const stillThere = await recordExists(local.uri);
+        if (cancelled) return;
+        if (!stillThere) {
+          clearPublishReceipt(props.kind, id);
+          setReceipt(null);
+        }
+        return;
+      }
+      if (!local) {
+        const found = await findPublishedRecord(did, collection, id);
+        if (cancelled || !found) return;
+        const adopted: PublishReceipt = {
+          uri: found.uri,
+          cid: found.cid,
+          publishedAt: new Date().toISOString(),
+          handle: handle ?? '',
+          dryRun: false,
+        };
+        setPublishReceipt(props.kind, id, adopted);
+        setReceipt(adopted);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // id/kind identify the item; agent+isSignedIn gate readiness. receipt
+    // is intentionally excluded — the ref guards against re-runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn, agent, id, props.kind, dry]);
 
   /** A receipt only counts as "already on the PDS" if it came from a
    *  real publish — or if this run is itself a dry run (all pretend,

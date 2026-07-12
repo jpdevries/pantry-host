@@ -253,7 +253,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
         <button
           type="button"
           onClick={() => setSignInOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-[var(--color-border-card)] hover:underline"
+          className={`btn-primary ${props.compact ? 'px-3 py-1.5' : ''}`}
           aria-label="Share to Bluesky — sign-in required"
         >
           <Butterfly size={iconSize} weight="light" aria-hidden />
@@ -289,7 +289,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
           onClick={() => setMenuOpen((o: boolean) => !o)}
           aria-label="Publish options"
           aria-expanded={menuOpen}
-          className="inline-flex items-center px-2 py-1.5 text-sm rounded-r-md border border-l-0 border-[var(--color-border-card)] hover:underline"
+          className="inline-flex items-center px-2 py-1.5 text-sm rounded-r-md border border-l-0 border-[var(--color-border-card)] cursor-pointer hover:underline"
         >
           <CaretDown size={iconSize} weight="light" aria-hidden />
         </button>
@@ -305,7 +305,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
                 setMenuOpen(false);
                 setPreviewOpen(true);
               }}
-              className="block w-full text-left px-3 py-1.5 hover:underline"
+              className="block w-full text-left px-3 py-1.5 cursor-pointer hover:underline"
             >
               Re-publish
             </button>
@@ -314,7 +314,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
               role="menuitem"
               disabled={pending}
               onClick={handleUnpublish}
-              className="block w-full text-left px-3 py-1.5 hover:underline text-[var(--color-danger)]"
+              className="block w-full text-left px-3 py-1.5 cursor-pointer hover:underline text-[var(--color-danger)]"
             >
               {pending ? 'Unpublishing…' : dry ? 'Unpublish (dry run)' : 'Unpublish'}
             </button>
@@ -342,7 +342,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
       <button
         type="button"
         onClick={() => setPreviewOpen(true)}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-[var(--color-border-card)] hover:underline"
+        className={`btn-primary ${props.compact ? 'px-3 py-1.5' : ''}`}
       >
         <Butterfly size={iconSize} weight="light" aria-hidden />
         Share to Bluesky

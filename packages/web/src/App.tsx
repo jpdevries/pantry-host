@@ -28,6 +28,7 @@ import RecipeApiImportPage from './pages/RecipeApiImportPage';
 import CooklangImportPage from './pages/CooklangImportPage';
 import WikibooksImportPage from './pages/WikibooksImportPage';
 import BlueskyCallbackPage from './pages/BlueskyCallbackPage';
+import PublishBrokerPage from './pages/PublishBrokerPage';
 import { BlueskyAuthProvider } from '@pantry-host/shared/contexts/BlueskyAuth';
 
 /**
@@ -71,6 +72,10 @@ export default function App() {
       <BlueskyAuthProvider callbackPath="/oauth/bluesky/callback">
         <Routes>
           <Route path="/oauth/bluesky/callback" element={<BlueskyCallbackPage />} />
+          {/* Popup target for self-hosted instances that can't do AT
+              OAuth on their own origin — no Layout chrome (see
+              PublishBrokerPage + shared/atproto-broker). */}
+          <Route path="/publish-broker" element={<PublishBrokerPage />} />
           <Route element={<Layout />}>
             <Route path="/" element={<HomePage />} />
             {/* Top-level = home kitchen */}

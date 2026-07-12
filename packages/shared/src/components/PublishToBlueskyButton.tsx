@@ -47,6 +47,14 @@ import {
   setPublishReceipt,
   type PublishReceipt,
 } from '../pds-published';
+import {
+  BROKER_REQUEST,
+  collectPhotoBlobs,
+  publishViaBroker,
+  shouldUseBroker,
+  type BrokerRequest,
+  type BrokerResult,
+} from '../atproto-broker';
 
 // ── Props ────────────────────────────────────────────────────────────────
 
@@ -92,6 +100,10 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
   );
 
   const dry = isDryRun();
+  // On origins that can't complete AT OAuth themselves (LAN, Tailscale,
+  // plain HTTP — see issue #37), publishing routes through a popup on
+  // the hosted origin instead of the local sign-in + preview modals.
+  const viaBroker = shouldUseBroker();
 
   // Reconcile local state against the PDS (the real cross-device source
   // of truth) once the session is ready. Runs at most once per item per
@@ -100,15 +112,33 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
   //  - with no receipt, a record at the deterministic rkey is adopted,
   //    so a second device / cleared cache shows "View on Bluesky"
   // Skipped in dry-run: synthetic receipts don't resolve on any PDS.
+  // Broker origins have no local session, but `recordExists` is a
+  // public read — stale-receipt cleanup still runs there. Adoption
+  // needs a DID, which only a session provides, so it stays gated.
   const reconciledRef = useRef(false);
   useEffect(() => {
-    if (dry || !isSignedIn || !agent) return;
-    if (reconciledRef.current) return;
+    if (dry || reconciledRef.current) return;
+    const local = getPublishReceipt(props.kind, id);
+    let cancelled = false;
+
+    if (!isSignedIn || !agent) {
+      if (!viaBroker || !local || local.dryRun) return;
+      reconciledRef.current = true;
+      (async () => {
+        const stillThere = await recordExists(local.uri);
+        if (!cancelled && !stillThere) {
+          clearPublishReceipt(props.kind, id);
+          setReceipt(null);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+
     reconciledRef.current = true;
     const did = (agent as unknown as PublishAgent).did;
     const collection = props.kind === 'recipe' ? LEXICON_RECIPE : LEXICON_COLLECTION;
-    const local = getPublishReceipt(props.kind, id);
-    let cancelled = false;
     (async () => {
       if (local && !local.dryRun) {
         const stillThere = await recordExists(local.uri);
@@ -139,7 +169,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
     // id/kind identify the item; agent+isSignedIn gate readiness. receipt
     // is intentionally excluded — the ref guards against re-runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSignedIn, agent, id, props.kind, dry]);
+  }, [isSignedIn, agent, id, props.kind, dry, viaBroker]);
 
   /** A receipt only counts as "already on the PDS" if it came from a
    *  real publish — or if this run is itself a dry run (all pretend,
@@ -311,11 +341,114 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
     }
   }
 
+  // ── Broker mode (self-hosted origins that can't do AT OAuth) ──────────
+  // Sign-in, preview, and the confirm click all happen inside the popup
+  // on the hosted origin; this side only sends the payload and stores
+  // the receipts that come back. See shared/atproto-broker.ts.
+
+  function applyBrokerResult(res: BrokerResult) {
+    if (!res.ok) {
+      // A closed popup is a deliberate "no" — not an error to shout about.
+      if (res.error !== 'cancelled') setError(res.error);
+      return;
+    }
+    if (res.action === 'unpublish') {
+      clearPublishReceipt(props.kind, id);
+      setReceipt(null);
+      return;
+    }
+    const now = new Date().toISOString();
+    if (res.childReceipts) {
+      for (const [recipeId, cr] of Object.entries(res.childReceipts)) {
+        setPublishReceipt('recipe', recipeId, {
+          uri: cr.uri,
+          cid: cr.cid,
+          publishedAt: now,
+          handle: cr.handle,
+          dryRun: cr.dryRun,
+        });
+      }
+    }
+    const newReceipt: PublishReceipt = {
+      uri: res.receipt.uri,
+      cid: res.receipt.cid,
+      publishedAt: now,
+      handle: res.receipt.handle,
+      dryRun: res.receipt.dryRun,
+    };
+    setPublishReceipt(props.kind, id, newReceipt);
+    setReceipt(newReceipt);
+    // Open the modal straight onto its confirmation step (AT URI,
+    // copy button, QR) — the popup already closed.
+    setPublishResult({
+      uri: newReceipt.uri,
+      dryRun: newReceipt.dryRun,
+      handle: newReceipt.handle,
+      kind: props.kind === 'recipe' ? 'recipe' : 'collection',
+      inlinePublished: res.childReceipts ? Object.keys(res.childReceipts).length : undefined,
+    });
+    setPreviewOpen(true);
+    props.onPublished?.({ uri: newReceipt.uri, cid: newReceipt.cid, dryRun: newReceipt.dryRun });
+  }
+
+  function handleBrokerPublish() {
+    setError(null);
+    setMenuOpen(false);
+    // publishViaBroker opens the popup synchronously on this click;
+    // the payload promise (photo Blob collection) resolves while the
+    // popup loads and is delivered on its ready ping.
+    const request = (async (): Promise<BrokerRequest> => {
+      const rkey = usableReceipt(receipt) ? rkeyFromUri(receipt.uri) ?? undefined : undefined;
+      if (props.kind === 'recipe') {
+        const photoBlobs = await collectPhotoBlobs([props.recipe.photoUrl]);
+        return { type: BROKER_REQUEST, action: 'publish', kind: 'recipe', recipe: props.recipe, rkey, photoBlobs, dryRun: dry };
+      }
+      const existingRefs: Record<string, { uri: string; cid: string }> = {};
+      for (const r of props.menu.recipes) {
+        const cr = getPublishReceipt('recipe', r.id);
+        if (usableReceipt(cr)) existingRefs[r.id] = { uri: cr.uri, cid: cr.cid };
+      }
+      const photoBlobs = await collectPhotoBlobs(props.menu.recipes.map((r) => r.photoUrl));
+      return { type: BROKER_REQUEST, action: 'publish', kind: 'menu', menu: props.menu, rkey, existingRefs, photoBlobs, dryRun: dry };
+    })();
+    setPending(true);
+    publishViaBroker(request).then((res) => {
+      setPending(false);
+      applyBrokerResult(res);
+    });
+  }
+
+  function handleBrokerUnpublish() {
+    if (!receipt) return;
+    setMenuOpen(false);
+    // Dry receipts never reached a PDS — clear locally, no popup.
+    if (receipt.dryRun) {
+      clearPublishReceipt(props.kind, id);
+      setReceipt(null);
+      return;
+    }
+    setError(null);
+    setPending(true);
+    publishViaBroker({
+      type: BROKER_REQUEST,
+      action: 'unpublish',
+      kind: props.kind,
+      uri: receipt.uri,
+      title: props.kind === 'recipe' ? props.recipe.title : props.menu.title,
+      dryRun: dry,
+    }).then((res) => {
+      setPending(false);
+      applyBrokerResult(res);
+    });
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────
 
   const iconSize = props.compact ? 16 : 18;
 
-  if (!isReady) {
+  // Broker mode has no local session — auth readiness and sign-in live
+  // in the popup, so those gates only apply to the direct flow.
+  if (!viaBroker && !isReady) {
     return (
       <button
         type="button"
@@ -328,7 +461,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
     );
   }
 
-  if (!isSignedIn) {
+  if (!viaBroker && !isSignedIn) {
     return (
       <>
         <button
@@ -382,7 +515,12 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
             <button
               type="button"
               role="menuitem"
+              disabled={pending}
               onClick={() => {
+                if (viaBroker) {
+                  handleBrokerPublish();
+                  return;
+                }
                 setMenuOpen(false);
                 setPreviewOpen(true);
               }}
@@ -394,12 +532,17 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
               type="button"
               role="menuitem"
               disabled={pending}
-              onClick={handleUnpublish}
+              onClick={viaBroker ? handleBrokerUnpublish : handleUnpublish}
               className="block w-full text-left px-3 py-1.5 cursor-pointer hover:underline text-[var(--color-danger)]"
             >
               {pending ? 'Unpublishing…' : dry ? 'Unpublish (dry run)' : 'Unpublish'}
             </button>
           </div>
+        )}
+        {viaBroker && error && (
+          <span role="alert" className="absolute left-0 top-full mt-1 text-xs text-[var(--color-danger)] whitespace-nowrap pretty">
+            {error}
+          </span>
         )}
         {previewMode && (
           <PublishPreviewModal
@@ -421,22 +564,29 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
     );
   }
 
-  // Signed in, not yet published
+  // Not yet published: signed in (direct flow) or broker mode (auth
+  // and preview live in the popup on the hosted origin).
   return (
     <>
       <button
         type="button"
-        onClick={() => setPreviewOpen(true)}
+        disabled={pending}
+        onClick={() => (viaBroker ? handleBrokerPublish() : setPreviewOpen(true))}
         className={`btn-secondary ${props.compact ? 'px-3 py-1.5' : ''}`}
       >
         <Butterfly size={iconSize} weight="light" aria-hidden />
-        Share to Bluesky
+        {pending && viaBroker ? 'Waiting for publish window…' : 'Share to Bluesky'}
         {dry && (
           <span className="text-[9px] uppercase tracking-wider px-1 rounded bg-[var(--color-warning-bg)] text-[var(--color-warning)] font-semibold">
             Dry
           </span>
         )}
       </button>
+      {viaBroker && error && (
+        <span role="alert" className="block mt-2 text-xs text-[var(--color-danger)] pretty">
+          {error}
+        </span>
+      )}
       {previewMode && (
         <PublishPreviewModal
           open={previewOpen}

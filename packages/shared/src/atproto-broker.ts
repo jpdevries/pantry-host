@@ -1,0 +1,240 @@
+/**
+ * Publish broker — lets a self-hosted Pantry Host instance publish to
+ * Bluesky through a popup on the hosted Tier 1 origin
+ * (my.pantryhost.app), where AT Protocol OAuth actually works.
+ *
+ * Why: AT OAuth requires the client_id to be a publicly-fetchable
+ * HTTPS document and web-client redirect URIs to live on that origin.
+ * A LAN / Tailscale / plain-HTTP self-hosted box can't satisfy either,
+ * so it can never complete the OAuth dance itself (see issue #37).
+ * The broker popup runs on the public origin, holds the OAuth session
+ * there, and performs the browser → PDS write on the requester's
+ * behalf. The flow is:
+ *
+ *   self-hosted page ──window.open──▶ my.pantryhost.app/publish-broker
+ *        │                                   │
+ *        │◀───────── ph-broker:ready ────────│  (repeats after OAuth redirects)
+ *        │────────── ph-broker:request ─────▶│  (payload; Blobs structured-clone)
+ *        │                                   │  user reviews + CONFIRMS in popup
+ *        │                                   │──▶ PDS (putRecord, browser-side)
+ *        │◀───────── ph-broker:result ───────│  (receipts, targetOrigin-locked)
+ *
+ * Security invariants (keep these when editing):
+ * - Tokens/DPoP keys NEVER leave the broker origin. Only record
+ *   payloads go in; only receipts come out.
+ * - The broker accepts exactly ONE request per popup lifetime — no
+ *   payload swapping after the confirm UI renders.
+ * - The confirm click happens INSIDE the popup (real URL bar, no
+ *   clickjacking), with the requesting origin displayed prominently.
+ * - Replies use an explicit targetOrigin (the captured requester
+ *   origin), never '*'. The ready ping carries no data, so '*' is
+ *   acceptable there (the popup can't know its opener's origin first).
+ * - No auto-publish: nothing is written without a user gesture in the
+ *   trusted origin.
+ *
+ * The record still travels browser → PDS; Pantry Host infrastructure
+ * stores nothing. The trade-off is availability/trust coupling to the
+ * hosted origin — the fully-sovereign alternatives (own public domain,
+ * app passwords) are tracked in #37.
+ */
+
+import type { PublishableMenu, PublishableRecipe } from './atproto-publish';
+
+// ── Protocol ─────────────────────────────────────────────────────────────
+
+export const BROKER_READY = 'ph-broker:ready';
+export const BROKER_REQUEST = 'ph-broker:request';
+export const BROKER_RESULT = 'ph-broker:result';
+
+export interface BrokerReceipt {
+  uri: string;
+  cid: string;
+  handle: string;
+  dryRun: boolean;
+}
+
+export type BrokerRequest =
+  | {
+      type: typeof BROKER_REQUEST;
+      action: 'publish';
+      kind: 'recipe';
+      recipe: PublishableRecipe;
+      /** Re-publish target for records that predate deterministic
+       *  rkeys — omit to publish at rkeyForLocal(recipe.id). */
+      rkey?: string;
+      /** photoUrl → bytes, fetched by the requester (same-origin
+       *  there; the broker origin can't reach a LAN box). */
+      photoBlobs?: Record<string, Blob>;
+      dryRun: boolean;
+    }
+  | {
+      type: typeof BROKER_REQUEST;
+      action: 'publish';
+      kind: 'menu';
+      menu: PublishableMenu;
+      rkey?: string;
+      /** recipeId → known-good strongRef, so already-published
+       *  children are reused instead of re-published. */
+      existingRefs?: Record<string, { uri: string; cid: string }>;
+      photoBlobs?: Record<string, Blob>;
+      dryRun: boolean;
+    }
+  | {
+      type: typeof BROKER_REQUEST;
+      action: 'unpublish';
+      kind: 'recipe' | 'menu';
+      uri: string;
+      /** Shown in the confirm UI so the user knows what they're deleting. */
+      title: string;
+      dryRun: boolean;
+    };
+
+export type BrokerResult =
+  | {
+      type: typeof BROKER_RESULT;
+      ok: true;
+      action: 'publish';
+      kind: 'recipe' | 'menu';
+      receipt: BrokerReceipt;
+      /** Menu publishes: receipts for children published inline, so
+       *  the requester can persist them for future Reuse. */
+      childReceipts?: Record<string, BrokerReceipt>;
+    }
+  | { type: typeof BROKER_RESULT; ok: true; action: 'unpublish' }
+  | { type: typeof BROKER_RESULT; ok: false; error: 'cancelled' | 'sign-in-failed' | string };
+
+// ── Broker location ──────────────────────────────────────────────────────
+
+export const DEFAULT_BROKER_URL = 'https://my.pantryhost.app/publish-broker';
+
+/** Resolve the broker URL: Vite env (web dev), meta tag (Rex — same
+ *  channel as atproto-publish-dry-run), then the hosted default. */
+export function brokerUrl(): string {
+  try {
+    // @ts-expect-error import.meta.env is a Vite-ism
+    const vite = import.meta?.env?.VITE_ATPROTO_BROKER_URL;
+    if (vite) return String(vite);
+  } catch {
+    /* not vite */
+  }
+  if (typeof document !== 'undefined') {
+    const meta = document.querySelector('meta[name="atproto-broker-url"]')?.getAttribute('content');
+    if (meta) return meta;
+  }
+  return DEFAULT_BROKER_URL;
+}
+
+/** True when this origin cannot complete AT OAuth itself and should
+ *  publish through the broker popup instead: not the spec loopback
+ *  (127.0.0.1 / [::1]) and not an origin the hosted client's
+ *  redirect_uris cover. Deliberately includes `localhost` — the spec
+ *  rejects it for loopback OAuth, but the broker works fine there. */
+export function shouldUseBroker(): boolean {
+  if (typeof window === 'undefined') return false;
+  const { hostname, origin } = window.location;
+  if (hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1') return false;
+  const brokerOrigin = new URL(brokerUrl()).origin;
+  // Direct OAuth works on the hosted origins themselves (and on the
+  // broker origin — a broker popup opening a broker would be silly).
+  if (origin === brokerOrigin) return false;
+  if (origin === 'https://my.pantryhost.app' || origin === 'https://pantryhost.app') return false;
+  return true;
+}
+
+// ── Requester-side helpers ───────────────────────────────────────────────
+
+/** Fetch each photoUrl into a Blob from the REQUESTER's context, where
+ *  `/uploads/…` paths are same-origin. Failures are skipped — a photo
+ *  never blocks a publish (same policy as direct publishing). */
+export async function collectPhotoBlobs(photoUrls: Array<string | null | undefined>): Promise<Record<string, Blob>> {
+  const out: Record<string, Blob> = {};
+  const unique = [...new Set(photoUrls.filter((u): u is string => !!u))];
+  await Promise.all(
+    unique.map(async (url) => {
+      try {
+        const res = await fetch(url);
+        if (res.ok) out[url] = await res.blob();
+      } catch {
+        /* skip — broker will publish without this photo */
+      }
+    }),
+  );
+  return out;
+}
+
+/** How long the requester waits for the user to finish in the popup.
+ *  Generous: sign-in (an OAuth round-trip) can happen mid-flow. */
+const BROKER_TIMEOUT_MS = 5 * 60 * 1000;
+const POPUP_FEATURES = 'width=480,height=760,noopener=no';
+
+/**
+ * Open the broker popup and run one request through it. MUST be called
+ * synchronously from a user gesture (click handler) or popup blockers
+ * eat the window — which is why `request` may be a Promise: the popup
+ * opens immediately on the click tick, and slow prep (photo Blob
+ * collection) resolves while the popup is still loading.
+ *
+ * The ready→request handshake repeats: if the popup navigates away for
+ * OAuth sign-in and comes back, it pings ready again and the payload is
+ * re-sent (Blobs and all) — the requester's promise just stays pending.
+ */
+export function publishViaBroker(
+  request: BrokerRequest | Promise<BrokerRequest>,
+  url = brokerUrl(),
+): Promise<BrokerResult> {
+  const brokerOrigin = new URL(url).origin;
+  const popup = typeof window !== 'undefined' ? window.open(url, 'ph-publish-broker', POPUP_FEATURES) : null;
+  if (!popup) {
+    return Promise.resolve({
+      type: BROKER_RESULT,
+      ok: false,
+      error: 'Popup blocked — allow popups for this site and try again.',
+    });
+  }
+
+  return new Promise<BrokerResult>((resolve) => {
+    let settled = false;
+    const settle = (result: BrokerResult) => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener('message', onMessage);
+      clearInterval(closedPoll);
+      clearTimeout(deadline);
+      resolve(result);
+    };
+
+    const onMessage = async (event: MessageEvent) => {
+      if (event.origin !== brokerOrigin || event.source !== popup) return;
+      const data = event.data as { type?: string } | null;
+      if (data?.type === BROKER_READY) {
+        // (Re-)send the payload — targetOrigin locked to the broker.
+        try {
+          popup.postMessage(await request, brokerOrigin);
+        } catch (err) {
+          settle({ type: BROKER_RESULT, ok: false, error: err instanceof Error ? err.message : 'Failed to prepare the publish payload.' });
+          popup.close();
+        }
+        return;
+      }
+      if (data?.type === BROKER_RESULT) {
+        settle(data as BrokerResult);
+        popup.close();
+      }
+    };
+    window.addEventListener('message', onMessage);
+
+    // User closed the popup without finishing.
+    const closedPoll = setInterval(() => {
+      if (popup.closed) settle({ type: BROKER_RESULT, ok: false, error: 'cancelled' });
+    }, 500);
+
+    const deadline = setTimeout(() => {
+      settle({ type: BROKER_RESULT, ok: false, error: 'Timed out waiting for the publish window.' });
+      try {
+        popup.close();
+      } catch {
+        /* already gone */
+      }
+    }, BROKER_TIMEOUT_MS);
+  });
+}

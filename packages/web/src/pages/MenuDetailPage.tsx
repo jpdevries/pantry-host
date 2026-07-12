@@ -48,12 +48,13 @@ interface Menu {
   sourceUrl: string | null;
   active: boolean;
   category: string | null;
+  createdAt: string | null;
   recipes: MenuRecipe[];
 }
 
 const MENU_QUERY = `query($id: String!) {
   menu(id: $id) {
-    id slug title description sourceUrl active category
+    id slug title description sourceUrl active category createdAt
     recipes {
       id course sortOrder
       recipe {
@@ -308,7 +309,7 @@ export default function MenuDetailPage() {
             id: menu.id,
             title: menu.title,
             description: menu.description,
-            createdAt: null,
+            createdAt: menu.createdAt,
             recipes: menu.recipes.map((mr) => ({
               id: mr.recipe.id,
               title: mr.recipe.title,

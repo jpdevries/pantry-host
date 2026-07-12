@@ -66,6 +66,7 @@ export interface Recipe {
   stepPhotos: string[];
   lastMadeAt: string | null;
   queued: boolean;
+  createdAt: string | null;
   ingredients: RecipeIngredient[];
   /** Recursively-unfurled ingredient list — same shape as `ingredients`,
    *  but sub-recipes are expanded to their constituents. Used by the
@@ -78,7 +79,7 @@ export const RECIPE_QUERY = `
   query Recipe($id: String!) {
     recipe(id: $id) {
       id slug title description instructions servings prepTime cookTime
-      tags requiredCookware { id name brand } source sourceUrl photoUrl stepPhotos lastMadeAt queued
+      tags requiredCookware { id name brand } source sourceUrl photoUrl stepPhotos lastMadeAt queued createdAt
       ingredients { ingredientName quantity unit itemSize itemSizeUnit sourceRecipeId }
       groceryIngredients { ingredientName quantity unit itemSize itemSizeUnit }
       usedIn { id slug title cookTime prepTime servings source tags photoUrl queued }
@@ -1168,7 +1169,7 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
                   tags: recipe.tags,
                   sourceUrl: recipe.sourceUrl,
                   photoUrl: recipe.photoUrl,
-                  createdAt: null,
+                  createdAt: recipe.createdAt,
                   groceryIngredients: recipe.groceryIngredients,
                 }}
               />

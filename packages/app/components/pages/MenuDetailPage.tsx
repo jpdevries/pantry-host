@@ -26,6 +26,7 @@ interface MenuRecipe {
     tags: string[];
     photoUrl: string | null;
     queued: boolean;
+    createdAt: string | null;
     groceryIngredients: Array<{
       ingredientName: string;
       quantity: number | null;
@@ -43,17 +44,18 @@ export interface Menu {
   description: string | null;
   sourceUrl: string | null;
   active: boolean;
+  createdAt: string | null;
   recipes: MenuRecipe[];
 }
 
 export const MENU_QUERY = `query Menu($id: String!) {
   menu(id: $id) {
-    id slug title description sourceUrl active
+    id slug title description sourceUrl active createdAt
     recipes {
       id course sortOrder
       recipe {
         id slug title description instructions cookTime prepTime servings
-        source sourceUrl tags photoUrl queued
+        source sourceUrl tags photoUrl queued createdAt
         groceryIngredients { ingredientName quantity unit itemSize itemSizeUnit }
       }
     }
@@ -437,7 +439,7 @@ export default function MenuDetailPage({ menuId, initialMenu }: Props) {
               id: menu.id,
               title: menu.title,
               description: menu.description,
-              createdAt: null,
+              createdAt: menu.createdAt,
               recipes: menu.recipes.map((mr) => ({
                 id: mr.recipe.id,
                 title: mr.recipe.title,
@@ -449,7 +451,7 @@ export default function MenuDetailPage({ menuId, initialMenu }: Props) {
                 tags: mr.recipe.tags,
                 sourceUrl: mr.recipe.sourceUrl,
                 photoUrl: mr.recipe.photoUrl,
-                createdAt: null,
+                createdAt: mr.recipe.createdAt,
                 groceryIngredients: mr.recipe.groceryIngredients,
               })),
             }}

@@ -262,13 +262,43 @@ async function fetchBlobFromPds(did: string, cid: string): Promise<Blob | null> 
   }
 }
 
+/** Cross-origin image proxy on the feed box — fetches an arbitrary
+ *  external photo server-side and returns it with CORS headers. The
+ *  last resort for hosts (food blogs etc.) that send no CORS header
+ *  and aren't Bluesky-CDN (those take the PDS path above). */
+const IMAGE_PROXY_URL = 'https://feed.pantryhost.app/api/image-proxy';
+
+/** True for an absolute http(s) URL on some OTHER origin — the only
+ *  case the proxy helps. Same-origin `/uploads/…`, relative paths,
+ *  and `blob:`/`data:` are fetched directly and never proxied. */
+function isCrossOriginHttp(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    if (typeof location !== 'undefined' && u.origin === location.origin) return false;
+    return true;
+  } catch {
+    return false; // relative or unparseable — not a proxy candidate
+  }
+}
+
+async function fetchViaImageProxy(url: string): Promise<Blob | null> {
+  try {
+    const res = await fetch(`${IMAGE_PROXY_URL}?url=${encodeURIComponent(url)}`);
+    if (!res.ok) return null;
+    return await res.blob();
+  } catch {
+    return null;
+  }
+}
+
 /** Default `fetchPhoto` — plain fetch, with a PDS `sync.getBlob`
  *  path for Bluesky CDN URLs (the CDN itself is CORS-blocked; the
- *  author's PDS serves the same blob with CORS). Also covers the
- *  app's same-origin `/uploads/…` paths, `blob:`/`data:` URLs, and
- *  external URLs whose hosts send CORS headers. Returns null (never
- *  throws) when the URL can't be fetched — a missing photo must not
- *  block a publish. */
+ *  author's PDS serves the same blob with CORS) and a feed-box image
+ *  proxy fallback for any OTHER cross-origin host that blocks CORS.
+ *  Also covers the app's same-origin `/uploads/…` paths and
+ *  `blob:`/`data:` URLs. Returns null (never throws) when the URL
+ *  can't be fetched — a missing photo must not block a publish. */
 export async function fetchPhotoBlob(photoUrl: string): Promise<Blob | null> {
   if (typeof fetch === 'undefined') return null;
   if (photoUrl.startsWith('opfs://')) {
@@ -286,12 +316,16 @@ export async function fetchPhotoBlob(photoUrl: string): Promise<Blob | null> {
   }
   try {
     const res = await fetch(photoUrl);
-    if (!res.ok) return null;
-    return await res.blob();
+    if (res.ok) return await res.blob();
   } catch {
-    console.warn('[atproto-publish] photo fetch failed (CORS?); publishing without it', photoUrl);
-    return null;
+    /* CORS or network — try the proxy below for cross-origin hosts */
   }
+  if (isCrossOriginHttp(photoUrl)) {
+    const viaProxy = await fetchViaImageProxy(photoUrl);
+    if (viaProxy) return viaProxy;
+  }
+  console.warn('[atproto-publish] photo fetch failed (CORS?); publishing without it', photoUrl);
+  return null;
 }
 
 /** Decode, downscale to MAX_PHOTO_DIM, and re-encode as JPEG until

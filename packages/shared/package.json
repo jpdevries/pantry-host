@@ -70,6 +70,7 @@
     "./components/QRCodeModal": "./src/components/QRCodeModal.tsx",
     "./components/ImageBoundary": "./src/components/ImageBoundary.tsx",
     "./sql/schema": "./src/sql/schema.ts",
+    "./atproto-client": "./src/atproto-client.ts",
     "./atproto-publish": "./src/atproto-publish.ts",
     "./atproto-broker": "./src/atproto-broker.ts",
     "./pds-published": "./src/pds-published.ts",

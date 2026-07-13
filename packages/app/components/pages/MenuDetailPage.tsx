@@ -439,6 +439,7 @@ export default function MenuDetailPage({ menuId, initialMenu }: Props) {
               id: menu.id,
               title: menu.title,
               description: menu.description,
+              sourceUrl: menu.sourceUrl,
               createdAt: menu.createdAt,
               recipes: menu.recipes.map((mr) => ({
                 id: mr.recipe.id,

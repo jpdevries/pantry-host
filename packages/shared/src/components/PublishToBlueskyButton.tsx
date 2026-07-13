@@ -26,10 +26,13 @@ import PublishPreviewModal, {
 } from './PublishPreviewModal';
 import { useBlueskyAuth } from '../contexts/BlueskyAuth';
 import {
+  adoptRkeyFromSource,
   buildCollectionRecord,
   buildRecipeRecord,
   findPublishedRecord,
+  getRecordInfo,
   isDryRun,
+  parseAtUri,
   LEXICON_COLLECTION,
   LEXICON_RECIPE,
   publishCollection,
@@ -95,6 +98,10 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
   const [publishResult, setPublishResult] = useState<PublishSuccessInfo | null>(null);
 
   const id = props.kind === 'recipe' ? props.recipe.id : props.menu.id;
+  // The item's provenance — an at:// URI here may be the user's OWN
+  // published record (imported copy), which publish should update in
+  // place rather than duplicate (adopt-own-records).
+  const sourceAtUri = props.kind === 'recipe' ? props.recipe.sourceUrl : props.menu.sourceUrl;
   const [receipt, setReceipt] = useState<PublishReceipt | null>(() =>
     getPublishReceipt(props.kind, id),
   );
@@ -159,7 +166,16 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
         return;
       }
       if (!local) {
-        const found = await findPublishedRecord(did, collection, id);
+        // Adopt-own-records first: an imported copy of the user's OWN
+        // record (sourceUrl = at:// URI this DID owns) is already
+        // published — reconnect to the ORIGINAL so the CTA shows
+        // "View on Bluesky" and a publish updates it in place.
+        const adoptRkey = adoptRkeyFromSource(sourceAtUri, collection, did);
+        const found =
+          (adoptRkey ? await getRecordInfo(`at://${did}/${collection}/${adoptRkey}`) : null) ??
+          // Original gone (or no at:// source) — the deterministic
+          // rkey may still hold a record published from this device.
+          (await findPublishedRecord(did, collection, id));
         if (cancelled || !found) return;
         const adopted: PublishReceipt = {
           uri: found.uri,
@@ -251,13 +267,20 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
     setPending(true);
     try {
       const pubAgent = agent as unknown as PublishAgent;
+      // rkey precedence: a usable receipt (dry ones never leak into a
+      // real putRecord), then adopt-own-records (sourceUrl points at a
+      // record this DID owns — usually the reconcile effect has already
+      // turned that into a receipt; this covers the race before it
+      // lands), then the deterministic default inside publishRecipe.
+      const rkeyFor = (collection: string) =>
+        (usableReceipt(receipt) ? rkeyFromUri(receipt.uri) ?? undefined : undefined) ??
+        adoptRkeyFromSource(sourceAtUri, collection, pubAgent.did) ??
+        undefined;
       if (props.kind === 'recipe') {
         const res = await publishRecipe(props.recipe, {
           agent: pubAgent,
           handle,
-          // A dry receipt's DRYRUN- rkey must not leak into a real
-          // putRecord — fall through to createRecord instead.
-          rkey: usableReceipt(receipt) ? rkeyFromUri(receipt.uri) ?? undefined : undefined,
+          rkey: rkeyFor(LEXICON_RECIPE),
           fetchPhoto: props.fetchPhoto,
         });
         const newReceipt: PublishReceipt = {
@@ -281,7 +304,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
           {
             agent: pubAgent,
             handle,
-            rkey: usableReceipt(receipt) ? rkeyFromUri(receipt.uri) ?? undefined : undefined,
+            rkey: rkeyFor(LEXICON_COLLECTION),
             fetchPhoto: props.fetchPhoto,
           },
         );
@@ -408,9 +431,14 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
     // popup loads and is delivered on its ready ping.
     const request = (async (): Promise<BrokerRequest> => {
       const rkey = usableReceipt(receipt) ? rkeyFromUri(receipt.uri) ?? undefined : undefined;
+      // Adopt-own-records: we can't judge ownership here (no session
+      // on this origin) — send the at:// source along and let the
+      // broker decide against the signed-in DID.
+      const expected = props.kind === 'recipe' ? LEXICON_RECIPE : LEXICON_COLLECTION;
+      const adoptUri = parseAtUri(sourceAtUri)?.collection === expected ? sourceAtUri ?? undefined : undefined;
       if (props.kind === 'recipe') {
         const photoBlobs = await collectPhotoBlobs([props.recipe.photoUrl], props.fetchPhoto);
-        return { type: BROKER_REQUEST, action: 'publish', kind: 'recipe', recipe: props.recipe, rkey, photoBlobs, dryRun: dry };
+        return { type: BROKER_REQUEST, action: 'publish', kind: 'recipe', recipe: props.recipe, rkey, adoptUri, photoBlobs, dryRun: dry };
       }
       const existingRefs: Record<string, { uri: string; cid: string }> = {};
       for (const r of props.menu.recipes) {
@@ -418,7 +446,7 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
         if (usableReceipt(cr)) existingRefs[r.id] = { uri: cr.uri, cid: cr.cid };
       }
       const photoBlobs = await collectPhotoBlobs(props.menu.recipes.map((r) => r.photoUrl), props.fetchPhoto);
-      return { type: BROKER_REQUEST, action: 'publish', kind: 'menu', menu: props.menu, rkey, existingRefs, photoBlobs, dryRun: dry };
+      return { type: BROKER_REQUEST, action: 'publish', kind: 'menu', menu: props.menu, rkey, adoptUri, existingRefs, photoBlobs, dryRun: dry };
     })();
     setPending(true);
     publishViaBroker(request).then((res) => {

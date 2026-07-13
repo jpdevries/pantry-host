@@ -29,9 +29,12 @@ import {
   type BrokerResult,
 } from '@pantry-host/shared/atproto-broker';
 import {
+  adoptRkeyFromSource,
   buildCollectionRecord,
   buildRecipeRecord,
   fetchPhotoBlob,
+  LEXICON_COLLECTION,
+  LEXICON_RECIPE,
   publishCollection,
   publishRecipe,
   unpublish,
@@ -46,7 +49,7 @@ type Phase =
   | { name: 'error'; message: string };
 
 export default function PublishBrokerPage() {
-  const { isReady, isSignedIn, agent, handle } = useBlueskyAuth();
+  const { isReady, isSignedIn, agent, handle, did } = useBlueskyAuth();
   const [phase, setPhase] = useState<Phase>({ name: 'waiting' });
   const [signInOpen, setSignInOpen] = useState(false);
   const [announcement, setAnnouncement] = useState('');
@@ -122,7 +125,16 @@ export default function PublishBrokerPage() {
       // external URLs the broker origin can reach.
       const fetchPhoto = (url: string) =>
         request.photoBlobs?.[url] ? Promise.resolve(request.photoBlobs[url]) : fetchPhotoBlob(url);
-      const opts = { agent: pubAgent, handle, dryRun: request.dryRun, rkey: request.rkey, fetchPhoto };
+      // Adopt-own-records: the requester sends its sourceUrl blind
+      // (it has no session); ownership is decided HERE, against the
+      // signed-in DID. An explicit rkey (pre-deterministic receipt)
+      // still wins.
+      const adoptRkey = adoptRkeyFromSource(
+        request.adoptUri,
+        request.kind === 'recipe' ? LEXICON_RECIPE : LEXICON_COLLECTION,
+        pubAgent.did,
+      );
+      const opts = { agent: pubAgent, handle, dryRun: request.dryRun, rkey: request.rkey ?? adoptRkey ?? undefined, fetchPhoto };
 
       if (request.kind === 'recipe') {
         const res = await publishRecipe(request.recipe, opts);
@@ -194,13 +206,33 @@ export default function PublishBrokerPage() {
             <strong>{req.action === 'unpublish' ? req.title : req.kind === 'recipe' ? req.recipe.title : req.menu.title}</strong>
             {req.action === 'publish' ? <> {req.kind === 'menu' ? 'and its recipes ' : ''}to your PDS</> : ' from your PDS'}.
           </p>
-          <p className="text-xs text-[var(--color-text-secondary)] mb-4 pretty">
+          <p className="text-xs text-[var(--color-text-secondary)] mb-1 pretty">
             {isSignedIn ? (
               <>Signed in as <strong>@{handle}</strong>. Nothing happens until you confirm below.</>
             ) : (
               <>Sign in with Bluesky to continue. Nothing happens until you confirm.</>
             )}
           </p>
+          {/* Update-vs-create honesty line — ownership of adoptUri can
+              only be judged once a session names the DID. */}
+          {isSignedIn && did && req.action === 'publish' && (
+            <p className="text-xs text-[var(--color-text-secondary)] mb-4 pretty">
+              {(() => {
+                const updateRkey =
+                  req.rkey ??
+                  adoptRkeyFromSource(req.adoptUri, req.kind === 'recipe' ? LEXICON_RECIPE : LEXICON_COLLECTION, did);
+                return updateRkey ? (
+                  <>
+                    Updates your existing record{' '}
+                    <code className="font-mono text-[11px] break-all">{updateRkey}</code> in place.
+                  </>
+                ) : (
+                  <>Publishes as a new record.</>
+                );
+              })()}
+            </p>
+          )}
+          {!(isSignedIn && did && req.action === 'publish') && <div className="mb-3" />}
 
           {req.action === 'publish' && req.kind === 'menu' && (
             <ul className="text-sm mb-3 space-y-1">

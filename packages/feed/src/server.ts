@@ -794,6 +794,99 @@ app.post('/api/fetch-recipe', express.json(), async (req, res) => {
   res.json({ title, ingredients: [] });
 });
 
+// ── Image proxy ───────────────────────────────────────────────
+// GET /api/image-proxy?url=…  → the image bytes, with CORS.
+//
+// Publishing an imported recipe to Bluesky re-uploads its photo, but
+// the browser can't fetch an arbitrary external host's image (no CORS
+// header). Bluesky-CDN photos take a client-side path (author PDS
+// sync.getBlob); every OTHER host — food blogs, loveandlemons.com,
+// etc. — has no client option and comes through here. The bytes
+// transit this Fly box; nothing is stored.
+//
+// SSRF guard: only http(s), and reject hosts that are (or look like)
+// internal — literal private/link-local IPs, localhost, *.local /
+// *.internal. Not airtight against DNS rebinding, but this box holds
+// no internal-network secrets and returns only image/* bytes.
+
+const IMAGE_PROXY_MAX_BYTES = 15_000_000;
+
+function isBlockedHost(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (h === 'localhost' || h.endsWith('.local') || h.endsWith('.internal')) return true;
+  // IPv4 literal private / loopback / link-local ranges.
+  const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    if (a === 10 || a === 127 || a === 0) return true;
+    if (a === 169 && b === 254) return true; // link-local + cloud metadata
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    return false;
+  }
+  // IPv6 loopback / unique-local / link-local.
+  if (h === '::1' || h.startsWith('fc') || h.startsWith('fd') || h.startsWith('fe80')) return true;
+  return false;
+}
+
+app.get('/api/image-proxy', async (req, res) => {
+  const url = typeof req.query.url === 'string' ? req.query.url : '';
+  if (!url) { res.status(400).json({ error: 'url is required' }); return; }
+
+  let target: URL;
+  try {
+    target = new URL(url);
+  } catch {
+    res.status(400).json({ error: 'invalid url' });
+    return;
+  }
+  if (target.protocol !== 'http:' && target.protocol !== 'https:') {
+    res.status(400).json({ error: 'only http(s) urls are supported' });
+    return;
+  }
+  if (isBlockedHost(target.hostname)) {
+    res.status(403).json({ error: 'host not allowed' });
+    return;
+  }
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(target, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PantryHostBot/1.0)' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch (err) {
+    res.status(502).json({ error: `failed to fetch image: ${(err as Error).message}` });
+    return;
+  }
+  if (!upstream.ok) {
+    res.status(502).json({ error: `upstream returned HTTP ${upstream.status}` });
+    return;
+  }
+
+  const contentType = upstream.headers.get('content-type') ?? '';
+  if (!contentType.startsWith('image/')) {
+    res.status(415).json({ error: `not an image (content-type: ${contentType || 'unknown'})` });
+    return;
+  }
+  const declaredLength = Number(upstream.headers.get('content-length') ?? '0');
+  if (declaredLength > IMAGE_PROXY_MAX_BYTES) {
+    res.status(413).json({ error: 'image too large' });
+    return;
+  }
+
+  const buf = Buffer.from(await upstream.arrayBuffer());
+  if (buf.length > IMAGE_PROXY_MAX_BYTES) {
+    res.status(413).json({ error: 'image too large' });
+    return;
+  }
+
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.send(buf);
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[api] Listening on port ${PORT}`);
   startFirehose();

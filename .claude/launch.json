@@ -4,67 +4,100 @@
     {
       "name": "pantry-host",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && set -a && source .env.local && export DEFAULT_THEME=claude && set +a && npx @limlabs/rex dev --root packages/app --host 0.0.0.0"],
+      "runtimeArgs": [
+        "-c",
+        "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && set -a && source .env.local && export DEFAULT_THEME=claude && set +a && npx @limlabs/rex dev --root packages/app --host 0.0.0.0"
+      ],
       "port": 3000
     },
     {
       "name": "pantry-host-mini-prod",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && set -a && source .env.local && export DEFAULT_THEME=claude && export PUBLIC_API_ORIGIN=http://100.125.77.118:4001 && set +a && cd packages/app && npx @limlabs/rex start --host 0.0.0.0"],
+      "runtimeArgs": [
+        "-c",
+        "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && set -a && source .env.local && export DEFAULT_THEME=claude && export PUBLIC_API_ORIGIN=http://100.125.77.118:4001 && set +a && cd packages/app && npx @limlabs/rex start --host 0.0.0.0"
+      ],
       "port": 3000
     },
     {
       "name": "graphql-server",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && cd packages/app && set -a && source ../../.env.local && set +a && npx tsx graphql-server.ts"],
+      "runtimeArgs": [
+        "-c",
+        "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && cd packages/app && set -a && source ../../.env.local && set +a && npx tsx graphql-server.ts"
+      ],
       "port": 4001
     },
     {
       "name": "graphql-server-local",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && cd packages/app && set -a && source ../../.env.local && export SQLITE_DB_PATH=./pantry.db && set +a && npx tsx graphql-server.ts"],
+      "runtimeArgs": [
+        "-c",
+        "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && cd packages/app && set -a && source ../../.env.local && export SQLITE_DB_PATH=./pantry.db && set +a && npx tsx graphql-server.ts"
+      ],
       "port": 4001
     },
     {
       "name": "marketing",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && cd packages/marketing && npx vite --port 5173"],
+      "runtimeArgs": [
+        "-c",
+        "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && cd packages/marketing && npx vite --port 5173"
+      ],
       "port": 5173
     },
     {
       "name": "marketing-prod",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && cd packages/marketing && npx vite preview --port 5173 --strictPort"],
+      "runtimeArgs": [
+        "-c",
+        "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && cd packages/marketing && npx vite preview --port 5173 --strictPort"
+      ],
       "port": 5173
     },
     {
       "name": "web",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && cd packages/web && npx vite --port 5174"],
+      "runtimeArgs": [
+        "-c",
+        "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && cd packages/web && npx vite --port 5174 --host"
+      ],
       "port": 5174
     },
     {
       "name": "mcp-server",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && cd packages/mcp && set -a && source ../../.env.local && set +a && npx tsx src/index.ts --http"],
+      "runtimeArgs": [
+        "-c",
+        "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && cd packages/mcp && set -a && source ../../.env.local && set +a && npx tsx src/index.ts --http"
+      ],
       "port": 5001
     },
     {
       "name": "pantry-host-prod",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && set -a && source .env.local && export DEFAULT_THEME=claude && set +a && cd packages/app && rex build && rex start --host 0.0.0.0"],
+      "runtimeArgs": [
+        "-c",
+        "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && set -a && source .env.local && export DEFAULT_THEME=claude && set +a && cd packages/app && rex build && rex start --host 0.0.0.0"
+      ],
       "port": 3000
     },
     {
       "name": "graphql-server-prod",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && cd packages/app && set -a && source ../../.env.local && export SQLITE_DB_PATH=./pantry.db && set +a && npx tsx graphql-server.ts"],
+      "runtimeArgs": [
+        "-c",
+        "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && cd packages/app && set -a && source ../../.env.local && export SQLITE_DB_PATH=./pantry.db && set +a && npx tsx graphql-server.ts"
+      ],
       "port": 4001
     },
     {
       "name": "graphql-server-rs",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "cd packages/server && set -a && [ -f ../../.env.local ] && source ../../.env.local; export SQLITE_DB_PATH=\"${SQLITE_DB_PATH:-../app/pantry.db}\" && set +a && cargo run"],
+      "runtimeArgs": [
+        "-c",
+        "cd packages/server && set -a && [ -f ../../.env.local ] && source ../../.env.local; export SQLITE_DB_PATH=\"${SQLITE_DB_PATH:-../app/pantry.db}\" && set +a && cargo run"
+      ],
       "port": 4001
     }
   ]

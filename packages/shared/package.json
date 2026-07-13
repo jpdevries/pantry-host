@@ -71,6 +71,7 @@
     "./components/ImageBoundary": "./src/components/ImageBoundary.tsx",
     "./sql/schema": "./src/sql/schema.ts",
     "./atproto-publish": "./src/atproto-publish.ts",
+    "./atproto-broker": "./src/atproto-broker.ts",
     "./pds-published": "./src/pds-published.ts",
     "./contexts/BlueskyAuth": "./src/contexts/BlueskyAuth.tsx",
     "./components/BlueskyCallback": "./src/components/BlueskyCallback.tsx",

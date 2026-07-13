@@ -180,8 +180,11 @@ const AUTO_TAG_RE = /^(bluesky|recipe-api|cooklang|mealdb|cocktaildb|publicdomai
 export function isDryRun(): boolean {
   // Vite (web package)
   try {
+    // Exact `import.meta.env.VITE_X` token required — Vite's env
+    // replacement doesn't recognize optional-chained access; the
+    // try/catch covers non-Vite bundlers.
     // @ts-expect-error - import.meta.env is a Vite-ism
-    const viteFlag = import.meta?.env?.VITE_ATPROTO_PUBLISH_DRY_RUN;
+    const viteFlag = import.meta.env.VITE_ATPROTO_PUBLISH_DRY_RUN;
     if (viteFlag !== undefined) return String(viteFlag) !== 'false';
   } catch {
     // import.meta not available (Rex/Node) — fall through

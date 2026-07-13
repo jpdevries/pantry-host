@@ -77,6 +77,11 @@ export interface PublishableMenu {
   id: string;
   title: string;
   description?: string | null;
+  /** Where this menu came from. An `at://` URI here (Bluesky import)
+   *  enables adopt-own-records: re-publishing an imported copy of
+   *  YOUR OWN collection updates the original instead of minting a
+   *  duplicate. */
+  sourceUrl?: string | null;
   createdAt?: string | null;
   recipes: PublishableRecipe[];
 }
@@ -459,15 +464,35 @@ export async function publishRecipe(
     return { uri, cid, dryRun: true, record };
   }
 
-  const embed = await buildPhotoEmbed(recipe, opts);
-  if (embed) record.embed = embed;
-
   // Deterministic rkey (from the local id) unless an explicit rkey is
   // given. putRecord creates-or-overwrites, so first publish and every
   // re-publish hit one record — no duplicate on a second device or a
   // cleared cache. `opts.rkey` still wins for records published before
-  // this change (their original rkey rides in on the localStorage receipt).
+  // this change (their original rkey rides in on the localStorage
+  // receipt) and for adopt-own-records (the sourceUrl's rkey).
   const rkey = opts.rkey ?? rkeyForLocal(recipe.id);
+
+  // Publishing over the record the sourceUrl points at (adopt-own-
+  // records) — attribution to yourself is noise, drop it.
+  if (record.attribution?.originalUri === `at://${opts.agent.did}/${LEXICON_RECIPE}/${rkey}`) {
+    delete record.attribution;
+  }
+
+  let embed = await buildPhotoEmbed(recipe, opts);
+  if (!embed) {
+    // Photo unavailable from here (CORS-blocked CDN, opfs on another
+    // device…) — if the target record already exists with a photo,
+    // carry its embed forward. The blob lives in this same repo, so
+    // reusing the ref is valid and re-publish never *loses* a photo.
+    try {
+      const existing = await getRecord<BlueskyRecipeRecord>(opts.agent.did, LEXICON_RECIPE, rkey);
+      if (existing.value?.embed) embed = existing.value.embed;
+    } catch {
+      /* nothing published there yet */
+    }
+  }
+  if (embed) record.embed = embed;
+
   const res = await opts.agent.com.atproto.repo.putRecord({
     repo: opts.agent.did,
     collection: LEXICON_RECIPE,
@@ -500,10 +525,19 @@ export async function publishCollection(
       recipePublishes.push({ recipeId: r.id, result: null, ref: existing });
       continue;
     }
+    // Adopt-own-records: an imported copy of the user's OWN recipe
+    // re-publishes at the original's rkey — local edits land on the
+    // original record instead of a strongRef freezing them out.
+    const adoptRkey = adoptRkeyFromSource(r.sourceUrl, LEXICON_RECIPE, opts.agent.did);
+    if (adoptRkey) {
+      const res = await publishRecipe(r, { ...opts, rkey: adoptRkey });
+      recipePublishes.push({ recipeId: r.id, result: res, ref: { uri: res.uri, cid: res.cid } });
+      continue;
+    }
     if (r.sourceUrl?.startsWith('at://')) {
-      // Upstream Bluesky recipe — reuse as strongRef if we can read
-      // its CID. In dry-run we mint a synthetic ref so we don't fire
-      // a network read either.
+      // Upstream Bluesky recipe (someone else's) — reuse as strongRef
+      // if we can read its CID. In dry-run we mint a synthetic ref so
+      // we don't fire a network read either.
       if (dry) {
         const { uri, cid } = mintDryRunRef(opts.agent.did, LEXICON_RECIPE);
         recipePublishes.push({ recipeId: r.id, result: null, ref: { uri: r.sourceUrl, cid } });
@@ -579,6 +613,45 @@ export async function unpublish(atUri: string, opts: PublishOptions): Promise<{ 
 export function rkeyFromUri(atUri: string): string | null {
   const parts = atUri.replace(/^at:\/\//, '').split('/');
   return parts.length === 3 ? parts[2] : null;
+}
+
+/** Split an `at://did/collection/rkey` URI into its parts, or null
+ *  for anything else (https URLs, malformed URIs, null). */
+export function parseAtUri(
+  atUri: string | null | undefined,
+): { did: string; collection: string; rkey: string } | null {
+  if (!atUri || !atUri.startsWith('at://')) return null;
+  const parts = atUri.slice('at://'.length).split('/');
+  if (parts.length !== 3 || parts.some((p) => !p)) return null;
+  return { did: parts[0], collection: parts[1], rkey: parts[2] };
+}
+
+/** Adopt-own-records: if this item's sourceUrl points at a record of
+ *  `collection` OWNED by `did` (the signed-in account), return its
+ *  rkey — publishing there updates the original in place instead of
+ *  minting a duplicate. Anyone else's record (or a non-AT source)
+ *  returns null and the normal deterministic-rkey path applies. */
+export function adoptRkeyFromSource(
+  sourceUrl: string | null | undefined,
+  collection: string,
+  did: string,
+): string | null {
+  const parsed = parseAtUri(sourceUrl);
+  return parsed && parsed.did === did && parsed.collection === collection ? parsed.rkey : null;
+}
+
+/** Live `{ uri, cid }` for an AT URI, or null if it doesn't resolve.
+ *  Public read (no auth) — used to adopt a sourceUrl-referenced
+ *  record as a publish receipt. */
+export async function getRecordInfo(atUri: string): Promise<{ uri: string; cid: string } | null> {
+  const parsed = parseAtUri(atUri);
+  if (!parsed) return null;
+  try {
+    const rec = await getRecord<unknown>(parsed.did, parsed.collection, parsed.rkey);
+    return { uri: rec.uri, cid: rec.cid };
+  } catch {
+    return null;
+  }
 }
 
 /** Deterministic record key derived from a local recipe/menu id.

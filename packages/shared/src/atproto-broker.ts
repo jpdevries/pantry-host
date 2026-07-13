@@ -62,6 +62,12 @@ export type BrokerRequest =
       /** Re-publish target for records that predate deterministic
        *  rkeys — omit to publish at rkeyForLocal(recipe.id). */
       rkey?: string;
+      /** The recipe's at:// sourceUrl, when it has one. The requester
+       *  can't know whose record it is (it has no session); the BROKER
+       *  decides after sign-in: if the signed-in DID owns it, publish
+       *  at its rkey (adopt-own-records — updates the original instead
+       *  of minting a duplicate). Ignored otherwise. */
+      adoptUri?: string;
       /** photoUrl → bytes, fetched by the requester (same-origin
        *  there; the broker origin can't reach a LAN box). */
       photoBlobs?: Record<string, Blob>;
@@ -73,6 +79,8 @@ export type BrokerRequest =
       kind: 'menu';
       menu: PublishableMenu;
       rkey?: string;
+      /** See the recipe variant — the menu's at:// sourceUrl. */
+      adoptUri?: string;
       /** recipeId → known-good strongRef, so already-published
        *  children are reused instead of re-published. */
       existingRefs?: Record<string, { uri: string; cid: string }>;

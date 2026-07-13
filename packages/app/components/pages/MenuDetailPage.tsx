@@ -89,10 +89,23 @@ interface Props {
   initialMenu?: Menu | null;
 }
 
+/** Same stale-cache-seed defense as RecipeDetailPage: an entry written
+ *  by an older code era can lack the arrays this render iterates
+ *  (menu.recipes, each recipe's tags), and a crash during the seed
+ *  render is permanent — it also blocks the fetch that would repair
+ *  the cache. Rejected seeds just mean skeleton UI until the fetch. */
+function isRenderableMenuShape(m: Menu): boolean {
+  return (
+    Array.isArray(m.recipes) &&
+    m.recipes.every((mr) => mr && mr.recipe && Array.isArray(mr.recipe.tags) && Array.isArray(mr.recipe.groceryIngredients))
+  );
+}
+
 export default function MenuDetailPage({ menuId, initialMenu }: Props) {
   const kitchen = useKitchen();
   const cacheKey = `cache:menu:${menuId}`;
-  const cachedMenu = isBrowser ? cacheGet<Menu>(cacheKey) : null;
+  const rawCachedMenu = isBrowser ? cacheGet<Menu>(cacheKey) : null;
+  const cachedMenu = rawCachedMenu && isRenderableMenuShape(rawCachedMenu) ? rawCachedMenu : null;
   const [menu, setMenu] = useState<Menu | null>(initialMenu ?? cachedMenu);
   const [notFound, setNotFound] = useState(false);
   const [owner, setOwner] = useState(false);

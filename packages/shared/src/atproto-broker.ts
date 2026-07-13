@@ -137,15 +137,43 @@ export function brokerUrl(): string {
   return DEFAULT_BROKER_URL;
 }
 
+/** True when this instance is configured with its OWN atproto OAuth
+ *  client — a self-hosted `client-metadata.json` whose `redirect_uris`
+ *  include this instance's callback. Such an instance completes OAuth
+ *  directly against its own origin and needs no pantryhost.app broker
+ *  (OAuth *sovereignty*; see docs/self-hosted-oauth.md). Resolution
+ *  mirrors getProdClientId(): Vite env → `atproto-client-id` meta tag
+ *  (Rex) → process.env. Presence of an override is the signal — the
+ *  hosted default doesn't count (its redirect_uris don't cover a
+ *  self-hosted origin, which is exactly why the broker exists). */
+export function hasSelfHostedOAuthClient(): boolean {
+  try {
+    // @ts-expect-error import.meta.env is a Vite-ism (see brokerUrl()).
+    if (import.meta.env.VITE_ATPROTO_CLIENT_ID) return true;
+  } catch {
+    /* not vite */
+  }
+  if (typeof document !== 'undefined') {
+    if (document.querySelector('meta[name="atproto-client-id"]')?.getAttribute('content')) {
+      return true;
+    }
+  }
+  if (typeof process !== 'undefined' && process.env?.ATPROTO_CLIENT_ID) return true;
+  return false;
+}
+
 /** True when this origin cannot complete AT OAuth itself and should
  *  publish through the broker popup instead: not the spec loopback
- *  (127.0.0.1 / [::1]) and not an origin the hosted client's
- *  redirect_uris cover. Deliberately includes `localhost` — the spec
- *  rejects it for loopback OAuth, but the broker works fine there. */
+ *  (127.0.0.1 / [::1]), not an origin the hosted client's redirect_uris
+ *  cover, and not a sovereign instance running its own OAuth client.
+ *  Deliberately includes `localhost` — the spec rejects it for loopback
+ *  OAuth, but the broker works fine there. */
 export function shouldUseBroker(): boolean {
   if (typeof window === 'undefined') return false;
   const { hostname, origin } = window.location;
   if (hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1') return false;
+  // A sovereign self-hoster (own client-metadata.json) does direct OAuth.
+  if (hasSelfHostedOAuthClient()) return false;
   const brokerOrigin = new URL(brokerUrl()).origin;
   // Direct OAuth works on the hosted origins themselves (and on the
   // broker origin — a broker popup opening a broker would be silly).

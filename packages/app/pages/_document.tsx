@@ -58,6 +58,15 @@ export default function Document() {
         {process.env.ATPROTO_PUBLISH_DRY_RUN && (
           <meta name="atproto-publish-dry-run" content={process.env.ATPROTO_PUBLISH_DRY_RUN} />
         )}
+        {/* OAuth sovereignty: a self-hoster who serves their own
+            client-metadata.json points the app at it here. Its presence
+            also flips shouldUseBroker() off so OAuth runs directly against
+            this instance instead of the pantryhost.app broker. Rides the
+            same meta channel as dry-run because Rex doesn't inline
+            process.env into the client bundle. See docs/self-hosted-oauth.md. */}
+        {process.env.ATPROTO_CLIENT_ID && (
+          <meta name="atproto-client-id" content={process.env.ATPROTO_CLIENT_ID} />
+        )}
         {/* SHOW_COCKTAILDB no longer injected here — RecipeImportPage fetches
             it from /api/settings-read so /settings overrides take effect
             without a server restart. */}

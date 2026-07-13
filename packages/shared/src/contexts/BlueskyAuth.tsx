@@ -36,6 +36,14 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import {
+  ATPROTO_PUBLISH_OAUTH_SCOPE,
+  DEFAULT_CLIENT_METADATA_URL,
+} from '../atproto-client';
+
+// Re-exported for back-compat: existing consumers import the scope from
+// this context module. Its home is now the React-free ./atproto-client.
+export { ATPROTO_PUBLISH_OAUTH_SCOPE };
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -92,8 +100,12 @@ const BlueskyAuthContext = createContext<BlueskyAuthState>(DEFAULT_STATE);
 
 // ── Client construction ──────────────────────────────────────────────────
 
-/** Read the prod client-metadata URL — override-able via env for
- *  staging. Defaults to pantryhost.app. */
+/** Read the prod client-metadata URL — override-able so a self-hoster
+ *  can point at THEIR OWN hosted `client-metadata.json` for OAuth
+ *  sovereignty (see docs/self-hosted-oauth.md). Resolution order mirrors
+ *  brokerUrl()/isDryRun(): Vite env (web build) → `atproto-client-id`
+ *  meta tag (Rex — process.env isn't inlined into its client bundle) →
+ *  process.env (bundlers that do inline it) → hosted pantryhost.app. */
 function getProdClientId(): string {
   try {
     // Exact `import.meta.env.VITE_X` token required — Vite's env
@@ -105,22 +117,17 @@ function getProdClientId(): string {
   } catch {
     /* not vite */
   }
+  if (typeof document !== 'undefined') {
+    const meta = document
+      .querySelector('meta[name="atproto-client-id"]')
+      ?.getAttribute('content');
+    if (meta) return meta;
+  }
   if (typeof process !== 'undefined' && process.env?.ATPROTO_CLIENT_ID) {
     return process.env.ATPROTO_CLIENT_ID;
   }
-  return 'https://pantryhost.app/client-metadata.json';
+  return DEFAULT_CLIENT_METADATA_URL;
 }
-
-/** Everything Share-to-Bluesky needs, as granular atproto OAuth
- *  scopes: full CRUD on both exchange.recipe.* collections (publish,
- *  re-publish via putRecord, unpublish via deleteRecord) plus image
- *  blob upload for recipe photos. The bare `atproto` scope only
- *  grants identity — PDSes enforce per-collection `repo:` scopes on
- *  record writes. Must match the `scope` in
- *  packages/marketing/public/client-metadata.json (hosted client)
- *  and is baked into the loopback client_id below (dev). */
-export const ATPROTO_PUBLISH_OAUTH_SCOPE =
-  'atproto repo:exchange.recipe.recipe repo:exchange.recipe.collection blob:image/*';
 
 /** Loopback-safe or hosted-metadata-safe? We key off origin. The
  *  atproto OAuth spec requires the loopback path to use

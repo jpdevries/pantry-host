@@ -454,6 +454,8 @@ GRAPHQL_PORT=4001                                               # default 4001
 DEFAULT_THEME=claude                                            # auto-set by launch.json
 MCP_PORT=5001                                                   # default 5001, MCP HTTP mode
 MCP_API_KEY=                                                    # optional, bearer auth for MCP HTTP
+ATPROTO_PUBLISH_DRY_RUN=false                                   # Share to Bluesky: false = real publishes; default dry-run everywhere except 127.0.0.1
+ATPROTO_CLIENT_ID=                                              # optional, OAuth sovereignty: your own hosted client-metadata.json URL (disables the pantryhost.app broker). See docs/self-hosted-oauth.md
 GRAPHQL_URL=http://localhost:4001/graphql                       # MCP server's GraphQL target
 APP_URL=http://localhost:3000                                   # MCP server's target for /api/upload (set_recipe_photo)
 ENABLE_IMAGE_PROCESSING=true                                    # false: skip sharp variants, save disk (Pi)

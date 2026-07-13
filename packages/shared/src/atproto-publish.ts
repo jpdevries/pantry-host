@@ -39,6 +39,7 @@ import type {
   BlueskyRecipeImage,
 } from './bluesky';
 import { getRecord } from './bluesky';
+import { xrpcBaseFor } from './atproto-pds';
 import { minutesToIsoDuration } from './recipe-api';
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -233,8 +234,38 @@ const MAX_PHOTO_BYTES = 950_000;
  *  app's own upload pipeline keeps (1200w) plus slack for portrait. */
 const MAX_PHOTO_DIM = 1600;
 
-/** Default `fetchPhoto` — plain fetch. Works for the app's
- *  same-origin `/uploads/…` paths, `blob:`/`data:` URLs, and
+/** Bluesky CDN image URLs (what the import path stores as `photoUrl`)
+ *  embed the author DID and the blob CID:
+ *    https://cdn.bsky.app/img/{preset}/plain/{did}/{cid}@{fmt}
+ *  The CDN sends no CORS headers, so a browser can never fetch these
+ *  directly. */
+function parseBskyCdnUrl(url: string): { did: string; cid: string } | null {
+  const m = url.match(/^https:\/\/cdn\.bsky\.app\/img\/[^/]+\/plain\/(did:[^/@]+)\/([a-z2-7]+)@\w+$/i);
+  return m ? { did: m[1], cid: m[2] } : null;
+}
+
+/** Fetch a blob straight from its author's PDS via
+ *  `com.atproto.sync.getBlob` — a public, CORS-enabled endpoint. This
+ *  is how CDN-referenced photos become publishable from the browser,
+ *  and it returns the ORIGINAL bytes rather than the CDN's
+ *  thumbnail/re-encode. Returns null on any failure. */
+async function fetchBlobFromPds(did: string, cid: string): Promise<Blob | null> {
+  try {
+    const base = await xrpcBaseFor(did);
+    const res = await fetch(
+      `${base}/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${encodeURIComponent(cid)}`,
+    );
+    if (!res.ok) return null;
+    return await res.blob();
+  } catch {
+    return null;
+  }
+}
+
+/** Default `fetchPhoto` — plain fetch, with a PDS `sync.getBlob`
+ *  path for Bluesky CDN URLs (the CDN itself is CORS-blocked; the
+ *  author's PDS serves the same blob with CORS). Also covers the
+ *  app's same-origin `/uploads/…` paths, `blob:`/`data:` URLs, and
  *  external URLs whose hosts send CORS headers. Returns null (never
  *  throws) when the URL can't be fetched — a missing photo must not
  *  block a publish. */
@@ -245,6 +276,13 @@ export async function fetchPhotoBlob(photoUrl: string): Promise<Blob | null> {
     // package (see PublishOptions.fetchPhoto).
     console.warn('[atproto-publish] opfs:// photo needs a fetchPhoto override; skipping', photoUrl);
     return null;
+  }
+  const cdn = parseBskyCdnUrl(photoUrl);
+  if (cdn) {
+    const viaPds = await fetchBlobFromPds(cdn.did, cdn.cid);
+    if (viaPds) return viaPds;
+    // fall through — the plain fetch below almost certainly fails
+    // CORS, but costs nothing to try.
   }
   try {
     const res = await fetch(photoUrl);

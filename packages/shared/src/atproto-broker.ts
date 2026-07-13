@@ -38,7 +38,7 @@
  * app passwords) are tracked in #37.
  */
 
-import type { PublishableMenu, PublishableRecipe } from './atproto-publish';
+import { fetchPhotoBlob, type PublishableMenu, type PublishableRecipe } from './atproto-publish';
 
 // ── Protocol ─────────────────────────────────────────────────────────────
 
@@ -176,8 +176,10 @@ export async function collectPhotoBlobs(
           if (blob) out[url] = blob;
           return;
         }
-        const res = await fetch(url);
-        if (res.ok) out[url] = await res.blob();
+        // Default resolver knows the PDS sync.getBlob path for
+        // CORS-blocked Bluesky CDN URLs, not just plain fetch.
+        const blob = await fetchPhotoBlob(url);
+        if (blob) out[url] = blob;
       } catch {
         /* skip — broker will publish without this photo */
       }

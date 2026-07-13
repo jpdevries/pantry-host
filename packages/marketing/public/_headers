@@ -1,0 +1,8 @@
+# AT Protocol OAuth client metadata must be browser-fetchable from the
+# app origins (my.pantryhost.app): BrowserOAuthClient.load() does a
+# client-side fetch of the client_id URL, which is cross-origin from
+# every origin that isn't pantryhost.app itself. Without this header
+# hosted-origin sign-in fails with "Failed to fetch" before the OAuth
+# dance even starts. Public document, no credentials — `*` is correct.
+/client-metadata.json
+  Access-Control-Allow-Origin: *

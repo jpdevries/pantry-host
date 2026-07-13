@@ -118,11 +118,19 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
   const reconciledRef = useRef(false);
   useEffect(() => {
     if (dry || reconciledRef.current) return;
-    const local = getPublishReceipt(props.kind, id);
+    let local = getPublishReceipt(props.kind, id);
+    // A leftover dry receipt (from a previous dry-run session) is
+    // meaningless in real mode — its DRYRUN- record exists nowhere.
+    // Purge it so the CTA doesn't claim a published state that isn't.
+    if (local?.dryRun) {
+      clearPublishReceipt(props.kind, id);
+      setReceipt(null);
+      local = null;
+    }
     let cancelled = false;
 
     if (!isSignedIn || !agent) {
-      if (!viaBroker || !local || local.dryRun) return;
+      if (!viaBroker || !local) return;
       reconciledRef.current = true;
       (async () => {
         const stillThere = await recordExists(local.uri);
@@ -140,7 +148,8 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
     const did = (agent as unknown as PublishAgent).did;
     const collection = props.kind === 'recipe' ? LEXICON_RECIPE : LEXICON_COLLECTION;
     (async () => {
-      if (local && !local.dryRun) {
+      if (local) {
+        // Always a real receipt here — dry ones were purged above.
         const stillThere = await recordExists(local.uri);
         if (cancelled) return;
         if (!stillThere) {
@@ -478,8 +487,10 @@ export default function PublishToBlueskyButton(props: PublishToBlueskyButtonProp
     );
   }
 
-  if (receipt) {
-    // Already published — View + dropdown
+  if (usableReceipt(receipt)) {
+    // Already published — View + dropdown. Gated on usableReceipt,
+    // not the raw receipt: in real mode a leftover dry receipt must
+    // render as "not published", same rule as reuse/rkey above.
     const bskyUrl = atUriToBskyAppUrl(receipt.uri, receipt.handle);
     return (
       <div className="relative inline-flex">

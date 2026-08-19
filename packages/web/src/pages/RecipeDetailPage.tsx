@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { gql } from '@/lib/gql';
-import { recipeToDataURI, downloadRecipeICS, imageToDataURI } from '@pantry-host/shared/export-recipe';
+import { downloadRecipeHTML, downloadRecipeICS, imageToDataURI } from '@pantry-host/shared/export-recipe';
 import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang';
 import { hasCooklangSyntax, extractCooklang } from '@pantry-host/shared/cooklang-parser';
 import PixabayImage from '@pantry-host/shared/components/PixabayImage';
@@ -817,14 +817,14 @@ export default function RecipeDetailPage() {
             <Printer size={18} aria-hidden />
             Print Recipe
           </button>
-          <a
-            href={recipeToDataURI({ ...recipe, requiredCookware: recipe.requiredCookware.map(c => c.name).filter(Boolean), source: '', sourceUrl: null, photoUrl: exportPhotoUrl })}
-            download={`${recipe.slug || 'recipe'}.html`}
+          <button
+            type="button"
+            onClick={() => downloadRecipeHTML({ ...recipe, requiredCookware: recipe.requiredCookware.map(c => c.name).filter(Boolean), source: '', sourceUrl: null, photoUrl: exportPhotoUrl })}
             className="flex flex-col md:flex-row items-center gap-1 md:gap-2 btn-secondary text-sm justify-self-center border-0 bg-transparent md:border md:border-[var(--color-border-card)] md:bg-transparent"
           >
             <Export size={18} aria-hidden />
             Export HTML
-          </a>
+          </button>
           <button
             type="button"
             onClick={() => downloadRecipeICS({ ...recipe, requiredCookware: recipe.requiredCookware.map(c => c.name).filter(Boolean), source: '', sourceUrl: null, photoUrl: exportPhotoUrl })}

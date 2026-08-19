@@ -241,13 +241,40 @@ Enable polling in the channel config (`~/.ironclaw/channels/telegram.capabilitie
 ```json
 {
   "config": {
-    "polling_enabled": true,
-    "dm_policy": "open"
+    "polling_enabled": true
   }
 }
 ```
 
-> Polling mode means no public URL is needed — IronClaw reaches out to Telegram, not the other way around. All data stays on your LAN.
+> Polling mode means no inbound webhook or public URL is needed — IronClaw reaches out to Telegram, not the other way around. **This does not make the bot LAN-only, though.** Your messages (and anyone else's) travel through Telegram's cloud, and the bot's command surface is reachable by any Telegram user unless you gate access — see below.
+
+> ⚠️ **Anyone who finds the bot can reach it — never give it an open DM policy.** In polling mode the bot long-polls Telegram's **cloud**, so Telegram will relay DMs to it from **any** user who knows or guesses the bot's `@username` — not just you. IronClaw wires the bot to all 28 Pantry Host tools, including destructive ones (create / move / rename / **delete**), so an unauthorized DM can read *and* mutate your inventory and spend your Anthropic API budget. Never run this bot with an open DM policy on real data.
+
+**Gate access with pairing — this is the real per-user gate.** For the Telegram channel, IronClaw enforces access through its **pairing** flow: per IronClaw's `docs/channels/telegram.mdx`, *"unpaired users are not treated as you,"* so an unpaired sender cannot invoke your tools. IronClaw is **default-deny** — an unpaired sender (including an attacker who found your `@username`) is not treated as you — so it is safe to start the bot and then pair yourself:
+
+```bash
+# DM your bot once; it replies with a pairing code. Then, on the host:
+ironclaw pairing approve telegram <code>
+```
+
+Then **verify the isolation** — the severity of this integration hinges on it: from a *different* Telegram account that you have **not** paired, DM the bot and confirm it refuses to run tools for you.
+
+> ℹ️ **`dm_policy` / `allow_from` do not apply to the Telegram channel in this IronClaw build (0.2.x).** Those fields are honored only for the **Signal** channel (`channels.signal_dm_policy`, `channels.signal_allow_from`); the Telegram channel stores only `telegram_bot_token` / `telegram_mode`, so writing a policy here is inert for Telegram. If you keep one as belt-and-suspenders, make it an allow-list of your own Telegram user id — **never `open`** — but rely on **pairing** (above) for actual enforcement:
+>
+> ```json
+> { "config": { "polling_enabled": true, "dm_policy": "allowlist", "allow_from": ["<your-telegram-user-id>"], "owner_id": "<your-telegram-user-id>" } }
+> ```
+>
+> `"dm_policy": "open"` is an explicit opt-in for a deliberately public bot (e.g. a throwaway demo wired to read-only, non-destructive tools) — it is never the right default for a real pantry.
+
+> ⚠️ **Editing this JSON does _not_ lock an already-onboarded instance.** On a configured instance the live policy is served from IronClaw's **database/defaults**, not from this file — even setting `"polling_enabled": false` and restarting has no effect (`ironclaw channels list --verbose` still reports `telegram [enabled] (default config)`). To **reliably disable** a running Telegram bot, remove its channel wasm and restart — this takes Telegram offline while leaving the gateway / Signal / Slack channels running:
+>
+> ```bash
+> mv ~/.ironclaw/channels/telegram.wasm ~/.ironclaw/channels/telegram.wasm.disabled
+> ironclaw run          # or: brew services restart ironclaw
+> ```
+>
+> To change the policy _without_ disabling the channel, reconfigure through IronClaw's onboarding / database flow rather than by hand-editing this JSON. Re-enable Telegram only after you've confirmed the unpaired-account check above.
 
 **Step 6:** Start IronClaw and test:
 

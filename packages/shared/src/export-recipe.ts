@@ -161,6 +161,65 @@ export function recipeToDataURI(recipe: ExportableRecipe): string {
 }
 
 /**
+ * iOS, including iPadOS 13+ which masquerades as desktop Safari. No touchscreen
+ * Macs exist, so a "Macintosh" UA reporting touch points is an iPad.
+ */
+function isIOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+  );
+}
+
+/**
+ * Save (or share) a recipe as a standalone HTML file, cross-platform.
+ *
+ * The `<a download>` + `data:`/`blob:` URL approach works on desktop but is a
+ * dead end on iOS: Safari ignores `download` for those URLs, and inside an
+ * *installed standalone web app* (no address bar, no automatic Share sheet)
+ * tapping one does nothing at all — the reported "Export HTML doesn't work".
+ * There, the Web Share API with a File is the only client-side path that
+ * reaches the system Save-to-Files / share flow, and it needs no server.
+ *
+ * - iOS (when file sharing is available): `navigator.share({ files })` opens
+ *   the native sheet (Save to Files, Messages, Mail…) — which also matches the
+ *   button's "share with a friend" intent.
+ * - Everywhere else: Blob URL + `<a download>`, a real file download.
+ *
+ * Called from a click handler so it runs under transient user activation
+ * (required by `navigator.share`); the share call is reached before any
+ * `await`, so activation is preserved.
+ */
+export async function downloadRecipeHTML(recipe: ExportableRecipe): Promise<void> {
+  const html = generateRecipeHTML(recipe);
+  const filename = `${recipe.slug || 'recipe'}.html`;
+
+  if (isIOS() && typeof navigator !== 'undefined' && 'canShare' in navigator) {
+    const file = new File([html], filename, { type: 'text/html' });
+    if (navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: recipe.title });
+        return;
+      } catch (err) {
+        // User dismissed the sheet — done. Any other failure falls through to
+        // the download path below.
+        if ((err as Error).name === 'AbortError') return;
+      }
+    }
+  }
+
+  const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
  * Convert a same-origin image to a base64 data URI via the Canvas API.
  * Zero dependencies — uses the browser's native <canvas> element.
  */

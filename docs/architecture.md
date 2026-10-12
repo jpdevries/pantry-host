@@ -34,7 +34,9 @@ on the user's hardware. This document draws how the pieces fit — with emphasis
 `SQLITE_DB_PATH` (default `./pantry.db`), `GRAPHQL_PORT` (4001), `AI_API_KEY`
 (Anthropic, enables `generateRecipes`), `GRAPHQL_URL` (MCP → GraphQL),
 `MCP_PORT`/`MCP_API_KEY` (MCP HTTP), `UPLOADS_DIR`, `IMAGE_CONCURRENCY`,
-`ENABLE_IMAGE_PROCESSING`, `PUBLIC_API_ORIGIN` (app's browser → API origin).
+`ENABLE_IMAGE_PROCESSING`, `PUBLIC_API_ORIGIN` (app's browser → API origin; a
+comma-separated list of `host=origin` entries scopes it per page hostname, see
+`packages/app/lib/apiUrl.ts`).
 
 ---
 

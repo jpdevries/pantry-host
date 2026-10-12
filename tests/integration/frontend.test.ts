@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { harness } from './helpers/harness.ts';
 import { gql } from './helpers/gql.ts';
 import { resetDb } from './helpers/reset.ts';
+import { fetchAsGuest, fetchAsOwner, parseJson } from './helpers/http.ts';
 
 interface CreatedRecipe { createRecipe: { slug: string } }
 interface CreatedMenu { createMenu: { slug: string } }
@@ -342,5 +343,36 @@ describe('SPA shell seeds initialData from the shared page-data table', () => {
       const src = readFileSync(file, 'utf8');
       assert.ok(src.includes(`getPageData<`) && src.includes(`'${route}'`), `${file} must call getPageData('${route}', ...)`);
     }
+  });
+});
+
+describe('SPA shell seeds /settings and carries the theme bootstrap', () => {
+  function settingsProps(html: string): { settings?: { locked: boolean; values: Record<string, string | null> | null; maskedKeys?: string[] } } {
+    const m = html.match(/<script id="__REX_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+    assert.ok(m, '__REX_DATA__ script present');
+    return JSON.parse(m[1]);
+  }
+
+  it('a guest (plain HTTP on a LAN IP, like the Kindle) gets the locked snapshot', async () => {
+    const res = await fetchAsGuest('/settings');
+    assert.equal(res.status, 200);
+    assert.deepEqual(settingsProps(res.body).settings, { locked: true, values: null });
+  });
+
+  it('an owner gets the same values /api/settings-read returns', async () => {
+    const res = await fetchAsOwner('/settings');
+    const seeded = settingsProps(res.body).settings;
+    const api = parseJson(await fetchAsOwner('/api/settings-read'));
+    assert.deepEqual(seeded, api);
+    assert.equal(seeded?.locked, false);
+  });
+
+  it('inlines the shared theme bootstrap, including the ?theme= switch', async () => {
+    const { script } = JSON.parse(
+      readFileSync(join(import.meta.dirname, '../../packages/shared/src/theme-init.json'), 'utf8'),
+    ) as { script: string };
+    const { html } = await getHtml('/recipes');
+    assert.ok(html.includes(`<script>${script}</script>`), 'theme-init.json script inlined verbatim');
+    assert.ok(script.includes('theme=(system|light|dark)'));
   });
 });

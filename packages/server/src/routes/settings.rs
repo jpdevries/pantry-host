@@ -178,10 +178,16 @@ pub async fn settings_read(
             .into_response();
     }
 
+    (StatusCode::OK, [cache_control], Json(owner_values(&state, &overrides))).into_response()
+}
+
+/// Owner view of every setting: `{locked: false, values, maskedKeys}`, with
+/// secrets masked.
+fn owner_values(state: &AppState, overrides: &BTreeMap<String, String>) -> Value {
     let mut values = serde_json::Map::new();
     let mut masked_keys: Vec<String> = Vec::new();
     for (key, _) in SETTINGS {
-        let raw = lookup(&state, &overrides, key);
+        let raw = lookup(state, overrides, key);
         match raw {
             None => {
                 values.insert((*key).to_string(), Value::Null);
@@ -195,16 +201,23 @@ pub async fn settings_read(
             }
         }
     }
-    (
-        StatusCode::OK,
-        [cache_control],
-        Json(json!({
-            "locked": false,
-            "values": values,
-            "maskedKeys": masked_keys,
-        })),
-    )
-        .into_response()
+    json!({
+        "locked": false,
+        "values": values,
+        "maskedKeys": masked_keys,
+    })
+}
+
+/// Exactly what `GET /api/settings-read` (without `?reveal`) answers for
+/// these request headers. The SPA shell seeds the /settings page with it
+/// (src/frontend.rs), so the page renders the form, or the locked view,
+/// without a client fetch; browsers that can't run the bundles get a
+/// working page.
+pub(crate) fn settings_snapshot(state: &AppState, headers: &HeaderMap) -> Value {
+    if !is_owner(headers) {
+        return json!({ "locked": true, "values": null });
+    }
+    owner_values(state, &read_overrides(state))
 }
 
 // ── /api/settings-write ──

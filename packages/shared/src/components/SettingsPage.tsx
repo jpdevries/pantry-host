@@ -77,11 +77,44 @@ type FieldState = {
   dirty: boolean;
 };
 
-export default function SettingsPage({ adapter }: { adapter: SettingsAdapter }) {
+function buildFields(
+  schema: typeof SETTINGS_SCHEMA,
+  values: Record<string, string | null>,
+  maskedKeys?: Set<string>,
+): Record<string, FieldState> {
+  const next: Record<string, FieldState> = {};
+  for (const def of schema) {
+    const raw = values[def.key];
+    // Empty string is the "no stored value" sentinel — preserves the
+    // distinction between "user has never set this" and "user explicitly
+    // set 'true'" / "user explicitly set 'false'" for the BooleanField's
+    // heuristic-vs-stored decision below. defaultValue still flows in via
+    // the checked-state computation in BooleanField.
+    next[def.key] = {
+      value: raw ?? '',
+      masked: def.kind === 'secret' && !!maskedKeys?.has(def.key) && !!raw,
+      dirty: false,
+    };
+  }
+  return next;
+}
+
+/** Settings as the server already loaded them (same shape adapter.load()
+ *  resolves to, with maskedKeys as a plain array so it survives JSON). */
+export interface SettingsSnapshot {
+  values: Record<string, string | null>;
+  maskedKeys?: string[];
+}
+
+export default function SettingsPage({ adapter, initial }: { adapter: SettingsAdapter; initial?: SettingsSnapshot }) {
   const schemaForPackage = SETTINGS_SCHEMA.filter((s) => s.packages.includes(adapter.pkg));
 
-  const [fields, setFields] = useState<Record<string, FieldState>>({});
-  const [loaded, setLoaded] = useState(false);
+  // With `initial` (server-rendered), fields exist on the first render, so the
+  // form is in the SSR HTML and works as a native POST without JS.
+  const [fields, setFields] = useState<Record<string, FieldState>>(() =>
+    initial ? buildFields(schemaForPackage, initial.values, new Set(initial.maskedKeys ?? [])) : {},
+  );
+  const [loaded, setLoaded] = useState(Boolean(initial));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -91,21 +124,7 @@ export default function SettingsPage({ adapter }: { adapter: SettingsAdapter }) 
   const refresh = useCallback(async () => {
     try {
       const { values, maskedKeys } = await adapter.load();
-      const next: Record<string, FieldState> = {};
-      for (const def of schemaForPackage) {
-        const raw = values[def.key];
-        // Empty string is the "no stored value" sentinel — preserves the
-        // distinction between "user has never set this" and "user explicitly
-        // set 'true'" / "user explicitly set 'false'" for the BooleanField's
-        // heuristic-vs-stored decision below. defaultValue still flows in via
-        // the checked-state computation in BooleanField.
-        next[def.key] = {
-          value: raw ?? '',
-          masked: def.kind === 'secret' && !!maskedKeys?.has(def.key) && !!raw,
-          dirty: false,
-        };
-      }
-      setFields(next);
+      setFields(buildFields(schemaForPackage, values, maskedKeys));
       setLoaded(true);
     } catch (err) {
       setError(`Couldn't load settings: ${(err as Error).message}`);
@@ -114,6 +133,7 @@ export default function SettingsPage({ adapter }: { adapter: SettingsAdapter }) 
   }, [adapter, schemaForPackage]);
 
   useEffect(() => {
+    if (initial) return; // already rendered from the server snapshot
     refresh();
     // adapter should be stable-ish, we intentionally exclude to avoid loops
     // eslint-disable-next-line react-hooks/exhaustive-deps

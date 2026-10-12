@@ -13,6 +13,7 @@
  * separate surface that layers on top.
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { isOwnerRequest } from '@pantry-host/shared/owner-request';
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { parse as parseQS } from 'querystring';
@@ -28,12 +29,7 @@ const BOOLEAN_KEYS = new Set(
 const UNCHANGED_SENTINEL = '__UNCHANGED__';
 
 function isLocalhostRequest(req: NextApiRequest): boolean {
-  const host = (req.headers.host ?? '').toLowerCase();
-  const hostname = host.replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
-  const isLoopbackHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
-  const proto = (req.headers['x-forwarded-proto'] as string) ?? '';
-  const isHttps = proto === 'https';
-  return isLoopbackHost || isHttps;
+  return isOwnerRequest(req.headers);
 }
 
 export const OVERRIDES_PATH = join(process.cwd(), '.settings-overrides.json');

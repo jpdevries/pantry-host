@@ -661,6 +661,11 @@
     margin-right: 0.75rem;
   }
 
+  /* Space the design puts below card grids, e.g. before "Load more". */
+  .mt-6 {
+    margin-top: 1.5rem;
+  }
+
   /* ── Wrapping lists ──
         `flex flex-wrap` chip and card lists (home cookware and kitchens,
         the grocery list's queued recipes) flow inline instead of one item

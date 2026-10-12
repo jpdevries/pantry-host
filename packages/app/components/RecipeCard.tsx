@@ -199,7 +199,7 @@ export default function RecipeCard({ recipe, recipesBase = '/recipes', keyboardM
   else imageZone = 'none';
 
   return (
-    <div className="card group relative overflow-hidden grid grid-rows-[subgrid] row-span-4">
+    <div data-recipe-card className="card group relative overflow-hidden grid grid-rows-[subgrid] row-span-4">
       {/* Row 1: Photo */}
       {imageZone === 'own' && (
         <div className="aspect-[16/9] overflow-hidden bg-[var(--color-bg-card)]">

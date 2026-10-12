@@ -10,6 +10,9 @@ import { registerFlush } from '@/lib/apiStatus';
 import { initTheme } from '@pantry-host/shared/theme';
 import { BlueskyAuthProvider } from '@pantry-host/shared/contexts/BlueskyAuth';
 import '../styles/globals.css';
+// Legacy / e-ink fallback (Kindle Silk 80 etc.). Self-gated with @supports, so
+// modern browsers skip it. Kept out of globals.css so Tailwind never touches it.
+import '../styles/lite.css';
 
 export default function App({ Component, pageProps }: AppProps) {
   // PREFER_BROWSER_CHROME — fetched on mount from /api/settings-read.
@@ -19,6 +22,15 @@ export default function App({ Component, pageProps }: AppProps) {
   // on save, so this state is always fresh after a settings change without
   // explicit listener wiring.
   const [preferBrowserChrome, setPreferBrowserChrome] = useState<PreferBrowserChromeUserPref>(undefined);
+
+  // Marks the document once React is running. styles/lite.css (the legacy /
+  // e-ink fallback) hides JS-only controls until this attribute exists, so
+  // browsers that can't run the bundles (e.g. Kindle Silk 80) don't show
+  // buttons that do nothing.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-hydrated', '');
+  }, []);
+
   useEffect(() => {
     fetch('/api/settings-read')
       .then((r) => (r.ok ? r.json() : null))

@@ -408,7 +408,7 @@ export default function Footer() {
 
           {/* Theme toggle + GitHub */}
           <div className="mt-6 flex flex-wrap items-center justify-between gap-y-3">
-            <div className="flex flex-wrap items-center gap-4 gap-y-3 no-print">
+            <div data-requires-js className="flex flex-wrap items-center gap-4 gap-y-3 no-print">
               {/* Theme preference */}
               <div role="radiogroup" aria-label="Theme" className="flex items-center gap-1">
                 {THEME_OPTIONS.map(({ value, label, Icon }) => {

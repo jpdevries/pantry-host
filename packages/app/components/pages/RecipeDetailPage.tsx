@@ -682,7 +682,7 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
             >
               {queued ? '✓ On List' : '+ Grocery List'}
             </button>
-            <a href={`${recipesBase}/${recipe.slug ?? recipe.id}/edit#stage`} className="btn-secondary text-sm">Edit</a>
+            <a data-requires-js href={`${recipesBase}/${recipe.slug ?? recipe.id}/edit#stage`} className="btn-secondary text-sm">Edit</a>
             {deleteConfirm ? (
               <div className="flex gap-2 items-center">
                 <span className="text-sm text-[var(--color-text-secondary)]">Delete?</span>
@@ -1017,7 +1017,7 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
         </article>
       </main>
 
-      <aside className="no-print pt-10 px-4 sm:px-6">
+      <aside data-requires-js className="no-print pt-10 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 py-8 border-t border-b md:text-center" style={{ borderColor: 'var(--color-accent-subtle)' }}>
           <section aria-labelledby="made-this-heading">

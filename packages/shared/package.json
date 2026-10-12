@@ -73,6 +73,7 @@
     "./page-data": "./src/page-data.ts",
     "./compare-text": "./src/compare-text.ts",
     "./theme-init": "./src/theme-init.ts",
+    "./legacy-boot": "./src/legacy-boot.ts",
     "./owner-request": "./src/owner-request.ts",
     "./atproto-client": "./src/atproto-client.ts",
     "./atproto-publish": "./src/atproto-publish.ts",

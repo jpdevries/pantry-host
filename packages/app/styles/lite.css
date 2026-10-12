@@ -17,7 +17,8 @@
  * component classes. Tailwind utility classes do nothing here; the few
  * visibility utilities the markup depends on are re-implemented below, plus
  * a handful of inline ones (ml-N and mr-N margins, font weights,
- * line-through, divide-y) that separate the fields of a data row.
+ * line-through, divide-y) that separate the fields of a data row, and the
+ * grid column/gap utilities at Tailwind's breakpoints.
  *
  * Rules of the road, everything in this file must work in Chromium 80:
  * no @layer, nesting, :is()/:where()/:focus-visible/:has(), flexbox gap,
@@ -163,8 +164,14 @@
   /* Inline icons size from their width/height attributes when present;
      this only catches the ones that relied on utility classes. */
   svg {
-    fill: currentColor;
     vertical-align: middle;
+  }
+
+  /* Icons with no fill of their own follow the text color. Not the ones
+     that set it: CSS beats the fill="none" of stroke-drawn icons like the
+     logo, which would turn them into solid shapes. */
+  svg:not([fill]) {
+    fill: currentColor;
   }
 
   svg:not([width]) {
@@ -178,6 +185,26 @@
   textarea {
     font: inherit;
     color: inherit;
+  }
+
+  /* Browser-default controls are light grey and take the page's text
+     color, which is white on white in dark mode (lite browsers ignore
+     color-scheme). Give them the theme's colors; selected toggles invert,
+     like the footer's theme links. */
+  button,
+  select,
+  textarea,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+    background-color: var(--color-bg-card);
+    border: 2px solid var(--color-border-card);
+    border-radius: 4px;
+  }
+
+  button[aria-pressed="true"],
+  button[aria-checked="true"] {
+    background-color: var(--color-text-primary);
+    border-color: var(--color-text-primary);
+    color: var(--color-bg-body);
   }
 
   :focus {
@@ -283,6 +310,121 @@
 
   .skip-link:focus {
     position: static;
+  }
+
+  /* ── Grid utilities ──
+        Tailwind's grid classes at Tailwind's breakpoints (sm 40rem, md 48rem,
+        lg 64rem, xl 80rem), so lite browsers get the full design's column
+        counts: the Kindle Scribe (993px wide) shows sm:grid-cols-2 card grids
+        in two columns. RecipeCard is left out: its own `grid` is a subgrid
+        (Chromium 117), and lite lays out its insides as blocks. Gaps apply to
+        .grid only (flexbox gap is Chromium 84). ── */
+  .grid:not(.card) {
+    display: grid;
+  }
+
+  .grid > .card {
+    margin: 0;
+  }
+
+  .grid-cols-1 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .grid.gap-1 {
+    grid-gap: 0.25rem;
+  }
+
+  .grid.gap-2 {
+    grid-gap: 0.5rem;
+  }
+
+  .grid.gap-3 {
+    grid-gap: 0.75rem;
+  }
+
+  .grid.gap-4 {
+    grid-gap: 1rem;
+  }
+
+  .grid.gap-6 {
+    grid-gap: 1.5rem;
+  }
+
+  .grid.gap-8 {
+    grid-gap: 2rem;
+  }
+
+  .grid.gap-10 {
+    grid-gap: 2.5rem;
+  }
+
+  .grid.gap-x-6 {
+    grid-column-gap: 1.5rem;
+  }
+
+  .grid.gap-x-8 {
+    grid-column-gap: 2rem;
+  }
+
+  .grid.gap-y-2 {
+    grid-row-gap: 0.5rem;
+  }
+
+  .grid.gap-y-3 {
+    grid-row-gap: 0.75rem;
+  }
+
+  @media (min-width: 40rem) {
+    .sm\:grid-cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .sm\:grid-cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .sm\:grid-cols-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .grid.sm\:gap-3 {
+      grid-gap: 0.75rem;
+    }
+  }
+
+  @media (min-width: 48rem) {
+    .md\:grid-cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .md\:grid-cols-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .lg\:grid-cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .lg\:grid-cols-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 80rem) {
+    .xl\:grid-cols-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
   }
 
   /* ── Controls that need JS ──
@@ -405,7 +547,9 @@
     margin: 0;
   }
 
-  /* ── Recipe grid ── */
+  /* ── Recipe grid and cards ──
+        Card rules key off RecipeCard's data-recipe-card, so the same card
+        looks the same in /recipes, the home page and detail-page grids. ── */
   #recipe-list {
     list-style: none;
     margin: 0;
@@ -419,31 +563,81 @@
     margin: 0;
   }
 
-  #recipe-list .card {
+  [data-recipe-card] {
     margin: 0;
     padding: 0 0 0.75rem;
     height: 100%;
   }
 
-  #recipe-list .card > div {
+  [data-recipe-card] > div {
     padding: 0.5rem 0.75rem 0;
   }
 
-  #recipe-list .card > div:first-child {
+  [data-recipe-card] > div:first-child {
     padding: 0;
   }
 
-  #recipe-list .card > div:first-child a {
+  [data-recipe-card] > div:first-child a {
     display: block;
   }
 
-  #recipe-list .card img {
+  /* The photo box is 16:9 like the full design's aspect-[16/9] (the
+     aspect-ratio property is Chromium 88): padding-top sets its height from
+     the card's width, and the image fills it. A fixed height would flatten
+     photos as columns get wider. Same specificity as `> div:first-child`
+     above, whose padding: 0 it must override, so it has to stay below it. */
+  [data-recipe-card] div.aspect-\[16\/9\] {
+    position: relative;
+    height: 0;
+    padding-top: 56.25%;
+    overflow: hidden;
+  }
+
+  [data-recipe-card] .aspect-\[16\/9\] > a,
+  [data-recipe-card] .aspect-\[16\/9\] > picture,
+  [data-recipe-card] .aspect-\[16\/9\] > img {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
-    height: 9rem;
+    height: 100%;
+  }
+
+  [data-recipe-card] .aspect-\[16\/9\] img {
+    display: block;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
   }
 
-  #recipe-list .card > div:first-child svg {
+  /* Pixabay credit strip along the photo's bottom edge (its dark background
+     is an inline style). */
+  [data-recipe-card] .aspect-\[16\/9\] > div {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    padding: 0.125rem 0.5rem;
+    overflow: hidden;
+    color: #ffffff;
+    font-size: 0.6875rem;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Pixabay's loading / no-match placeholder icon. */
+  [data-recipe-card] .aspect-\[16\/9\] > svg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 3rem;
+    height: 3rem;
+    margin: -1.5rem 0 0 -1.5rem;
+    color: var(--color-text-secondary);
+  }
+
+  [data-recipe-card] > div:first-child svg {
     display: block;
     width: 3rem;
     height: 3rem;
@@ -451,20 +645,53 @@
     color: var(--color-text-secondary);
   }
 
-  #recipe-list .card > div:nth-child(2) a {
+  [data-recipe-card] > div:nth-child(2) a {
     display: block;
     font-weight: 700;
     line-height: 1.3;
     text-decoration: none;
   }
 
-  #recipe-list .card > div:nth-child(3) {
+  [data-recipe-card] > div:nth-child(3) {
     color: var(--color-text-secondary);
     font-size: 0.9375rem;
   }
 
-  #recipe-list .card > div:nth-child(3) > span {
+  [data-recipe-card] > div:nth-child(3) > span {
     margin-right: 0.75rem;
+  }
+
+  /* Space the design puts below card grids, e.g. before "Load more". */
+  .mt-6 {
+    margin-top: 1.5rem;
+  }
+
+  /* ── Wrapping lists ──
+        `flex flex-wrap` chip and card lists (home cookware and kitchens,
+        the grocery list's queued recipes) flow inline instead of one item
+        per line. Margins stand in for flexbox gap (Chromium 84). The nav's
+        list is in the header, which has its own rules. ── */
+  main ul.flex-wrap[role="list"] > li {
+    display: inline-block;
+    margin: 0 0.5rem 0.5rem 0;
+    vertical-align: top;
+  }
+
+  /* ── Cookware list ──
+        One column in the full design; here it flows into columns where
+        there's room (two on the Kindle Scribe, one on a phone) so the list
+        isn't one long scroll. ── */
+  #cookware-list {
+    -webkit-columns: 22rem;
+    columns: 22rem;
+    /* Prefixed only: the unprefixed name is also flexbox gap (Chrome 84),
+       which lite-css.test.ts rejects. */
+    -webkit-column-gap: 2rem;
+  }
+
+  #cookware-list > li {
+    -webkit-column-break-inside: avoid;
+    break-inside: avoid;
   }
 
   /* ── Tags ── */

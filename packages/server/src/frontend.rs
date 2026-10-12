@@ -267,6 +267,9 @@ fn shell_html(
     // The theme-init inline script is shared with packages/app/pages/_app.tsx
     // via packages/shared/src/theme-init.json: applies the localStorage-backed
     // theme pre-paint, and accepts ?theme=… for browsers that can't run the app.
+    // legacy-boot (packages/shared/src/legacy-boot.json) loads the legacy copy
+    // of the bundles (`legacy/` in the embed) when the module scripts below
+    // don't run — this shell is empty, so without it such browsers see nothing.
     format!(
         r##"<!DOCTYPE html>
 <html lang="en">
@@ -291,6 +294,7 @@ fn shell_html(
 </head>
 <body>
 <script>{theme_init}</script>
+<script>{legacy_boot}</script>
 <div id="__rex"></div>
 <script id="__REX_DATA__" type="application/json">{page_props}</script>
 <script type="module" src="/_rex/static/{app_script}"></script>
@@ -307,29 +311,40 @@ fn shell_html(
         page_js = html_escape_attr(page_js),
         page_props = page_props,
         theme_init = theme_init_script(),
+        legacy_boot = legacy_boot_script(),
     )
 }
 
-/// The theme bootstrap script, shared verbatim with Rex's `_app.tsx`
-/// (`packages/shared/src/theme-init.json`). A trusted compile-time constant,
-/// so it's inlined as-is.
+/// The inline bootstrap scripts, shared verbatim with Rex's `_app.tsx`
+/// (`packages/shared/src/theme-init.json`, `legacy-boot.json`). Trusted
+/// compile-time constants, so they're inlined as-is.
 const THEME_INIT_JSON: &str = include_str!("../../shared/src/theme-init.json");
+const LEGACY_BOOT_JSON: &str = include_str!("../../shared/src/legacy-boot.json");
 
 fn theme_init_script() -> &'static str {
     static SCRIPT: OnceLock<String> = OnceLock::new();
-    SCRIPT.get_or_init(|| {
-        #[derive(Deserialize)]
-        struct ThemeInit {
-            script: String,
+    SCRIPT.get_or_init(|| inline_script("theme-init.json", THEME_INIT_JSON))
+}
+
+fn legacy_boot_script() -> &'static str {
+    static SCRIPT: OnceLock<String> = OnceLock::new();
+    SCRIPT.get_or_init(|| inline_script("legacy-boot.json", LEGACY_BOOT_JSON))
+}
+
+/// The `script` field of one of those JSON files. Empty (and logged) if it
+/// doesn't parse, so the shell still renders without it.
+fn inline_script(name: &str, json: &str) -> String {
+    #[derive(Deserialize)]
+    struct InlineScript {
+        script: String,
+    }
+    match serde_json::from_str::<InlineScript>(json) {
+        Ok(t) => t.script,
+        Err(e) => {
+            tracing::error!("{name}: {e}; shell ships without it");
+            String::new()
         }
-        match serde_json::from_str::<ThemeInit>(THEME_INIT_JSON) {
-            Ok(t) => t.script,
-            Err(e) => {
-                tracing::error!("theme-init.json: {e}; shell ships without the theme bootstrap");
-                String::new()
-            }
-        }
-    })
+    }
 }
 
 /// Server-seeded page data: one GraphQL query per Rex route, shared verbatim
@@ -851,5 +866,14 @@ mod tests {
         assert!(!safe.contains('<') && !safe.contains('>') && !safe.contains('&'));
         let parsed: serde_json::Value = serde_json::from_str(&safe).unwrap();
         assert_eq!(parsed, value);
+    }
+
+    #[test]
+    fn inline_scripts_parse_and_are_safe_to_inline() {
+        for script in [theme_init_script(), legacy_boot_script()] {
+            assert!(!script.is_empty());
+            assert!(!script.to_ascii_lowercase().contains("</script"));
+        }
+        assert!(legacy_boot_script().contains("/_rex/static/legacy/"));
     }
 }

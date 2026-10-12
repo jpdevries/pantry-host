@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "rex dev --host 0.0.0.0",
-    "build": "rex build",
+    "build": "rex build && tsx scripts/build-legacy.ts",
     "start": "rex start",
     "typecheck": "rex typecheck",
     "lint": "rex lint",
@@ -31,6 +31,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.20",
+    "esbuild": "^0.27.4",
     "postcss": "^8.4.49",
     "postgres": "^3.4.5",
     "tailwindcss": "^3.4.17",

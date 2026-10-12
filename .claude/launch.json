@@ -78,7 +78,7 @@
       "runtimeExecutable": "sh",
       "runtimeArgs": [
         "-c",
-        "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && set -a && source .env.local && export DEFAULT_THEME=claude && set +a && cd packages/app && rex build && rex start --host 0.0.0.0"
+        "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && nvm use && set -a && source .env.local && export DEFAULT_THEME=claude && set +a && cd packages/app && npm run build && rex start --host 0.0.0.0"
       ],
       "port": 3000
     },

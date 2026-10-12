@@ -124,6 +124,18 @@ calls `getPageData('<pattern>', ctx)`, and read `initialData` in the
 component. No Rust change; `tests/integration/frontend.test.ts` checks that
 every row has a matching page and that the shell matches the client query.
 
+Browsers that can't run the bundles get a second copy. `npm run build` in
+`packages/app` writes an esbuild-lowered copy of every client bundle to
+`.rex/build/client/legacy/` (`packages/app/scripts/build-legacy.ts`, for the
+Kindle's Silk browser), and `sync-frontend.sh` embeds it with the rest. The
+shell inlines the shared `legacy-boot` script
+(`packages/shared/src/legacy-boot.json`): at `DOMContentLoaded`, if neither
+module script ran (`__REX_APP__` / `__REX_ROOT__` unset), it loads the same
+two entries from `/_rex/static/legacy/`, and they render `#__rex` from
+`__REX_DATA__`. Current browsers never request those files. Without this, a
+browser whose bundles fail sees an empty page here, since the shell has no
+server-rendered HTML to fall back on.
+
 ### `/api/*` parity
 
 The Node `packages/app` shipped 10 Next.js-style API routes under

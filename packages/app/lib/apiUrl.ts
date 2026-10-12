@@ -11,6 +11,14 @@
  *      to Rex and GraphQL lives on `:4443`, or a CDN fronting the
  *      frontend while the API lives on a sibling domain).
  *
+ *      It can also be a comma-separated list whose entries are scoped to
+ *      the page hostname they apply to, `host=origin` (see
+ *      `pickApiOrigin`). Scope it when the same Rex is also reached
+ *      directly: `jmini.tailb4b427.ts.net=https://jmini.tailb4b427.ts.net:4443`
+ *      applies on the tailnet name only, so a LAN device on
+ *      `http://192.168.x.x:3000` (which can't resolve or reach the
+ *      tailnet URL — the Kindle) falls through to rule 3.
+ *
  *   2. Empty `window.location.port` (standard 80/443, no explicit port)
  *      assumes a **path-forwarding reverse proxy** (nginx, Caddy,
  *      podman) that mounts the API at the same origin — e.g. `/graphql`
@@ -26,6 +34,27 @@
  */
 import { isBrowser, isServer } from '@pantry-host/shared/env';
 
+/**
+ * The API origin `PUBLIC_API_ORIGIN` gives a page on `hostname`: the first
+ * `host=origin` entry scoped to that hostname, else the first unscoped
+ * entry, else null (fall through to the heuristics). A single unscoped
+ * origin, the original form, applies everywhere.
+ */
+export function pickApiOrigin(value: string, hostname: string): string | null {
+  let unscoped: string | null = null;
+  for (const raw of value.split(',')) {
+    const entry = raw.trim();
+    const eq = entry.indexOf('=');
+    // Origins carry no '=', and a scope is a bare hostname (no '/').
+    if (eq > 0 && !entry.slice(0, eq).includes('/')) {
+      if (entry.slice(0, eq).trim().toLowerCase() === hostname.toLowerCase()) return entry.slice(eq + 1).trim();
+    } else if (entry && unscoped === null) {
+      unscoped = entry;
+    }
+  }
+  return unscoped;
+}
+
 export function apiUrl(path: string): string {
   if (isServer) return `http://localhost:4001${path}`;
 
@@ -34,9 +63,10 @@ export function apiUrl(path: string): string {
   //    origin of `https://jmini.ts.net:4443` yields
   //    `https://jmini.ts.net:4443/graphql`.
   if (isBrowser) {
-    const override = document
+    const meta = document
       .querySelector<HTMLMetaElement>('meta[name="api-origin"]')
       ?.content?.trim();
+    const override = meta ? pickApiOrigin(meta, window.location.hostname) : null;
     if (override) {
       try {
         return new URL(path, override).toString();

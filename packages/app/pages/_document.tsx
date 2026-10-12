@@ -48,7 +48,8 @@ export default function Document() {
             frontend and API aren't co-located at the same origin — e.g.
             Tailscale-serve setups where port 443 forwards to Rex but
             GraphQL lives on a dedicated port (:4443). `apiUrl()` reads
-            this meta before falling back to its heuristic. */}
+            this meta before falling back to its heuristic; entries can be
+            scoped to a page hostname (`host=origin`, see lib/apiUrl.ts). */}
         {process.env.PUBLIC_API_ORIGIN && <meta name="api-origin" content={process.env.PUBLIC_API_ORIGIN} />}
         {/* Rex doesn't inline process.env into client bundles, so the
             publish dry-run flag rides the same meta channel as

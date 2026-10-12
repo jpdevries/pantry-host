@@ -1,0 +1,21 @@
+{
+  "//": [
+    "Legacy bundle loader, inlined next to the theme bootstrap by both runtimes:",
+    "packages/app/pages/_app.tsx (via @pantry-host/shared/legacy-boot) and the Rust SPA shell",
+    "(packages/server/src/frontend.rs, include_str!). Keep it ES5.",
+    "Deferred module scripts finish, or fail, before DOMContentLoaded. If the regular bundles ran,",
+    "the page entry has set window.__REX_ROOT__ (or _app set __REX_APP__) and this does nothing.",
+    "If neither is set, they never evaluated (a module graph that fails to parse runs nothing), so",
+    "it loads the same entries from /_rex/static/legacy/ (packages/app/scripts/build-legacy.ts,",
+    "lowered for the Kindle's Silk browser): _app first, then the page entry, which hydrates.",
+    "It also points Rex's client router (window.__REX_MANIFEST__) at the legacy page chunks and",
+    "sets window.__REX_LEGACY__. If the legacy copy is missing or fails, the server-rendered page",
+    "stays as it was.",
+    "Guarded polyfills run before any bundle, so browsers that parse the regular bundles but",
+    "predate an API get them too: AbortSignal.timeout (Chromium 103; lib/apiStatus.ts) and",
+    "Promise.allSettled (Chromium 76; the Bluesky feeds, recipe import, AT menu detail). Add one",
+    "here when a page the Kindle reaches calls an API its engine lacks; legacy-build.test.ts",
+    "lists them (the on-device probe put Silk's engine at about Chromium 75)."
+  ],
+  "script": "(function(){if(typeof AbortSignal!=='undefined'&&typeof AbortController!=='undefined'&&!AbortSignal.timeout){AbortSignal.timeout=function(ms){var c=new AbortController();setTimeout(function(){c.abort()},ms);return c.signal}}if(typeof Promise!=='undefined'&&!Promise.allSettled){Promise.allSettled=function(it){return Promise.all(Array.from(it,function(p){return Promise.resolve(p).then(function(v){return{status:'fulfilled',value:v}},function(r){return{status:'rejected',reason:r}})}))}}function boot(){if(window.__REX_ROOT__||window.__REX_APP__)return;var n=document.querySelectorAll('script[type=\"module\"][src^=\"/_rex/static/\"]'),s=[],i,k,p;for(i=0;i<n.length;i++){p=n[i].getAttribute('src');if(p.indexOf('/_rex/static/legacy/')!==0)s.push(p.replace('/_rex/static/','/_rex/static/legacy/'))}if(!s.length)return;window.__REX_LEGACY__=true;var m=window.__REX_MANIFEST__;if(m&&m.pages)for(k in m.pages){p=m.pages[k];if(p&&p.js&&p.js.indexOf('legacy/')!==0)p.js='legacy/'+p.js}i=0;(function next(){if(i>=s.length)return;var e=document.createElement('script');e.type='module';e.src=s[i++];e.onload=next;document.body.appendChild(e)})()}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot()})()"
+}

@@ -10,6 +10,7 @@ import { registerFlush } from '@/lib/apiStatus';
 import { initTheme } from '@pantry-host/shared/theme';
 import { BlueskyAuthProvider } from '@pantry-host/shared/contexts/BlueskyAuth';
 import { THEME_INIT_SCRIPT } from '@pantry-host/shared/theme-init';
+import { LEGACY_BOOT_SCRIPT } from '@pantry-host/shared/legacy-boot';
 import '../styles/globals.css';
 // Legacy / e-ink fallback (Kindle Silk 80 etc.). Self-gated with @supports, so
 // modern browsers skip it. Kept out of globals.css so Tailwind never touches it.
@@ -142,6 +143,10 @@ export default function App({ Component, pageProps }: AppProps) {
               bundles (the Kindle's Silk 80). The Rust SPA shell inlines the
               same script itself. */}
           <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+          {/* Loads the legacy copy of the bundles (scripts/build-legacy.ts)
+              when the regular ones didn't run, e.g. on the Kindle. No-op in
+              current browsers. The Rust shell inlines it too. */}
+          <script dangerouslySetInnerHTML={{ __html: LEGACY_BOOT_SCRIPT }} />
           <Nav />
           <OfflineBanner />
           <Component {...pageProps} />

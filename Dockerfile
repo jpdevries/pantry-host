@@ -42,8 +42,10 @@ RUN ARCH="$(case "$(uname -m)" in x86_64) echo x64 ;; aarch64) echo arm64 ;; *) 
     npm install "@limlabs/rex-linux-${ARCH}@${REX_VERSION}" && \
     npm install --os=linux --cpu="${ARCH}" sharp
 
-# Build Rex for production
-RUN npx @limlabs/rex build --root packages/app
+# Build Rex for production, then the legacy copy of the client bundles
+# (packages/app/scripts/build-legacy.ts) for browsers like the Kindle's Silk.
+RUN npx @limlabs/rex build --root packages/app && \
+    npx tsx packages/app/scripts/build-legacy.ts
 
 # Stage 2: Runtime
 FROM node:22-trixie-slim

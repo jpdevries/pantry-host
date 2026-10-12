@@ -375,4 +375,19 @@ describe('SPA shell seeds /settings and carries the theme bootstrap', () => {
     assert.ok(html.includes(`<script>${script}</script>`), 'theme-init.json script inlined verbatim');
     assert.ok(script.includes('theme=(system|light|dark)'));
   });
+
+  it('inlines the legacy loader and serves the legacy copy of the shell’s bundles', async () => {
+    const { script } = JSON.parse(
+      readFileSync(join(import.meta.dirname, '../../packages/shared/src/legacy-boot.json'), 'utf8'),
+    ) as { script: string };
+    const { html } = await getHtml('/recipes');
+    assert.ok(html.includes(`<script>${script}</script>`), 'legacy-boot.json script inlined verbatim');
+    const entries = [...html.matchAll(/<script type="module" src="\/_rex\/static\/([^"]+)"/g)].map((m) => m[1]);
+    assert.equal(entries.length, 2, 'app + page module entries');
+    for (const entry of entries) {
+      const r = await fetch(`${harness().url}/_rex/static/legacy/${entry}`);
+      assert.equal(r.status, 200, `legacy/${entry} missing — run packages/server/scripts/sync-frontend.sh --build`);
+      assert.match(r.headers.get('content-type') ?? '', /javascript/);
+    }
+  });
 });

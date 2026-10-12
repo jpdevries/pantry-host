@@ -178,7 +178,7 @@ export default function RecipesIndexPage({ initialRecipes }: Props) {
         </div>
 
         {!ageVerified && list.some((r) => r.tags.some((t) => ADULT_TAGS.includes(t.toLowerCase()))) && (
-          <div className="mb-6 p-4 border border-[var(--color-border-card)] bg-[var(--color-bg-card)] rounded flex flex-wrap items-center justify-between gap-3">
+          <div data-requires-js className="mb-6 p-4 border border-[var(--color-border-card)] bg-[var(--color-bg-card)] rounded flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-[var(--color-text-secondary)]">
               Some recipes are marked as adult-only. <span className="font-medium">Are you 21 or older?</span>
             </p>
@@ -192,7 +192,7 @@ export default function RecipesIndexPage({ initialRecipes }: Props) {
           </div>
         )}
 
-        <div className="mb-4">
+        <div data-requires-js className="mb-4">
           <label htmlFor="recipe-search" className="field-label">Search</label>
           <div className="md:max-w-sm">
             <IngredientTypeahead
@@ -230,7 +230,7 @@ export default function RecipesIndexPage({ initialRecipes }: Props) {
         )}
 
         {availableFilters.length > 0 && (
-          <div className="mb-6 relative">
+          <div data-requires-js className="mb-6 relative">
             <a href="#recipes-after-filters" className="skip-link">Skip filters</a>
             <p id="filter-desc" className="text-xs text-[var(--color-text-secondary)] mb-2">Filter by tag</p>
             <div className="flex flex-wrap gap-2" role="group" aria-labelledby="filter-desc">
@@ -263,7 +263,7 @@ export default function RecipesIndexPage({ initialRecipes }: Props) {
           </div>
         )}
 
-        <div className="mb-8 flex justify-end">
+        <div data-requires-js className="mb-8 flex justify-end">
           <a href={`${base}/export#stage`} className="inline-flex items-center gap-1.5 text-sm text-secondary hover:underline">
             Export Recipes
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" width={14} height={14} fill="currentColor" aria-hidden="true">
@@ -334,6 +334,7 @@ export default function RecipesIndexPage({ initialRecipes }: Props) {
                   Lets keyboard users halve their tab stops per card. Mouse
                   and touch users never see this. */}
               <fieldset
+                data-requires-js
                 className="mb-6 card p-3 text-sm opacity-0 pointer-events-none transition-opacity duration-150 group-focus-within/stage:opacity-100 group-focus-within/stage:pointer-events-auto"
                 aria-label="Keyboard navigation mode"
               >

@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
 import { useKitchen } from '@/lib/kitchen-context';
+import { isOwner } from '@/lib/isTrustedNetwork';
 import RecipeCard from '@/components/RecipeCard';
 import { pageQuery } from '@pantry-host/shared/page-data';
 
@@ -48,6 +49,7 @@ export default function CookwareDetailPage({ id, initialData }: Props) {
   const [item, setItem] = useState<CookwareItem | null>(initialData?.cookwareItem ?? null);
   const [notFound, setNotFound] = useState(initialData ? !initialData.cookwareItem : false);
   const [editing, setEditing] = useState(false);
+  const [owner, setOwner] = useState(false);
 
   const cookwareBase = `/kitchens/${kitchen}/cookware`;
   const recipesBase = `/kitchens/${kitchen}/recipes`;
@@ -62,6 +64,7 @@ export default function CookwareDetailPage({ id, initialData }: Props) {
       .catch(console.error);
   }
 
+  useEffect(() => { setOwner(isOwner()); }, []);
   useEffect(() => { load(); }, [id]);
 
   return (
@@ -74,7 +77,7 @@ export default function CookwareDetailPage({ id, initialData }: Props) {
           <a href={`${cookwareBase}#stage`} className="text-sm text-[var(--color-text-secondary)] hover:text-accent transition-colors">
             ← Cookware
           </a>
-          {item && (
+          {item && owner && (
             <button
               type="button"
               onClick={() => setEditing(!editing)}
@@ -91,7 +94,7 @@ export default function CookwareDetailPage({ id, initialData }: Props) {
 
         {item && (
           <>
-            {editing ? (
+            {editing && owner ? (
               <EditForm
                 item={item}
                 onSave={() => { setEditing(false); load(); }}

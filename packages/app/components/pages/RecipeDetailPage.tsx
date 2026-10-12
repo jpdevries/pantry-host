@@ -675,17 +675,21 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
             >
               {queued ? '✓ On List' : '+ Grocery List'}
             </button>
-            <a data-requires-js href={`${recipesBase}/${recipe.slug ?? recipe.id}/edit#stage`} className="btn-secondary text-sm">Edit</a>
-            {deleteConfirm ? (
-              <div className="flex gap-2 items-center">
-                <span className="text-sm text-[var(--color-text-secondary)]">Delete?</span>
-                <button type="button" autoFocus onClick={handleDelete} disabled={deleting} aria-label="Confirm delete" className="btn-danger text-sm">{deleting ? 'Deleting…' : 'Yes'}</button>
-                <button type="button" onClick={() => setDeleteConfirm(false)} className="btn-secondary text-sm">No</button>
-              </div>
-            ) : (
-              <button type="button" onClick={() => setDeleteConfirm(true)} aria-label="Delete recipe" className="btn-secondary btn-delete p-2">
-                <Trash size={16} aria-hidden />
-              </button>
+            {owner && (
+              <>
+                <a data-requires-js href={`${recipesBase}/${recipe.slug ?? recipe.id}/edit#stage`} className="btn-secondary text-sm">Edit</a>
+                {deleteConfirm ? (
+                  <div className="flex gap-2 items-center">
+                    <span className="text-sm text-[var(--color-text-secondary)]">Delete?</span>
+                    <button type="button" autoFocus onClick={handleDelete} disabled={deleting} aria-label="Confirm delete" className="btn-danger text-sm">{deleting ? 'Deleting…' : 'Yes'}</button>
+                    <button type="button" onClick={() => setDeleteConfirm(false)} className="btn-secondary text-sm">No</button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setDeleteConfirm(true)} aria-label="Delete recipe" className="btn-secondary btn-delete p-2">
+                    <Trash size={16} aria-hidden />
+                  </button>
+                )}
+              </>
             )}
             {supportsFullscreen && (
               <button type="button" onClick={isFullscreen ? exitZen : enterZen} aria-label={isFullscreen ? 'Exit full screen' : 'Enter full screen'} aria-pressed={isFullscreen} className="btn-secondary p-2">

@@ -28,7 +28,8 @@ export default function EReader() {
         Cook from your e&#8209;reader
       </h2>
       <p className="text-center text-[var(--color-text-secondary)] text-sm sm:text-base max-w-2xl mx-auto mb-10 leading-relaxed">
-        Prop a Kindle on the counter and cook from it. Recipes, menus, your pantry, and the
+        Prop a Kindle on the counter and cook from your self&#8209;hosted Pantry&nbsp;Host.
+        Recipes, menus, your pantry, and the
         grocery&nbsp;list are all there, styled for the screen, and the controls work too, right
         down to checking off ingredients as you&nbsp;go.
       </p>
@@ -46,8 +47,8 @@ export default function EReader() {
         ))}
       </div>
       <p className="text-center text-xs text-[var(--color-text-secondary)] mt-6">
-        Tested on the Kindle Scribe Colorsoft with both the Docker&nbsp;install and the
-        Rust server the Pi&nbsp;Zero&nbsp;W image&nbsp;runs.
+        For the Host&nbsp;It tier. Tested on the Kindle Scribe Colorsoft with both the
+        Docker&nbsp;install and the Rust server the Pi&nbsp;Zero&nbsp;W image&nbsp;runs.
       </p>
     </section>
   );

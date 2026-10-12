@@ -68,7 +68,10 @@ export default function Nav() {
     <header className="relative flex flex-col min-h-[100svh] sm:min-h-0 px-6 py-8" style={{ backgroundColor: 'var(--color-bg-nav)', color: 'var(--color-text-primary)' }}>
       {/* Site identity */}
       <div className="flex items-center justify-between">
-        {currentPath === '/' || currentPath === '' ? (
+        {/* Only a known '/' renders plain text. currentPath is '' until mount
+            (Rex's SSR has no URL), so the server always sends the link: it
+            works before hydration and in browsers that never hydrate. */}
+        {currentPath === '/' ? (
           <span className="text-2xl font-bold tracking-tight font-serif inline-flex items-center gap-2"><PantryHostLogo size={24} /> Pantry Host</span>
         ) : (
           <a

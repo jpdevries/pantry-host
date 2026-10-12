@@ -95,7 +95,7 @@ export default function CookwarePage({ initialData }: { initialData?: CookwareIn
           </div>
         )}
 
-        <ul role="list" className="divide-y divide-[var(--color-border-card)]">
+        <ul id="cookware-list" role="list" className="divide-y divide-[var(--color-border-card)]">
           {(cookware ?? []).map((item) => (
             <li key={item.id}>
               {editingId === item.id ? (

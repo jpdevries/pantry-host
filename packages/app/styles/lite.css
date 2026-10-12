@@ -181,6 +181,26 @@
     color: inherit;
   }
 
+  /* Browser-default controls are light grey and take the page's text
+     color, which is white on white in dark mode (lite browsers ignore
+     color-scheme). Give them the theme's colors; selected toggles invert,
+     like the footer's theme links. */
+  button,
+  select,
+  textarea,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+    background-color: var(--color-bg-card);
+    border: 2px solid var(--color-border-card);
+    border-radius: 4px;
+  }
+
+  button[aria-pressed="true"],
+  button[aria-checked="true"] {
+    background-color: var(--color-text-primary);
+    border-color: var(--color-text-primary);
+    color: var(--color-bg-body);
+  }
+
   :focus {
     outline: 3px solid var(--color-ring-focus);
     outline-offset: 2px;
@@ -633,6 +653,34 @@
 
   [data-recipe-card] > div:nth-child(3) > span {
     margin-right: 0.75rem;
+  }
+
+  /* ── Wrapping lists ──
+        `flex flex-wrap` chip and card lists (home cookware and kitchens,
+        the grocery list's queued recipes) flow inline instead of one item
+        per line. Margins stand in for flexbox gap (Chromium 84). The nav's
+        list is in the header, which has its own rules. ── */
+  main ul.flex-wrap[role="list"] > li {
+    display: inline-block;
+    margin: 0 0.5rem 0.5rem 0;
+    vertical-align: top;
+  }
+
+  /* ── Cookware list ──
+        One column in the full design; here it flows into columns where
+        there's room (two on the Kindle Scribe, one on a phone) so the list
+        isn't one long scroll. ── */
+  #cookware-list {
+    -webkit-columns: 22rem;
+    columns: 22rem;
+    /* Prefixed only: the unprefixed name is also flexbox gap (Chrome 84),
+       which lite-css.test.ts rejects. */
+    -webkit-column-gap: 2rem;
+  }
+
+  #cookware-list > li {
+    -webkit-column-break-inside: avoid;
+    break-inside: avoid;
   }
 
   /* ── Tags ── */

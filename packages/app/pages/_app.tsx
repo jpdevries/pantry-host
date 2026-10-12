@@ -132,7 +132,7 @@ export default function App({ Component, pageProps }: AppProps) {
 
   return (
     <PreferBrowserChromeProvider userPref={preferBrowserChrome}>{/* tri-state: 'on' | 'off' | undefined */}
-      <KitchenProvider>
+      <KitchenProvider kitchen={(pageProps as { kitchen?: string } | undefined)?.kitchen}>
         <BlueskyAuthProvider callbackPath="/oauth/bluesky/callback">
           <Nav />
           <OfflineBanner />

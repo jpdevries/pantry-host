@@ -1,6 +1,12 @@
 import Head from 'next/head';
-import MenusIndexPage from '@/components/pages/MenusIndexPage';
-export default function MenusPage() {
+import MenusIndexPage, { type MenusIndexData } from '@/components/pages/MenusIndexPage';
+import { getPageData, type PageDataContext, type PageDataProps } from '@/lib/pageData';
+
+export async function getServerSideProps(ctx: PageDataContext) {
+  return getPageData<MenusIndexData>('/menus', ctx);
+}
+
+export default function MenusPage({ initialData }: PageDataProps<MenusIndexData>) {
   return (
     <>
       <Head>
@@ -11,7 +17,7 @@ export default function MenusPage() {
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary" />
       </Head>
-      <MenusIndexPage />
+      <MenusIndexPage initialData={initialData} />
     </>
   );
 }

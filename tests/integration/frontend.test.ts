@@ -1,5 +1,7 @@
 import { describe, it, before } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { harness } from './helpers/harness.ts';
 import { gql } from './helpers/gql.ts';
 import { resetDb } from './helpers/reset.ts';
@@ -205,71 +207,140 @@ describe('SPA shell injects OG metadata for detail pages', () => {
   });
 });
 
-describe('SPA shell seeds initialRecipes for the recipes index', () => {
+describe('SPA shell seeds initialData from the shared page-data table', () => {
   const TRICKY_TITLE = 'Index Test </script><!-- Mac & Cheese';
+  const PAGE_DATA = JSON.parse(
+    readFileSync(join(import.meta.dirname, '../../packages/shared/src/page-data.json'), 'utf8'),
+  ) as { queries: Record<string, string>; routes: Array<{ route: string; query: string; variables: Record<string, string> }> };
 
-  function pageProps(html: string): { initialRecipes?: Array<{ title: string; slug: string }> } {
+  let homeRecipe = { id: '', slug: '' };
+  let kitchenRecipe = { id: '', slug: '' };
+  let menuSlug = '';
+  let cookwareId = '';
+
+  function pageProps(html: string): { initialData?: Record<string, unknown> } {
     const m = html.match(/<script id="__REX_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
     assert.ok(m, '__REX_DATA__ script present');
     return JSON.parse(m[1]);
   }
 
-  async function createRecipe(title: string, kitchenSlug?: string): Promise<void> {
-    await gql<CreatedRecipe>(
-      `mutation Create($title: String!, $instructions: String!, $kitchenSlug: String, $ingredients: [RecipeIngredientInput!]!) {
-        createRecipe(title: $title, instructions: $instructions, kitchenSlug: $kitchenSlug, ingredients: $ingredients) { slug }
-      }`,
-      { title, instructions: '1. Cook', kitchenSlug, ingredients: [] },
+  /** What the page's own client-side query returns for this route + params. */
+  async function clientData(route: string, params: Record<string, string>): Promise<unknown> {
+    const row = PAGE_DATA.routes.find((r) => r.route === route);
+    assert.ok(row, `page-data row for ${route}`);
+    const variables = Object.fromEntries(
+      Object.entries(row.variables).map(([k, v]) => [k, v.startsWith(':') ? params[v.slice(1)] : v]),
     );
+    return gql(PAGE_DATA.queries[row.query], variables);
+  }
+
+  async function createRecipe(title: string, kitchenSlug?: string): Promise<{ id: string; slug: string }> {
+    const r = await gql<{ createRecipe: { id: string; slug: string } }>(
+      `mutation Create($title: String!, $instructions: String!, $kitchenSlug: String, $ingredients: [RecipeIngredientInput!]!) {
+        createRecipe(title: $title, instructions: $instructions, kitchenSlug: $kitchenSlug, ingredients: $ingredients) { id slug }
+      }`,
+      { title, instructions: '1. Cook', kitchenSlug, ingredients: [{ ingredientName: 'eggs', quantity: 2, unit: 'whole' }] },
+    );
+    return r.createRecipe;
   }
 
   before(async () => {
     await resetDb();
-    await createRecipe(TRICKY_TITLE);
-    await gql<{ createKitchen: { slug: string } }>(
-      `mutation($s: String!, $n: String!) { createKitchen(slug: $s, name: $n) { slug } }`,
-      { s: 'index-test-kitchen', n: 'Index Test Kitchen' },
+    homeRecipe = await createRecipe(TRICKY_TITLE);
+    await gql(`mutation($id: String!) { toggleRecipeQueued(id: $id) { id } }`, { id: homeRecipe.id });
+    for (const [s, n] of [['index-test-kitchen', 'Index Test Kitchen'], ['index-empty-kitchen', 'Empty Kitchen']]) {
+      await gql(`mutation($s: String!, $n: String!) { createKitchen(slug: $s, name: $n) { slug } }`, { s, n });
+    }
+    kitchenRecipe = await createRecipe('Kitchen-Scoped Index Soup', 'index-test-kitchen');
+    const m = await gql<CreatedMenu>(
+      `mutation($title: String!, $recipes: [MenuRecipeInput!]!) { createMenu(title: $title, recipes: $recipes) { slug } }`,
+      { title: 'Index Test Menu', recipes: [{ recipeId: homeRecipe.id }] },
     );
-    await createRecipe('Kitchen-Scoped Index Soup', 'index-test-kitchen');
-    await gql<{ createKitchen: { slug: string } }>(
-      `mutation($s: String!, $n: String!) { createKitchen(slug: $s, name: $n) { slug } }`,
-      { s: 'index-empty-kitchen', n: 'Empty Kitchen' },
+    menuSlug = m.createMenu.slug;
+    const c = await gql<{ addCookware: { id: string } }>(
+      `mutation($name: String!) { addCookware(name: $name) { id } }`,
+      { name: 'Index Test Skillet' },
     );
+    cookwareId = c.addCookware.id;
+    await gql(`mutation($name: String!) { addIngredient(name: $name) { id } }`, { name: 'Index Test Eggs' });
   });
 
   it('/recipes ships the home kitchen list, script-safe', async () => {
     const { status, html } = await getHtml('/recipes');
     assert.equal(status, 200);
-    const props = pageProps(html);
-    assert.deepEqual(props.initialRecipes?.map((r) => r.title), [TRICKY_TITLE]);
+    const recipes = pageProps(html).initialData?.recipes as Array<{ title: string }>;
+    assert.deepEqual(recipes.map((r) => r.title), [TRICKY_TITLE]);
     // The title's </script> must not terminate the data script early.
     assert.ok(!html.includes('</script><!-- Mac'), 'raw title not inlined');
   });
 
-  it('matches what the client-side GraphQL fetch returns', async () => {
-    const { html } = await getHtml('/recipes');
-    const api = await gql<{ recipes: unknown[] }>(
-      `query Recipes($kitchenSlug: String) {
-        recipes(kitchenSlug: $kitchenSlug) { id slug title cookTime prepTime servings source sourceUrl tags photoUrl queued }
-      }`,
-      { kitchenSlug: 'home' },
-    );
-    assert.deepEqual(pageProps(html).initialRecipes, api.recipes);
+  it('every list route matches its client-side query, home and kitchen-scoped', async () => {
+    const cases: Array<[string, string, Record<string, string>]> = [
+      ['/', '/', {}],
+      ['/kitchens/index-test-kitchen', '/kitchens/:kitchen', { kitchen: 'index-test-kitchen' }],
+      ['/recipes', '/recipes', {}],
+      ['/kitchens/index-test-kitchen/recipes', '/kitchens/:kitchen/recipes', { kitchen: 'index-test-kitchen' }],
+      ['/menus', '/menus', {}],
+      ['/kitchens/index-test-kitchen/menus', '/kitchens/:kitchen/menus', { kitchen: 'index-test-kitchen' }],
+      ['/cookware', '/cookware', {}],
+      ['/kitchens/index-test-kitchen/cookware', '/kitchens/:kitchen/cookware', { kitchen: 'index-test-kitchen' }],
+      ['/ingredients', '/ingredients', {}],
+      ['/kitchens/index-test-kitchen/ingredients', '/kitchens/:kitchen/ingredients', { kitchen: 'index-test-kitchen' }],
+      ['/list', '/list', {}],
+      ['/kitchens/index-test-kitchen/list', '/kitchens/:kitchen/list', { kitchen: 'index-test-kitchen' }],
+    ];
+    for (const [url, route, params] of cases) {
+      const { status, html } = await getHtml(url);
+      assert.equal(status, 200, url);
+      assert.deepEqual(pageProps(html).initialData, await clientData(route, params), url);
+    }
   });
 
-  it('/kitchens/:kitchen/recipes scopes to that kitchen', async () => {
-    const { html } = await getHtml('/kitchens/index-test-kitchen/recipes');
-    assert.deepEqual(pageProps(html).initialRecipes?.map((r) => r.title), ['Kitchen-Scoped Index Soup']);
+  it('seeded lists contain the fixtures (not just two empty answers)', async () => {
+    const list = pageProps((await getHtml('/list')).html).initialData as { recipes: Array<{ title: string }>; ingredients: unknown[] };
+    assert.deepEqual(list.recipes.map((r) => r.title), [TRICKY_TITLE], 'queued recipe on /list');
+    assert.ok(list.ingredients.length >= 1, 'pantry on /list');
+    const menus = pageProps((await getHtml('/menus')).html).initialData as { menus: Array<{ title: string }> };
+    assert.deepEqual(menus.menus.map((m) => m.title), ['Index Test Menu']);
+    const cookware = pageProps((await getHtml('/cookware')).html).initialData as { cookware: Array<{ name: string }> };
+    assert.deepEqual(cookware.cookware.map((c) => c.name), ['Index Test Skillet']);
   });
 
-  it('an empty kitchen ships [] (so the page can say "No recipes yet")', async () => {
+  it('detail routes match their client-side query', async () => {
+    const cases: Array<[string, string, Record<string, string>]> = [
+      [`/recipes/${homeRecipe.slug}`, '/recipes/:slug', { slug: homeRecipe.slug }],
+      [`/kitchens/index-test-kitchen/recipes/${kitchenRecipe.slug}`, '/kitchens/:kitchen/recipes/:slug', { kitchen: 'index-test-kitchen', slug: kitchenRecipe.slug }],
+      [`/menus/${menuSlug}`, '/menus/:slug', { slug: menuSlug }],
+      [`/cookware/${cookwareId}`, '/cookware/:id', { id: cookwareId }],
+    ];
+    for (const [url, route, params] of cases) {
+      const data = pageProps((await getHtml(url)).html).initialData as Record<string, { title?: string; name?: string } | null>;
+      assert.deepEqual(data, await clientData(route, params), url);
+      assert.ok(Object.values(data)[0], `${url} resolved a record`);
+    }
+  });
+
+  it('an empty kitchen ships empty lists (so pages can say "No recipes yet")', async () => {
     const { html } = await getHtml('/kitchens/index-empty-kitchen/recipes');
-    assert.deepEqual(pageProps(html).initialRecipes, []);
+    assert.deepEqual(pageProps(html).initialData, { recipes: [] });
   });
 
-  it('an unknown kitchen and non-index routes ship {}', async () => {
+  it('an unknown kitchen, unlisted routes, and unknown URLs ship {}', async () => {
     assert.deepEqual(pageProps((await getHtml('/kitchens/no-such-kitchen/recipes')).html), {});
-    assert.deepEqual(pageProps((await getHtml('/menus')).html), {});
     assert.deepEqual(pageProps((await getHtml('/recipes/new')).html), {});
+    assert.deepEqual(pageProps((await getHtml('/menus/feeds/bluesky')).html), {});
+    assert.deepEqual(pageProps((await getHtml('/definitely/not/a/route')).html), {});
+  });
+
+  it('every table route has a Rex page whose getServerSideProps names that route', () => {
+    const pagesDir = join(import.meta.dirname, '../../packages/app/pages');
+    for (const { route } of PAGE_DATA.routes) {
+      const rel = route === '/' ? '' : route.replace(/:([a-z]+)/gi, '[$1]');
+      const candidates = [`${pagesDir}${rel}/index.tsx`, `${pagesDir}${rel}.tsx`];
+      const file = candidates.find((f) => existsSync(f));
+      assert.ok(file, `no page file for ${route} (tried ${candidates.join(', ')})`);
+      const src = readFileSync(file, 'utf8');
+      assert.ok(src.includes(`getPageData<`) && src.includes(`'${route}'`), `${file} must call getPageData('${route}', ...)`);
+    }
   });
 });

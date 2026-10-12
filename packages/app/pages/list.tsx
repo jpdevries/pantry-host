@@ -1,6 +1,12 @@
 import Head from 'next/head';
-import GroceryListPage from '@/components/pages/GroceryListPage';
-export default function ListPage() {
+import GroceryListPage, { type GroceryListData } from '@/components/pages/GroceryListPage';
+import { getPageData, type PageDataContext, type PageDataProps } from '@/lib/pageData';
+
+export async function getServerSideProps(ctx: PageDataContext) {
+  return getPageData<GroceryListData>('/list', ctx);
+}
+
+export default function ListPage({ initialData }: PageDataProps<GroceryListData>) {
   return (
     <>
       <Head>
@@ -11,7 +17,7 @@ export default function ListPage() {
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary" />
       </Head>
-      <GroceryListPage />
+      <GroceryListPage initialData={initialData} />
     </>
   );
 }

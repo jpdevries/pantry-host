@@ -108,17 +108,21 @@ What the shell *can* carry without a JS runtime is data computed natively:
 
 - **OG metadata** for detail pages (`/recipes/:slug`, `/menus/:slug`, and
   their `/kitchens/:kitchen/…` forms) — looked up from SQLite per request.
-- **Initial page props** in `<script id="__REX_DATA__">` for the recipes
-  index (`/recipes`, `/kitchens/:kitchen/recipes`). The server runs the
-  same GraphQL query the page runs (shared verbatim from
-  `packages/shared/src/queries/recipes-index.ts` via `include_str!`) and
-  emits `{"initialRecipes": [...]}` — the same props the Rex
-  `getServerSideProps` produces, so the page renders the list on first
-  paint instead of waiting on a round trip. Every other route ships `{}`.
+- **Initial page props** in `<script id="__REX_DATA__">` for every route in
+  the shared page-data table, `packages/shared/src/page-data.json`
+  (`include_str!`'d): home, recipes, menus, cookware, pantry and grocery
+  list, list and detail, home and kitchen-scoped. For the Rex page pattern
+  the manifest matched, the server runs that row's GraphQL query in-process
+  and emits `{"initialData": <data>}`, the same props the Rex
+  `getServerSideProps` (`packages/app/lib/pageData.ts`) produces, so pages
+  render on first paint instead of waiting on a round trip. Routes not in
+  the table, unknown URLs, and GraphQL errors ship `{}`.
 
-To seed another route, give its Rex page a `getServerSideProps`, move its
-query into `packages/shared/src/queries/`, and add a matching arm to
-`lookup_page_props` in `src/frontend.rs`.
+To seed another route: add its query and a row (keyed by the Rex page
+pattern) to `page-data.json`, give the page a `getServerSideProps` that
+calls `getPageData('<pattern>', ctx)`, and read `initialData` in the
+component. No Rust change; `tests/integration/frontend.test.ts` checks that
+every row has a matching page and that the shell matches the client query.
 
 ### `/api/*` parity
 

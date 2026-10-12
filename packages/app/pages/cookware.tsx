@@ -1,6 +1,12 @@
 import Head from 'next/head';
-import CookwarePageComponent from '@/components/pages/CookwarePage';
-export default function CookwarePage() {
+import CookwarePageComponent, { type CookwareIndexData } from '@/components/pages/CookwarePage';
+import { getPageData, type PageDataContext, type PageDataProps } from '@/lib/pageData';
+
+export async function getServerSideProps(ctx: PageDataContext) {
+  return getPageData<CookwareIndexData>('/cookware', ctx);
+}
+
+export default function CookwarePage({ initialData }: PageDataProps<CookwareIndexData>) {
   return (
     <>
       <Head>
@@ -11,7 +17,7 @@ export default function CookwarePage() {
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary" />
       </Head>
-      <CookwarePageComponent />
+      <CookwarePageComponent initialData={initialData} />
     </>
   );
 }

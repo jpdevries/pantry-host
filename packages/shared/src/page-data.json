@@ -1,0 +1,150 @@
+{
+  "//": [
+    "Server-seeded page data: one GraphQL query per page, shared by both runtimes.",
+    "packages/app: each route below has a getServerSideProps (lib/pageData.ts) that runs its query and",
+    "  returns { initialData: <GraphQL data> }; the page component also runs the same query client-side.",
+    "packages/server (Rust): src/frontend.rs include_str!s this file and runs the same query in-process to",
+    "  fill __REX_DATA__ in the SPA shell, keyed by the Rex page pattern its manifest resolved.",
+    "A variable value starting with \":\" is taken from the matching route segment.",
+    "Every route here must have a page file at the matching path; tests/integration/page-data.test.ts checks."
+  ],
+  "queries": {
+    "home": "query Home($kitchenSlug: String) { ingredients(kitchenSlug: $kitchenSlug) { id category } cookware(kitchenSlug: $kitchenSlug) { id name tags notes } recipes(kitchenSlug: $kitchenSlug) { id slug title cookTime prepTime servings source tags photoUrl queued } kitchens { id slug name } }",
+    "recipesIndex": "query Recipes($kitchenSlug: String) { recipes(kitchenSlug: $kitchenSlug) { id slug title cookTime prepTime servings source sourceUrl tags photoUrl queued } }",
+    "recipeDetail": "query Recipe($id: String!) { recipe(id: $id) { id slug title description instructions servings prepTime cookTime tags requiredCookware { id name brand } source sourceUrl photoUrl stepPhotos lastMadeAt queued createdAt ingredients { ingredientName quantity unit itemSize itemSizeUnit sourceRecipeId } groceryIngredients { ingredientName quantity unit itemSize itemSizeUnit } usedIn { id slug title cookTime prepTime servings source tags photoUrl queued } } }",
+    "menusIndex": "query Menus($kitchenSlug: String) { menus(kitchenSlug: $kitchenSlug) { id slug title description active category recipes { id recipe { title tags } } } }",
+    "menuDetail": "query Menu($id: String!) { menu(id: $id) { id slug title description sourceUrl active createdAt recipes { id course sortOrder recipe { id slug title description instructions cookTime prepTime servings source sourceUrl tags photoUrl queued createdAt groceryIngredients { ingredientName quantity unit itemSize itemSizeUnit } } } } }",
+    "cookwareIndex": "query Cookware($kitchenSlug: String) { cookware(kitchenSlug: $kitchenSlug) { id name brand tags notes } }",
+    "cookwareDetail": "query CookwareItem($id: String!) { cookwareItem(id: $id) { id name brand notes tags recipes { id slug title cookTime prepTime servings source tags photoUrl queued } } }",
+    "ingredientsIndex": "query Ingredients($kitchenSlug: String) { ingredients(kitchenSlug: $kitchenSlug) { id name aliases category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta createdAt } }",
+    "groceryList": "query GroceryList($kitchenSlug: String) { recipes(queued: true, kitchenSlug: $kitchenSlug) { id slug title groceryIngredients { ingredientName quantity unit itemSize itemSizeUnit } } ingredients(kitchenSlug: $kitchenSlug) { id name aliases quantity unit itemSize itemSizeUnit alwaysOnHand tags } }"
+  },
+  "routes": [
+    {
+      "route": "/",
+      "query": "home",
+      "variables": {
+        "kitchenSlug": "home"
+      }
+    },
+    {
+      "route": "/kitchens/:kitchen",
+      "query": "home",
+      "variables": {
+        "kitchenSlug": ":kitchen"
+      }
+    },
+    {
+      "route": "/recipes",
+      "query": "recipesIndex",
+      "variables": {
+        "kitchenSlug": "home"
+      }
+    },
+    {
+      "route": "/kitchens/:kitchen/recipes",
+      "query": "recipesIndex",
+      "variables": {
+        "kitchenSlug": ":kitchen"
+      }
+    },
+    {
+      "route": "/recipes/:slug",
+      "query": "recipeDetail",
+      "variables": {
+        "id": ":slug"
+      }
+    },
+    {
+      "route": "/kitchens/:kitchen/recipes/:slug",
+      "query": "recipeDetail",
+      "variables": {
+        "id": ":slug"
+      }
+    },
+    {
+      "route": "/menus",
+      "query": "menusIndex",
+      "variables": {
+        "kitchenSlug": "home"
+      }
+    },
+    {
+      "route": "/kitchens/:kitchen/menus",
+      "query": "menusIndex",
+      "variables": {
+        "kitchenSlug": ":kitchen"
+      }
+    },
+    {
+      "route": "/menus/:slug",
+      "query": "menuDetail",
+      "variables": {
+        "id": ":slug"
+      }
+    },
+    {
+      "route": "/kitchens/:kitchen/menus/:slug",
+      "query": "menuDetail",
+      "variables": {
+        "id": ":slug"
+      }
+    },
+    {
+      "route": "/cookware",
+      "query": "cookwareIndex",
+      "variables": {
+        "kitchenSlug": "home"
+      }
+    },
+    {
+      "route": "/kitchens/:kitchen/cookware",
+      "query": "cookwareIndex",
+      "variables": {
+        "kitchenSlug": ":kitchen"
+      }
+    },
+    {
+      "route": "/cookware/:id",
+      "query": "cookwareDetail",
+      "variables": {
+        "id": ":id"
+      }
+    },
+    {
+      "route": "/kitchens/:kitchen/cookware/:id",
+      "query": "cookwareDetail",
+      "variables": {
+        "id": ":id"
+      }
+    },
+    {
+      "route": "/ingredients",
+      "query": "ingredientsIndex",
+      "variables": {
+        "kitchenSlug": "home"
+      }
+    },
+    {
+      "route": "/kitchens/:kitchen/ingredients",
+      "query": "ingredientsIndex",
+      "variables": {
+        "kitchenSlug": ":kitchen"
+      }
+    },
+    {
+      "route": "/list",
+      "query": "groceryList",
+      "variables": {
+        "kitchenSlug": "home"
+      }
+    },
+    {
+      "route": "/kitchens/:kitchen/list",
+      "query": "groceryList",
+      "variables": {
+        "kitchenSlug": ":kitchen"
+      }
+    }
+  ]
+}

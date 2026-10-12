@@ -5,6 +5,8 @@ import { MENU_CATEGORIES, MENU_CATEGORY_ORDER } from '@pantry-host/shared/consta
 import { isOwner } from '@/lib/isTrustedNetwork';
 import { useKitchen } from '@/lib/kitchen-context';
 import MenuCard from '@/components/MenuCard';
+import { pageQuery } from '@pantry-host/shared/page-data';
+import { compareText } from '@pantry-host/shared/compare-text';
 
 interface MenuSummary {
   id: string;
@@ -16,7 +18,9 @@ interface MenuSummary {
   recipes: { id: string; recipe: { title: string; tags: string[] } }[];
 }
 
-const MENUS_QUERY = `query Menus($kitchenSlug: String) { menus(kitchenSlug: $kitchenSlug) { id slug title description active category recipes { id recipe { title tags } } } }`;
+export type MenusIndexData = { menus: MenuSummary[] };
+
+const MENUS_QUERY = pageQuery('menusIndex');
 
 /** Sort order for menus within the Daily category */
 const DAILY_ORDER: Record<string, number> = { 'breakfast': 0, 'lunch': 1, 'dinner': 2 };
@@ -25,11 +29,12 @@ function categoryLabel(cat: string): string {
   return MENU_CATEGORIES.find((c) => c.value === cat)?.label ?? cat;
 }
 
-export default function MenusIndexPage() {
+/** `initialData` is seeded by the server (lib/pageData.ts or the Rust shell). */
+export default function MenusIndexPage({ initialData }: { initialData?: MenusIndexData }) {
   const kitchen = useKitchen();
-  const [menus, setMenus] = useState<MenuSummary[]>([]);
+  const [menus, setMenus] = useState<MenuSummary[]>(initialData?.menus ?? []);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialData);
   const [owner, setOwner] = useState(false);
   const menusBase = `/kitchens/${kitchen}/menus`;
   const slug = kitchen;
@@ -37,7 +42,8 @@ export default function MenusIndexPage() {
 
   useEffect(() => {
     setOwner(isOwner());
-    const cached = cacheGet<MenuSummary[]>(cacheKey);
+    // Server data is fresher than the cache; only fall back to it without one.
+    const cached = initialData ? null : cacheGet<MenuSummary[]>(cacheKey);
     if (cached) { setMenus(cached); setLoading(false); }
     gql<{ menus: MenuSummary[] }>(MENUS_QUERY, { kitchenSlug: slug })
       .then((d) => { setMenus(d.menus); cacheSet(cacheKey, d.menus); setLoading(false); })
@@ -78,10 +84,10 @@ export default function MenusIndexPage() {
         const aOrder = DAILY_ORDER[a.title.toLowerCase()] ?? 100;
         const bOrder = DAILY_ORDER[b.title.toLowerCase()] ?? 100;
         if (aOrder !== bOrder) return aOrder - bOrder;
-        return a.title.localeCompare(b.title);
+        return compareText(a.title, b.title);
       });
     } else {
-      items.sort((a, b) => a.title.localeCompare(b.title));
+      items.sort((a, b) => compareText(a.title, b.title));
     }
   }
 
@@ -108,6 +114,7 @@ export default function MenusIndexPage() {
 
       {menus.length > 3 && (
         <input
+          data-requires-js
           type="search"
           placeholder="Search menus..."
           value={search}

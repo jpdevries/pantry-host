@@ -1,10 +1,10 @@
-import RecipesIndexPage from '@/components/pages/RecipesIndexPage';
-import { getRecipesIndexProps, type RecipesIndexProps } from '@/lib/recipesIndexProps';
+import RecipesIndexPage, { type RecipesIndexData } from '@/components/pages/RecipesIndexPage';
+import { getPageData, type PageDataContext, type PageDataProps } from '@/lib/pageData';
 
-export async function getServerSideProps({ params }: { params: { kitchen: string } }) {
-  return getRecipesIndexProps(params.kitchen);
+export async function getServerSideProps(ctx: PageDataContext) {
+  return getPageData<RecipesIndexData>('/kitchens/:kitchen/recipes', ctx);
 }
 
-export default function KitchenRecipes({ initialRecipes }: RecipesIndexProps) {
-  return <RecipesIndexPage initialRecipes={initialRecipes} />;
+export default function KitchenRecipes({ initialData, query }: PageDataProps<RecipesIndexData>) {
+  return <RecipesIndexPage initialData={initialData} query={query} />;
 }

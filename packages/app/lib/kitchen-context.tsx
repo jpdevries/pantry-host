@@ -22,10 +22,14 @@ function resolveSlug(asPath: string): string {
   return m?.[1] ?? 'home';
 }
 
-export function KitchenProvider({ children }: { children: ReactNode }) {
+export function KitchenProvider({ children, kitchen }: { children: ReactNode; kitchen?: string }) {
   const router = useRouter();
+  // Rex's SSR router doesn't carry the request path, so `asPath` resolves to
+  // 'home' on the server even for /kitchens/:slug/... routes. Server-seeded
+  // pages pass the slug through pageProps (lib/pageData.ts) so the SSR HTML
+  // and the first client render agree.
   return (
-    <KitchenContext.Provider value={resolveSlug(router.asPath)}>
+    <KitchenContext.Provider value={kitchen ?? resolveSlug(router.asPath)}>
       {children}
     </KitchenContext.Provider>
   );

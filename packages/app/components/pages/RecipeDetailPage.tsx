@@ -26,6 +26,7 @@ import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem } from '@pantry-host/shared/grocery-status';
 import { isOwner } from '@/lib/isTrustedNetwork';
 import { isBrowser } from '@pantry-host/shared/env';
+import { pageQuery } from '@pantry-host/shared/page-data';
 
 interface RecipeIngredient {
   ingredientName: string;
@@ -75,17 +76,7 @@ export interface Recipe {
   usedIn: SubRecipe[];
 }
 
-export const RECIPE_QUERY = `
-  query Recipe($id: String!) {
-    recipe(id: $id) {
-      id slug title description instructions servings prepTime cookTime
-      tags requiredCookware { id name brand } source sourceUrl photoUrl stepPhotos lastMadeAt queued createdAt
-      ingredients { ingredientName quantity unit itemSize itemSizeUnit sourceRecipeId }
-      groceryIngredients { ingredientName quantity unit itemSize itemSizeUnit }
-      usedIn { id slug title cookTime prepTime servings source tags photoUrl queued }
-    }
-  }
-`;
+export const RECIPE_QUERY = pageQuery('recipeDetail');
 
 const DELETE_RECIPE = `mutation DeleteRecipe($id: String!) { deleteRecipe(id: $id) }`;
 const COMPLETE_RECIPE = `mutation CompleteRecipe($id: String!, $servings: Int) { completeRecipe(id: $id, servings: $servings) { id lastMadeAt } }`;
@@ -247,10 +238,12 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
   const [menuSelections, setMenuSelections] = useState<Record<string, boolean>>({});
   const [savingMenus, setSavingMenus] = useState(false);
   const [menuStatus, setMenuStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [ageVerified, setAgeVerified] = useState(() => {
-    if (isBrowser) return localStorage.getItem('age-verified') === 'true';
-    return false;
-  });
+  // localStorage-only: start from the server's answer (false), read after
+  // mount, so the first client render matches the SSR HTML.
+  const [ageVerified, setAgeVerified] = useState(false);
+  useEffect(() => {
+    if (localStorage.getItem('age-verified') === 'true') setAgeVerified(true);
+  }, []);
   // recipe-api.com key for the NutritionFacts display block. Only fetched
   // for owner (loopback / HTTPS) — guests get null and the block hides itself.
   const [recipeApiKey, setRecipeApiKey] = useState<string | null>(null);

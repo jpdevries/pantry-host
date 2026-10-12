@@ -9,6 +9,7 @@ import { Carrot, BookOpen, Coffee, Package, Leaf, Tag, Wine, ForkKnife, CookingP
 import { isTrustedNetwork } from '@/lib/isTrustedNetwork';
 import { useKitchen } from '@/lib/kitchen-context';
 import { readFavorites } from '@pantry-host/shared/favorites';
+import { pageQuery } from '@pantry-host/shared/page-data';
 
 interface HomeRecipe {
   id: string;
@@ -23,30 +24,24 @@ interface HomeRecipe {
   queued: boolean;
 }
 
-interface HomeData {
+export interface HomeData {
   ingredients: { id: string; category: string | null }[];
   cookware: { id: string; name: string; tags: string[]; notes: string | null }[];
   recipes: HomeRecipe[];
   kitchens: { id: string; slug: string; name: string }[];
 }
 
-const HOME_QUERY = `
-  query Home($kitchenSlug: String) {
-    ingredients(kitchenSlug: $kitchenSlug) { id category }
-    cookware(kitchenSlug: $kitchenSlug) { id name tags notes }
-    recipes(kitchenSlug: $kitchenSlug) { id slug title cookTime prepTime servings source tags photoUrl queued }
-    kitchens { id slug name }
-  }
-`;
+const HOME_QUERY = pageQuery('home');
 
 /** Pantry Host dashboard. Rendered at `/` for the Home kitchen and at
  *  `/kitchens/:slug` for every other kitchen — the two URLs share this
  *  one component. The active kitchen comes from `useKitchen()` (derived
  *  once in `_app.tsx` from `router.asPath`); all internal links render
  *  as `/kitchens/{slug}/…` regardless of whether it's home. */
-export default function HomePage() {
+export default function HomePage({ initialData }: { initialData?: HomeData }) {
   const kitchen = useKitchen();
-  const [data, setData] = useState<HomeData | null>(null);
+  // Seeded by the server (lib/pageData.ts or the Rust shell); refreshed below.
+  const [data, setData] = useState<HomeData | null>(initialData ?? null);
   const [isSecure, setIsSecure] = useState(false);
   const [quote, setQuote] = useState<{ text: string; author: string } | null>(null);
   useEffect(() => { setQuote(getDailyQuote()); }, []);

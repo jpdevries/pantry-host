@@ -1,6 +1,12 @@
 import Head from 'next/head';
-import IngredientsPageComponent from '@/components/pages/IngredientsPage';
-export default function IngredientsPage() {
+import IngredientsPageComponent, { type IngredientsIndexData } from '@/components/pages/IngredientsPage';
+import { getPageData, type PageDataContext, type PageDataProps } from '@/lib/pageData';
+
+export async function getServerSideProps(ctx: PageDataContext) {
+  return getPageData<IngredientsIndexData>('/ingredients', ctx);
+}
+
+export default function IngredientsPage({ initialData }: PageDataProps<IngredientsIndexData>) {
   return (
     <>
       <Head>
@@ -11,7 +17,7 @@ export default function IngredientsPage() {
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary" />
       </Head>
-      <IngredientsPageComponent />
+      <IngredientsPageComponent initialData={initialData} />
     </>
   );
 }

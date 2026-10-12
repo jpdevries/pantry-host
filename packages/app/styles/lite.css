@@ -266,6 +266,16 @@
     color: var(--color-text-secondary);
   }
 
+  /* Standalone links that sit on their own line above content: the
+     "← Recipes" style breadcrumb (first link in a page's first block) and
+     a section heading's trailing "All … →" / "Manage →" link. Inline links
+     ignore margin-bottom, so make them inline-block to give them room. */
+  main > div:first-child > a:first-child,
+  h2 + a {
+    display: inline-block;
+    margin-bottom: 0.75rem;
+  }
+
   /* ── Cards ── */
   .card {
     display: block;
@@ -493,8 +503,8 @@
 
   /* ── Footer ── */
   footer {
-    margin-top: 2rem;
-    padding: 1rem;
+    margin-top: 2.5rem;
+    padding: 2rem 1rem 1rem;
     border-top: 2px solid var(--color-text-primary);
     color: var(--color-text-secondary);
     font-size: 0.9375rem;

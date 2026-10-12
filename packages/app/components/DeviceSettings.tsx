@@ -7,10 +7,6 @@ const CHOICES: { value: ThemePreference; label: string }[] = [
   { value: 'dark', label: 'Dark' },
 ];
 
-// Marks the stored choice before React runs (or when it never does, e.g. the
-// Kindle's Silk 80). ES5 only. Mirrors getThemePreference().
-const MARK_CURRENT = `(function(){try{var t=localStorage.getItem('theme-preference')||'system',a=document.querySelectorAll('[data-theme-choice]');for(var i=0;i<a.length;i++){if(a[i].getAttribute('data-theme-choice')===t)a[i].setAttribute('aria-current','true');else a[i].removeAttribute('aria-current')}}catch(e){}})()`;
-
 /**
  * Per-device preferences: saved in this browser's localStorage only, never on
  * the server, so they're available to guests too.
@@ -19,7 +15,9 @@ const MARK_CURRENT = `(function(){try{var t=localStorage.getItem('theme-preferen
  * theme bootstrap (@pantry-host/shared/theme-init), so they work in browsers
  * that can't run the app's JS. That matters on e-readers: the Kindle's Silk
  * browser doesn't support prefers-color-scheme at all, so following the
- * device's dark mode is impossible and the choice has to be made here.
+ * device's dark mode is impossible and the choice has to be made here. The
+ * bootstrap also marks the current choice (aria-current) when React never
+ * runs; the effect below does it when React does.
  */
 export default function DeviceSettings() {
   const [current, setCurrent] = useState<ThemePreference | null>(null);
@@ -46,7 +44,6 @@ export default function DeviceSettings() {
           </li>
         ))}
       </ul>
-      <script dangerouslySetInnerHTML={{ __html: MARK_CURRENT }} />
     </section>
   );
 }

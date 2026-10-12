@@ -408,6 +408,21 @@ export default function Footer() {
 
           {/* Theme toggle + GitHub */}
           <div className="mt-6 flex flex-wrap items-center justify-between gap-y-3">
+            {/* No-JS theme switch for browsers that can't run the buttons below
+                (the Kindle's Silk 80): plain links handled by the inline theme
+                bootstrap (@pantry-host/shared/theme-init), saved to
+                localStorage. data-no-js hides it everywhere else: a layered
+                rule in each package's globals.css (Chrome 80 drops @layer),
+                and lite.css once React hydrates. */}
+            <p data-no-js className="no-print">
+              <span id="footer-theme-label">Theme:</span>{' '}
+              {THEME_OPTIONS.map(({ value, label }, i) => (
+                <span key={value}>
+                  {i > 0 && ' · '}
+                  <a href={`?theme=${value}`} data-theme-choice={value} aria-describedby="footer-theme-label">{label}</a>
+                </span>
+              ))}
+            </p>
             <div data-requires-js className="flex flex-wrap items-center gap-4 gap-y-3 no-print">
               {/* Theme preference */}
               <div role="radiogroup" aria-label="Theme" className="flex items-center gap-1">

@@ -20,6 +20,13 @@
 }
 
 @layer base {
+  /* No-JS fallbacks (e.g. the footer's ?theme= links) are for browsers that
+     can't run the app; hide them everywhere else. Inside a layer on purpose:
+     Chrome 80-era browsers drop @layer, so they still see the fallback. */
+  [data-no-js] {
+    display: none;
+  }
+
   :root {
     color-scheme: light dark;
     --color-bg-body: #f4f4f5;

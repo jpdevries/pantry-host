@@ -889,6 +889,13 @@
 /* ── Component classes (shared with self-hosted app) ───────────────────────── */
 
 @layer components {
+  /* No-JS fallbacks (e.g. the footer's ?theme= links) are for browsers that
+     can't run the app; hide them everywhere else. Inside a layer on purpose:
+     Chrome 80-era browsers drop @layer, so they still see the fallback. */
+  [data-no-js] {
+    display: none;
+  }
+
   /* Zen mode: fullscreen recipe article */
   article:fullscreen,
   article:-webkit-full-screen {

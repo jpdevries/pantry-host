@@ -296,6 +296,11 @@
     display: none;
   }
 
+  /* ...and their no-JS stand-ins (data-no-js) bow out once it has. */
+  html[data-hydrated] [data-no-js] {
+    display: none;
+  }
+
   /* ── Site header ── */
   #__rex > header {
     padding: 1rem 1rem 0.5rem;
@@ -558,6 +563,14 @@
   /* ── Settings: per-device theme choice ── */
   ul[aria-labelledby="device-theme-label"] > li {
     display: inline-block;
+  }
+
+  footer [data-no-js] a[data-theme-choice] {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border: 1px solid var(--color-border-card);
+    border-radius: 4px;
+    text-decoration: none;
   }
 
   a[data-theme-choice][aria-current="true"] {

@@ -10,7 +10,23 @@ const { script } = JSON.parse(
   readFileSync(join(import.meta.dirname, '../../packages/shared/src/theme-init.json'), 'utf8'),
 ) as { script: string };
 
-function run(search: string, stored: Record<string, string> = {}, opts: { storageThrows?: boolean } = {}) {
+interface FakeLink { choice: string; attrs: Record<string, string>; getAttribute(n: string): string | null; setAttribute(n: string, v: string): void; removeAttribute(n: string): void }
+function link(choice: string): FakeLink {
+  const l: FakeLink = {
+    choice,
+    attrs: { 'data-theme-choice': choice },
+    getAttribute: (n) => l.attrs[n] ?? null,
+    setAttribute: (n, v) => { l.attrs[n] = v; },
+    removeAttribute: (n) => { delete l.attrs[n]; },
+  };
+  return l;
+}
+
+function run(
+  search: string,
+  stored: Record<string, string> = {},
+  opts: { storageThrows?: boolean; readyState?: string } = {},
+) {
   const store = new Map(Object.entries(stored));
   const localStorage = {
     getItem: (k: string) => {
@@ -24,12 +40,21 @@ function run(search: string, stored: Record<string, string> = {}, opts: { storag
   const location = { pathname: '/settings', search, hash: '#stage' };
   let replaced: string | null = null;
   const history = { replaceState: (_s: unknown, _t: string, url: string) => { replaced = url; } };
-  const document = { body, querySelector: () => null };
+  const links = ['system', 'light', 'dark'].map(link);
+  const listeners: Record<string, () => void> = {};
+  const document = {
+    body,
+    readyState: opts.readyState ?? 'complete',
+    querySelector: () => null,
+    querySelectorAll: (sel: string) => (sel === '[data-theme-choice]' ? links : []),
+    addEventListener: (type: string, fn: () => void) => { listeners[type] = fn; },
+  };
   const matchMedia = () => ({ matches: false, media: 'not all' }); // Silk 80: unsupported
   new Function('localStorage', 'location', 'history', 'document', 'matchMedia', script)(
     localStorage, location, history, document, matchMedia,
   );
-  return { store, body, replaced };
+  const current = () => links.filter((l) => l.attrs['aria-current'] === 'true').map((l) => l.choice);
+  return { store, body, replaced, current, listeners };
 }
 
 describe('theme-init bootstrap (ES5, runs on the Kindle)', () => {
@@ -60,6 +85,19 @@ describe('theme-init bootstrap (ES5, runs on the Kindle)', () => {
     const none = run('', { 'theme-preference': 'dark' });
     assert.equal(none.body.dataset.colorScheme, 'dark');
     assert.equal(none.replaced, null);
+  });
+
+  it('marks the current [data-theme-choice] link with aria-current', () => {
+    assert.deepEqual(run('?theme=dark').current(), ['dark']);
+    assert.deepEqual(run('', { 'theme-preference': 'light' }).current(), ['light']);
+    assert.deepEqual(run('').current(), ['system']);
+  });
+
+  it('defers marking to DOMContentLoaded while the document is still parsing', () => {
+    const r = run('?theme=light', {}, { readyState: 'loading' });
+    assert.deepEqual(r.current(), [], 'links not parsed yet');
+    r.listeners.DOMContentLoaded();
+    assert.deepEqual(r.current(), ['light']);
   });
 
   it('survives storage that throws (private mode, blocked site data)', () => {

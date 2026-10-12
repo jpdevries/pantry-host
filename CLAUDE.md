@@ -143,6 +143,7 @@ Exports used by all packages:
 | `@pantry-host/shared/adapters/database` | DatabaseAdapter interface |
 | `@pantry-host/shared/adapters/file-storage` | FileStorageAdapter interface |
 | `@pantry-host/shared/sql/schema` | Canonical SQLite DDL string. Imported by both `packages/app/lib/db.ts` and `packages/web/lib/db.ts` — single source of truth, resolves the schema-drift gotcha. |
+| `@pantry-host/shared/queries/recipes-index` | `RECIPES_INDEX_QUERY` — the recipes grid query. Also `include_str!`'d by `packages/server/src/frontend.rs`, which runs it in-process to seed `initialRecipes` in the SPA shell. Keep it one plain template literal (no `${}`, no backticks inside). |
 
 ### Storage adapter pattern
 
@@ -283,6 +284,8 @@ At feature parity with `packages/app/graphql-server.ts`:
 - Mutations: ingredient/cookware/kitchen/menu CRUD, `createRecipe`, `updateRecipe`, `deleteRecipe`, `completeRecipe`, `toggleRecipeQueued`, `toggleRecipeInMenu`, `addIngredients` (bulk), `generateRecipes` (via Anthropic Messages API — requires `AI_API_KEY`)
 - `POST /upload` — multipart upload, UUID rename, background variant pipeline (3 widths × {WebP, JPEG q80, grayscale JPEG q80}, 16:9 center-crop, GIFs preserved). Concurrent uploads serialized by a tokio Semaphore (`IMAGE_CONCURRENCY=1` default for Pi 3 RAM safety).
 - `POST /fetch-recipe` — JSON-LD → schema.org microdata → heuristic HTML, plus cookware substring detection against the cookware table.
+
+- `GET /*` — embedded Rex SPA shell (no SSR; no JS runtime). It still carries natively computed data: OG meta for detail pages, and `__REX_DATA__` = `{"initialRecipes": [...]}` for `/recipes` + `/kitchens/:kitchen/recipes` (same props as the Rex `getServerSideProps`). See `lookup_page_props` in `src/frontend.rs`.
 
 Friendly `{slug}.jpg` copy after `createRecipe`/`updateRecipe` for ICS calendar exports — same retry-loop semantics as the TS version.
 

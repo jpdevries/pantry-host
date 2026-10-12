@@ -11,8 +11,11 @@
 //!
 //! Bootstrapping (mirrors what `rex start` would emit):
 //!   1. `<div id="__rex">` — the React hydration target.
-//!   2. `<script id="__REX_DATA__" type="application/json">{}</script>` —
-//!      pageProps. Empty in our case (no SSR data; pages fetch client-side).
+//!   2. `<script id="__REX_DATA__" type="application/json">{…}</script>` —
+//!      pageProps. `{}` for most routes (pages fetch client-side). Routes
+//!      whose Rex page has a `getServerSideProps` returning data the page
+//!      renders from get the same props computed natively here — see
+//!      [`lookup_page_props`].
 //!   3. `<script type="module" src="…/{app_script}">` — sets
 //!      `window.__REX_APP__`.
 //!   4. `<script type="module" src="…/{page_js}">` — sets
@@ -227,6 +230,7 @@ fn shell_html(
     default_palette: Option<&str>,
     trust_lan: bool,
     og: &OgMeta,
+    page_props: &str,
 ) -> String {
     let css_links: String = manifest
         .global_css
@@ -288,7 +292,7 @@ fn shell_html(
 <body>
 <script>(function(){{if(typeof localStorage==='undefined')return;try{{var b=document.body,t=localStorage.getItem('theme-preference')||'system',hcStored=localStorage.getItem('high-contrast'),hc=hcStored!==null?hcStored==='true':matchMedia('(prefers-contrast:more)').matches,p=localStorage.getItem('theme-palette');if(!p){{var m=document.querySelector('meta[name="default-palette"]');if(m)p=m.getAttribute('content')}}if(t!=='system')b.dataset.colorScheme=t;if(hc)b.dataset.highContrast='';if(p&&p!=='default')b.dataset.theme=p;var dark=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme:dark)').matches);b.style.colorScheme=dark?'dark':'light'}}catch(e){{}}}})()</script>
 <div id="__rex"></div>
-<script id="__REX_DATA__" type="application/json">{{}}</script>
+<script id="__REX_DATA__" type="application/json">{page_props}</script>
 <script type="module" src="/_rex/static/{app_script}"></script>
 <script type="module" src="/_rex/static/{page_js}"></script>
 </body>
@@ -301,7 +305,77 @@ fn shell_html(
         og_meta_html = og_meta_html,
         app_script = html_escape_attr(&manifest.app_script),
         page_js = html_escape_attr(page_js),
+        page_props = page_props,
     )
+}
+
+/// The recipes-index GraphQL query, shared verbatim with packages/app (see
+/// the doc comment in that file). Embedded at compile time; the template
+/// literal is pulled out of the TS source on first use.
+const RECIPES_INDEX_TS: &str = include_str!("../../shared/src/queries/recipes-index.ts");
+const RECIPES_INDEX_ANCHOR: &str = "export const RECIPES_INDEX_QUERY = `";
+
+fn recipes_index_query() -> Option<&'static str> {
+    static QUERY: OnceLock<Option<&'static str>> = OnceLock::new();
+    *QUERY.get_or_init(|| {
+        let query = extract_ts_template(RECIPES_INDEX_TS, RECIPES_INDEX_ANCHOR);
+        if query.is_none() {
+            tracing::error!("recipes-index.ts: RECIPES_INDEX_QUERY template literal not found; /recipes ships without initial props");
+        }
+        query
+    })
+}
+
+/// Text between `anchor` (which ends in an opening backtick) and the next
+/// backtick.
+fn extract_ts_template<'a>(src: &'a str, anchor: &str) -> Option<&'a str> {
+    let start = src.find(anchor)? + anchor.len();
+    let len = src[start..].find('`')?;
+    Some(&src[start..start + len])
+}
+
+/// Kitchen slug for the recipes index routes, mirroring
+/// packages/app/lib/kitchen-context.tsx (`/recipes` is the home kitchen).
+fn recipes_index_kitchen(path: &str) -> Option<&str> {
+    let segs: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+    match segs.as_slice() {
+        ["recipes"] => Some("home"),
+        ["kitchens", kitchen, "recipes"] => Some(kitchen),
+        _ => None,
+    }
+}
+
+/// Initial pageProps for routes whose Rex page seeds itself from
+/// `getServerSideProps`. Produces the same props the Rex side would
+/// (`packages/app/lib/recipesIndexProps.ts`) by running the same GraphQL query
+/// in-process, so the React page can't tell which server built the shell.
+/// Returns None — shell ships `{}` and the page fetches client-side, as
+/// before — for every other route and on any error.
+async fn lookup_page_props(state: &AppState, path: &str) -> Option<String> {
+    let kitchen = recipes_index_kitchen(path)?;
+    let request = async_graphql::Request::new(recipes_index_query()?).variables(
+        async_graphql::Variables::from_json(serde_json::json!({ "kitchenSlug": kitchen })),
+    );
+    let response = state.schema.execute(request).await;
+    if !response.errors.is_empty() {
+        tracing::warn!(kitchen = %kitchen, errors = ?response.errors, "recipes index page props: GraphQL errors");
+        return None;
+    }
+    let mut data = response.data.into_json().ok()?;
+    let recipes = data.get_mut("recipes")?.take();
+    Some(script_safe_json(
+        &serde_json::json!({ "initialRecipes": recipes }).to_string(),
+    ))
+}
+
+/// Make serialized JSON safe to inline in a `<script type="application/json">`
+/// element. `<`, `>` and `&` can only appear inside JSON string literals, so
+/// swapping them for their `\uXXXX` escapes parses back to the identical
+/// value while making `</script>` and `<!--` impossible.
+fn script_safe_json(json: &str) -> String {
+    json.replace('<', "\\u003c")
+        .replace('>', "\\u003e")
+        .replace('&', "\\u0026")
 }
 
 /// Produce the `<title>` element + the og:* / twitter:card / description
@@ -574,12 +648,16 @@ pub async fn serve_spa(
     let og = lookup_og_meta(&state, &headers, path)
         .await
         .unwrap_or_default();
+    let page_props = lookup_page_props(&state, path)
+        .await
+        .unwrap_or_else(|| "{}".to_string());
     let html = shell_html(
         manifest,
         page_js,
         default_palette.as_deref(),
         trust_lan,
         &og,
+        &page_props,
     );
     (
         StatusCode::OK,
@@ -659,5 +737,32 @@ mod tests {
     fn splat_match() {
         assert!(match_pattern(&pat("/at/*path"), &segs("/at/did/foo/bar")));
         assert!(match_pattern(&pat("/at/*path"), &segs("/at/one")));
+    }
+
+    #[test]
+    fn recipes_index_query_extracts_from_shared_ts() {
+        let q = recipes_index_query().expect("query literal found");
+        assert!(q.trim_start().starts_with("query Recipes($kitchenSlug: String)"));
+        assert!(q.contains("recipes(kitchenSlug: $kitchenSlug)"));
+        assert!(!q.contains('`'));
+    }
+
+    #[test]
+    fn recipes_index_routes() {
+        assert_eq!(recipes_index_kitchen("/recipes"), Some("home"));
+        assert_eq!(recipes_index_kitchen("/recipes/"), Some("home"));
+        assert_eq!(recipes_index_kitchen("/kitchens/cabin/recipes"), Some("cabin"));
+        assert_eq!(recipes_index_kitchen("/recipes/some-slug"), None);
+        assert_eq!(recipes_index_kitchen("/kitchens/cabin/recipes/new"), None);
+        assert_eq!(recipes_index_kitchen("/menus"), None);
+    }
+
+    #[test]
+    fn script_safe_json_round_trips() {
+        let value = serde_json::json!({ "title": "</script><!-- Mac & Cheese -->" });
+        let safe = script_safe_json(&value.to_string());
+        assert!(!safe.contains('<') && !safe.contains('>') && !safe.contains('&'));
+        let parsed: serde_json::Value = serde_json::from_str(&safe).unwrap();
+        assert_eq!(parsed, value);
     }
 }

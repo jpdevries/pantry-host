@@ -204,3 +204,72 @@ describe('SPA shell injects OG metadata for detail pages', () => {
     assert.ok(!html.includes('<meta property="og:title"'));
   });
 });
+
+describe('SPA shell seeds initialRecipes for the recipes index', () => {
+  const TRICKY_TITLE = 'Index Test </script><!-- Mac & Cheese';
+
+  function pageProps(html: string): { initialRecipes?: Array<{ title: string; slug: string }> } {
+    const m = html.match(/<script id="__REX_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+    assert.ok(m, '__REX_DATA__ script present');
+    return JSON.parse(m[1]);
+  }
+
+  async function createRecipe(title: string, kitchenSlug?: string): Promise<void> {
+    await gql<CreatedRecipe>(
+      `mutation Create($title: String!, $instructions: String!, $kitchenSlug: String, $ingredients: [RecipeIngredientInput!]!) {
+        createRecipe(title: $title, instructions: $instructions, kitchenSlug: $kitchenSlug, ingredients: $ingredients) { slug }
+      }`,
+      { title, instructions: '1. Cook', kitchenSlug, ingredients: [] },
+    );
+  }
+
+  before(async () => {
+    await resetDb();
+    await createRecipe(TRICKY_TITLE);
+    await gql<{ createKitchen: { slug: string } }>(
+      `mutation($s: String!, $n: String!) { createKitchen(slug: $s, name: $n) { slug } }`,
+      { s: 'index-test-kitchen', n: 'Index Test Kitchen' },
+    );
+    await createRecipe('Kitchen-Scoped Index Soup', 'index-test-kitchen');
+    await gql<{ createKitchen: { slug: string } }>(
+      `mutation($s: String!, $n: String!) { createKitchen(slug: $s, name: $n) { slug } }`,
+      { s: 'index-empty-kitchen', n: 'Empty Kitchen' },
+    );
+  });
+
+  it('/recipes ships the home kitchen list, script-safe', async () => {
+    const { status, html } = await getHtml('/recipes');
+    assert.equal(status, 200);
+    const props = pageProps(html);
+    assert.deepEqual(props.initialRecipes?.map((r) => r.title), [TRICKY_TITLE]);
+    // The title's </script> must not terminate the data script early.
+    assert.ok(!html.includes('</script><!-- Mac'), 'raw title not inlined');
+  });
+
+  it('matches what the client-side GraphQL fetch returns', async () => {
+    const { html } = await getHtml('/recipes');
+    const api = await gql<{ recipes: unknown[] }>(
+      `query Recipes($kitchenSlug: String) {
+        recipes(kitchenSlug: $kitchenSlug) { id slug title cookTime prepTime servings source sourceUrl tags photoUrl queued }
+      }`,
+      { kitchenSlug: 'home' },
+    );
+    assert.deepEqual(pageProps(html).initialRecipes, api.recipes);
+  });
+
+  it('/kitchens/:kitchen/recipes scopes to that kitchen', async () => {
+    const { html } = await getHtml('/kitchens/index-test-kitchen/recipes');
+    assert.deepEqual(pageProps(html).initialRecipes?.map((r) => r.title), ['Kitchen-Scoped Index Soup']);
+  });
+
+  it('an empty kitchen ships [] (so the page can say "No recipes yet")', async () => {
+    const { html } = await getHtml('/kitchens/index-empty-kitchen/recipes');
+    assert.deepEqual(pageProps(html).initialRecipes, []);
+  });
+
+  it('an unknown kitchen and non-index routes ship {}', async () => {
+    assert.deepEqual(pageProps((await getHtml('/kitchens/no-such-kitchen/recipes')).html), {});
+    assert.deepEqual(pageProps((await getHtml('/menus')).html), {});
+    assert.deepEqual(pageProps((await getHtml('/recipes/new')).html), {});
+  });
+});

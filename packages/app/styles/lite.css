@@ -15,7 +15,9 @@
  * Scope: the server-rendered reading pages (recipe list and detail, menus,
  * pantry, grocery list), styled through semantic structure and the existing
  * component classes. Tailwind utility classes do nothing here; the few
- * visibility utilities the markup depends on are re-implemented below.
+ * visibility utilities the markup depends on are re-implemented below, plus
+ * a handful of inline ones (ml-N and mr-N margins, font weights,
+ * line-through, divide-y) that separate the fields of a data row.
  *
  * Rules of the road, everything in this file must work in Chromium 80:
  * no @layer, nesting, :is()/:where()/:focus-visible/:has(), flexbox gap,
@@ -181,6 +183,69 @@
   .skip-link {
     position: absolute;
     left: -9999px;
+  }
+
+  /* ── Inline utilities that separate fields in data rows ── */
+  .ml-1 {
+    margin-left: 0.25rem;
+  }
+
+  .ml-2 {
+    margin-left: 0.5rem;
+  }
+
+  .ml-3 {
+    margin-left: 0.75rem;
+  }
+
+  .mr-1 {
+    margin-right: 0.25rem;
+  }
+
+  .mr-2 {
+    margin-right: 0.5rem;
+  }
+
+  .font-medium {
+    font-weight: 500;
+  }
+
+  .font-semibold {
+    font-weight: 600;
+  }
+
+  .font-bold {
+    font-weight: 700;
+  }
+
+  .line-through {
+    text-decoration: line-through;
+  }
+
+  /* role="list" marks lists the design renders without bullets. */
+  ul[role="list"],
+  ol[role="list"] {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .divide-y > li {
+    padding: 0.625rem 0;
+    border-bottom: 1px solid var(--color-border-card);
+  }
+
+  /* Checkbox rows outside recipe articles (grocery list, filters). */
+  li > label > input[type="checkbox"] {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin: 0 0.5rem 0 0;
+    vertical-align: -0.2em;
+  }
+
+  li > label {
+    display: block;
+    padding: 0.25rem 0;
   }
 
   .skip-link:focus {

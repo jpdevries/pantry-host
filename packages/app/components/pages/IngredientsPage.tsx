@@ -49,6 +49,7 @@ const CAT_ICONS: Record<string, ReactNode> = {
 import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
 import { HIDDEN_TAGS, CATEGORY_GROUPS } from '@pantry-host/shared/constants';
 import { isOwner } from '@/lib/isTrustedNetwork';
+import { pageQuery } from '@pantry-host/shared/page-data';
 
 interface Ingredient {
   id: string;
@@ -66,11 +67,9 @@ interface Ingredient {
   createdAt: string;
 }
 
-const INGREDIENTS_QUERY = `
-  query Ingredients($kitchenSlug: String) {
-    ingredients(kitchenSlug: $kitchenSlug) { id name aliases category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta createdAt }
-  }
-`;
+export type IngredientsIndexData = { ingredients: Ingredient[] };
+
+const INGREDIENTS_QUERY = pageQuery('ingredientsIndex');
 
 const DELETE_INGREDIENT = `
   mutation DeleteIngredient($id: String!) {
@@ -78,13 +77,17 @@ const DELETE_INGREDIENT = `
   }
 `;
 
-export default function IngredientsPage() {
+/** `initialData` is seeded by the server (lib/pageData.ts or the Rust shell). */
+export default function IngredientsPage({ initialData }: { initialData?: IngredientsIndexData }) {
   const kitchen = useKitchen();
   const cacheKey = `cache:ingredients:${kitchen}`;
-  const cached = cacheGet<Ingredient[]>(cacheKey);
+  // Server data wins over the cache so the first client render matches the
+  // SSR HTML.
+  const cached = initialData ? null : cacheGet<Ingredient[]>(cacheKey);
+  const initial = initialData?.ingredients ?? cached;
 
-  const [ingredients, setIngredients] = useState<Ingredient[]>(cached ?? []);
-  const [loaded, setLoaded] = useState(Boolean(cached));
+  const [ingredients, setIngredients] = useState<Ingredient[]>(initial ?? []);
+  const [loaded, setLoaded] = useState(Boolean(initial));
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showBatchScan, setShowBatchScan] = useState(false);
@@ -255,7 +258,7 @@ export default function IngredientsPage() {
         )}
 
         {ingredients.length > 0 && (
-          <div className="mb-8">
+          <div data-requires-js className="mb-8">
             <label htmlFor="pantry-filter" className="field-label">Filter Ingredients</label>
             <IngredientTypeahead
               id="pantry-filter"

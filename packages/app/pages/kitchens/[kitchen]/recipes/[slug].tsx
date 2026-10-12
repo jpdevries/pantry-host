@@ -1,8 +1,10 @@
-import { useRouter } from 'next/router';
-import RecipeDetailPage from '@/components/pages/RecipeDetailPage';
-import { isBrowser } from '@pantry-host/shared/env';
-export default function KitchenRecipeDetail() {
-  const { slug } = useRouter().query;
-  const segments = isBrowser ? window.location.pathname.split('/').filter(Boolean) : []; // /kitchens/[kitchen]/recipes/[slug]
-  return <RecipeDetailPage recipeId={(slug as string) || segments[3] || ''} />;
+import RecipeDetailRoute, { type RecipeDetailData } from '@/components/routes/RecipeDetailRoute';
+import { getPageData, type PageDataContext, type PageDataProps } from '@/lib/pageData';
+
+export async function getServerSideProps(ctx: PageDataContext) {
+  return getPageData<RecipeDetailData>('/kitchens/:kitchen/recipes/:slug', ctx);
+}
+
+export default function KitchenRecipeDetail({ initialData }: PageDataProps<RecipeDetailData>) {
+  return <RecipeDetailRoute initialData={initialData} />;
 }

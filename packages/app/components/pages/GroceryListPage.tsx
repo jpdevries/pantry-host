@@ -8,6 +8,8 @@ import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem, normalizeIngredientName, type GroceryStatus, type PantryLookup } from '@pantry-host/shared/grocery-status';
 import { ShoppingCart, Basket, MapPin } from '@phosphor-icons/react';
 import { isServer } from '@pantry-host/shared/env';
+import { pageQuery } from '@pantry-host/shared/page-data';
+import { compareText } from '@pantry-host/shared/compare-text';
 
 /** Convert a kebab-case tag to Title Case display: "farmers-market" → "Farmers Market" */
 function tagToTitle(tag: string): string {
@@ -57,20 +59,14 @@ interface PerRecipeItem {
 
 const TOGGLE_QUEUED = `mutation ToggleQueued($id: String!) { toggleRecipeQueued(id: $id) { id queued } }`;
 
-const QUEUED_RECIPES_QUERY = `
-  query QueuedRecipes($kitchenSlug: String) {
-    recipes(queued: true, kitchenSlug: $kitchenSlug) {
-      id slug title
-      groceryIngredients { ingredientName quantity unit itemSize itemSizeUnit }
-    }
-  }
-`;
+/** Queued recipes + the pantry, in one request (two root fields). */
+export type GroceryListData = { recipes: QueuedRecipe[]; ingredients: PantryItem[] };
 
-const INGREDIENTS_QUERY = `
-  query Ingredients($kitchenSlug: String) {
-    ingredients(kitchenSlug: $kitchenSlug) { id name aliases quantity unit itemSize itemSizeUnit alwaysOnHand tags }
-  }
-`;
+const GROCERY_LIST_QUERY = pageQuery('groceryList');
+
+function hasCommonTag(pantry: PantryItem[]): boolean {
+  return pantry.some((i) => i.tags?.some((t) => t.toLowerCase() === 'common'));
+}
 
 function resolveStatus(ing: RecipeIngredient, lookup: PantryLookup<PantryItem>): { status: ItemStatus; pantryQuantity: number | null } {
   const pantryItem = findPantryItem(lookup, ing.ingredientName);
@@ -97,7 +93,7 @@ function buildPerRecipeItems(recipe: QueuedRecipe, lookup: PantryLookup<PantryIt
         stores,
       };
     })
-    .sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
+    .sort((a, b) => compareText(a.ingredientName, b.ingredientName));
 }
 
 function fmtQty(qty: number | null, unit: string | null): string {
@@ -116,13 +112,14 @@ function fmtItem(item: PerRecipeItem): string {
   return fmtQty(item.quantity, item.unit);
 }
 
-export default function GroceryListPage() {
+/** `initialData` is seeded by the server (lib/pageData.ts or the Rust shell). */
+export default function GroceryListPage({ initialData }: { initialData?: GroceryListData }) {
   const kitchen = useKitchen();
-  const [recipes, setRecipes] = useState<QueuedRecipe[]>([]);
-  const [pantry, setPantry] = useState<PantryItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [recipes, setRecipes] = useState<QueuedRecipe[]>(initialData?.recipes ?? []);
+  const [pantry, setPantry] = useState<PantryItem[]>(initialData?.ingredients ?? []);
+  const [loading, setLoading] = useState(!initialData);
   const [addingCommon, setAddingCommon] = useState(false);
-  const [hasCommon, setHasCommon] = useState(false);
+  const [hasCommon, setHasCommon] = useState(() => hasCommonTag(initialData?.ingredients ?? []));
   const [commonItems, setCommonItems] = useState<string[]>(() => {
     if (isServer) return [];
     try {
@@ -156,19 +153,16 @@ export default function GroceryListPage() {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      gql<{ recipes: QueuedRecipe[] }>(QUEUED_RECIPES_QUERY, { kitchenSlug: kitchen }),
-      gql<{ ingredients: PantryItem[] }>(INGREDIENTS_QUERY, { kitchenSlug: kitchen }),
-    ])
-      .then(([rd, id]) => {
-        setRecipes(rd.recipes);
-        setPantry(id.ingredients);
-        setHasCommon(id.ingredients.some((i) => i.tags?.some((t) => t.toLowerCase() === 'common')));
-        cacheSet(cacheKey, { recipes: rd.recipes, pantry: id.ingredients });
+    gql<GroceryListData>(GROCERY_LIST_QUERY, { kitchenSlug: kitchen })
+      .then((d) => {
+        setRecipes(d.recipes);
+        setPantry(d.ingredients);
+        setHasCommon(hasCommonTag(d.ingredients));
+        cacheSet(cacheKey, { recipes: d.recipes, pantry: d.ingredients });
       })
       .catch(() => {
-        const cached = cacheGet<{ recipes: QueuedRecipe[]; pantry: PantryItem[] }>(cacheKey);
+        // Keep server-seeded data over a possibly stale cache.
+        const cached = initialData ? null : cacheGet<{ recipes: QueuedRecipe[]; pantry: PantryItem[] }>(cacheKey);
         if (cached) { setRecipes(cached.recipes); setPantry(cached.pantry); }
       })
       .finally(() => setLoading(false));
@@ -231,7 +225,7 @@ export default function GroceryListPage() {
   const pantryLookup = pantryIndex(mergedPantry);
 
 
-  const sortedRecipes = [...recipes].sort((a, b) => a.title.localeCompare(b.title));
+  const sortedRecipes = [...recipes].sort((a, b) => compareText(a.title, b.title));
 
   return (
     <>
@@ -395,7 +389,7 @@ export default function GroceryListPage() {
 
                     <div className="space-y-3">
                       {groupIngredients(items).map((g, gi) => {
-                        const sorted = [...g.items].sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
+                        const sorted = [...g.items].sort((a, b) => compareText(a.ingredientName, b.ingredientName));
                         const renderItem = (item: typeof items[0] & { index: number }) => {
                           const original = items[item.index];
                           const itemKey = original?.key ?? `${item.ingredientName.toLowerCase()}`;

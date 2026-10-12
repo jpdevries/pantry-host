@@ -313,8 +313,12 @@ async function teardown(h: Handle): Promise<void> {
 }
 
 function discoverTestFiles(): string[] {
+  // Optional filters: `node tests/integration/run.ts frontend menus` runs only
+  // the test files whose names contain one of the arguments.
+  const filters = process.argv.slice(2);
   return readdirSync(HERE)
     .filter((f) => f.endsWith('.test.ts'))
+    .filter((f) => filters.length === 0 || filters.some((x) => f.includes(x)))
     .map((f) => join(HERE, f))
     .sort();
 }

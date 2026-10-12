@@ -7,6 +7,7 @@ import { isOwner } from '@/lib/isTrustedNetwork';
 import { useKitchen } from '@/lib/kitchen-context';
 import { isBrowser } from '@pantry-host/shared/env';
 import PublishToBlueskyButton from '@pantry-host/shared/components/PublishToBlueskyButton';
+import { pageQuery } from '@pantry-host/shared/page-data';
 
 interface MenuRecipe {
   id: string;
@@ -48,19 +49,7 @@ export interface Menu {
   recipes: MenuRecipe[];
 }
 
-export const MENU_QUERY = `query Menu($id: String!) {
-  menu(id: $id) {
-    id slug title description sourceUrl active createdAt
-    recipes {
-      id course sortOrder
-      recipe {
-        id slug title description instructions cookTime prepTime servings
-        source sourceUrl tags photoUrl queued createdAt
-        groceryIngredients { ingredientName quantity unit itemSize itemSizeUnit }
-      }
-    }
-  }
-}`;
+export const MENU_QUERY = pageQuery('menuDetail');
 
 const DELETE_MENU = `mutation DeleteMenu($id: String!) { deleteMenu(id: $id) }`;
 
@@ -322,7 +311,7 @@ export default function MenuDetailPage({ menuId, initialMenu }: Props) {
       )}
 
       {availableFilters.length > 0 && (
-        <div className="mt-6 mb-8 relative">
+        <div data-requires-js className="mt-6 mb-8 relative">
           <a href="#menu-after-filters" className="skip-link">Skip filters</a>
           <p id="filter-desc" className="text-xs text-[var(--color-text-secondary)] mb-2">Filter dishes by dietary preference</p>
           <div className="flex flex-wrap gap-2" role="group" aria-labelledby="filter-desc">

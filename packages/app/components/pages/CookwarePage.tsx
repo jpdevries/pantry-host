@@ -6,6 +6,7 @@ import { enqueue } from '@/lib/offlineQueue';
 import { PencilSimple, Trash } from '@phosphor-icons/react';
 import { isOwner } from '@/lib/isTrustedNetwork';
 import { useKitchen } from '@/lib/kitchen-context';
+import { pageQuery } from '@pantry-host/shared/page-data';
 
 interface Cookware {
   id: string;
@@ -15,7 +16,7 @@ interface Cookware {
   notes: string | null;
 }
 
-const COOKWARE_QUERY = `query Cookware($kitchenSlug: String) { cookware(kitchenSlug: $kitchenSlug) { id name brand tags notes } }`;
+const COOKWARE_QUERY = pageQuery('cookwareIndex');
 const ADD_COOKWARE = `mutation AddCookware($name: String!, $brand: String, $tags: [String!], $notes: String, $kitchenSlug: String) { addCookware(name: $name, brand: $brand, tags: $tags, notes: $notes, kitchenSlug: $kitchenSlug) { id } }`;
 const UPDATE_COOKWARE = `mutation UpdateCookware($id: String!, $name: String, $brand: String, $tags: [String!], $notes: String) { updateCookware(id: $id, name: $name, brand: $brand, tags: $tags, notes: $notes) { id } }`;
 const DELETE_COOKWARE = `mutation DeleteCookware($id: String!) { deleteCookware(id: $id) }`;
@@ -24,9 +25,14 @@ function cookwareDetailHref(kitchen: string, id: string) {
   return `/kitchens/${kitchen}/cookware/${id}#stage`;
 }
 
-export default function CookwarePage() {
+export type CookwareIndexData = { cookware: Cookware[] };
+
+/** `initialData` is seeded by the server (lib/pageData.ts or the Rust shell). */
+export default function CookwarePage({ initialData }: { initialData?: CookwareIndexData }) {
   const kitchen = useKitchen();
-  const [cookware, setCookware] = useState<Cookware[]>([]);
+  // null = not loaded yet, so "No cookware registered yet" only shows for a
+  // real empty result.
+  const [cookware, setCookware] = useState<Cookware[] | null>(initialData?.cookware ?? null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -78,7 +84,11 @@ export default function CookwarePage() {
           </section>
         )}
 
-        {cookware.length === 0 && !showForm && (
+        {cookware === null && (
+          <p className="text-[var(--color-text-secondary)]" aria-busy="true">Loading…</p>
+        )}
+
+        {cookware?.length === 0 && !showForm && (
           <div className="text-center py-20 text-[var(--color-text-secondary)]">
             <p className="text-lg mb-2">No cookware registered yet.</p>
             <p>Adding your equipment helps AI suggest better recipes.</p>
@@ -86,7 +96,7 @@ export default function CookwarePage() {
         )}
 
         <ul role="list" className="divide-y divide-[var(--color-border-card)]">
-          {cookware.map((item) => (
+          {(cookware ?? []).map((item) => (
             <li key={item.id}>
               {editingId === item.id ? (
                 <div className="py-4 bg-[var(--color-bg-card)] px-2">

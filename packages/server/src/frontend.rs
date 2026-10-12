@@ -14,8 +14,8 @@
 //!   2. `<script id="__REX_DATA__" type="application/json">{…}</script>` —
 //!      pageProps. `{}` for most routes (pages fetch client-side). Routes
 //!      whose Rex page has a `getServerSideProps` returning data the page
-//!      renders from get the same props computed natively here — see
-//!      [`lookup_page_props`].
+//!      renders from get the same props computed natively here, driven by
+//!      the shared page-data table — see [`lookup_page_props`].
 //!   3. `<script type="module" src="…/{app_script}">` — sets
 //!      `window.__REX_APP__`.
 //!   4. `<script type="module" src="…/{page_js}">` — sets
@@ -309,62 +309,101 @@ fn shell_html(
     )
 }
 
-/// The recipes-index GraphQL query, shared verbatim with packages/app (see
-/// the doc comment in that file). Embedded at compile time; the template
-/// literal is pulled out of the TS source on first use.
-const RECIPES_INDEX_TS: &str = include_str!("../../shared/src/queries/recipes-index.ts");
-const RECIPES_INDEX_ANCHOR: &str = "export const RECIPES_INDEX_QUERY = `";
+/// Server-seeded page data: one GraphQL query per Rex route, shared verbatim
+/// with packages/app (`@pantry-host/shared/page-data`). Embedded at compile
+/// time and parsed once.
+const PAGE_DATA_JSON: &str = include_str!("../../shared/src/page-data.json");
 
-fn recipes_index_query() -> Option<&'static str> {
-    static QUERY: OnceLock<Option<&'static str>> = OnceLock::new();
-    *QUERY.get_or_init(|| {
-        let query = extract_ts_template(RECIPES_INDEX_TS, RECIPES_INDEX_ANCHOR);
-        if query.is_none() {
-            tracing::error!("recipes-index.ts: RECIPES_INDEX_QUERY template literal not found; /recipes ships without initial props");
+#[derive(Deserialize)]
+struct RawPageData {
+    queries: HashMap<String, String>,
+    routes: Vec<RawPageDataRoute>,
+}
+
+#[derive(Deserialize)]
+struct RawPageDataRoute {
+    route: String,
+    query: String,
+    variables: HashMap<String, String>,
+}
+
+/// One table row, resolved: the query text plus how to build each variable.
+struct PageDataRoute {
+    query: String,
+    /// (variable name, value). A value starting with `:` names a route param.
+    variables: Vec<(String, String)>,
+}
+
+/// Rex route pattern (as in the manifest, e.g. `/recipes/:slug`) -> row.
+fn page_data() -> &'static HashMap<String, PageDataRoute> {
+    static TABLE: OnceLock<HashMap<String, PageDataRoute>> = OnceLock::new();
+    TABLE.get_or_init(|| match parse_page_data(PAGE_DATA_JSON) {
+        Ok(table) => table,
+        Err(e) => {
+            tracing::error!("page-data.json: {e}; pages ship without initial props");
+            HashMap::new()
         }
-        query
     })
 }
 
-/// Text between `anchor` (which ends in an opening backtick) and the next
-/// backtick.
-fn extract_ts_template<'a>(src: &'a str, anchor: &str) -> Option<&'a str> {
-    let start = src.find(anchor)? + anchor.len();
-    let len = src[start..].find('`')?;
-    Some(&src[start..start + len])
-}
-
-/// Kitchen slug for the recipes index routes, mirroring
-/// packages/app/lib/kitchen-context.tsx (`/recipes` is the home kitchen).
-fn recipes_index_kitchen(path: &str) -> Option<&str> {
-    let segs: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
-    match segs.as_slice() {
-        ["recipes"] => Some("home"),
-        ["kitchens", kitchen, "recipes"] => Some(kitchen),
-        _ => None,
+fn parse_page_data(json: &str) -> Result<HashMap<String, PageDataRoute>, String> {
+    let raw: RawPageData = serde_json::from_str(json).map_err(|e| e.to_string())?;
+    let mut table = HashMap::with_capacity(raw.routes.len());
+    for row in raw.routes {
+        let query = raw
+            .queries
+            .get(&row.query)
+            .ok_or_else(|| format!("route {} names unknown query {}", row.route, row.query))?
+            .clone();
+        let mut variables: Vec<(String, String)> = row.variables.into_iter().collect();
+        variables.sort();
+        table.insert(row.route, PageDataRoute { query, variables });
     }
+    Ok(table)
 }
 
-/// Initial pageProps for routes whose Rex page seeds itself from
-/// `getServerSideProps`. Produces the same props the Rex side would
-/// (`packages/app/lib/recipesIndexProps.ts`) by running the same GraphQL query
-/// in-process, so the React page can't tell which server built the shell.
-/// Returns None — shell ships `{}` and the page fetches client-side, as
-/// before — for every other route and on any error.
-async fn lookup_page_props(state: &AppState, path: &str) -> Option<String> {
-    let kitchen = recipes_index_kitchen(path)?;
-    let request = async_graphql::Request::new(recipes_index_query()?).variables(
-        async_graphql::Variables::from_json(serde_json::json!({ "kitchenSlug": kitchen })),
-    );
+/// Values for a pattern's `:param` segments, taken from the request path.
+/// `pattern` is the one `find_page` already matched, so lengths line up.
+fn route_params<'a>(pattern: &str, path: &'a str) -> HashMap<String, &'a str> {
+    let url_segs = path.split('/').filter(|s| !s.is_empty());
+    pattern
+        .split('/')
+        .filter(|s| !s.is_empty())
+        .zip(url_segs)
+        .filter_map(|(p, u)| p.strip_prefix(':').map(|name| (name.to_string(), u)))
+        .collect()
+}
+
+/// Initial pageProps for routes in the page-data table: `{"initialData": <data>}`,
+/// the same props the Rex side's getServerSideProps (packages/app/lib/pageData.ts)
+/// produces, computed by running the same GraphQL query in-process. So the
+/// React page can't tell which server built the shell. Returns None (shell
+/// ships `{}`, page fetches client-side) for routes not in the table and on
+/// any GraphQL error, mirroring the Rex helper.
+async fn lookup_page_props(state: &AppState, pattern: &str, path: &str) -> Option<String> {
+    let row = page_data().get(pattern)?;
+    let params = route_params(pattern, path);
+    let variables: serde_json::Map<String, serde_json::Value> = row
+        .variables
+        .iter()
+        .map(|(name, value)| {
+            let resolved = match value.strip_prefix(':') {
+                Some(param) => params.get(param).copied().unwrap_or_default(),
+                None => value.as_str(),
+            };
+            (name.clone(), serde_json::Value::String(resolved.to_string()))
+        })
+        .collect();
+    let request = async_graphql::Request::new(row.query.as_str())
+        .variables(async_graphql::Variables::from_json(serde_json::Value::Object(variables)));
     let response = state.schema.execute(request).await;
     if !response.errors.is_empty() {
-        tracing::warn!(kitchen = %kitchen, errors = ?response.errors, "recipes index page props: GraphQL errors");
+        tracing::warn!(route = %pattern, path = %path, errors = ?response.errors, "page props: GraphQL errors");
         return None;
     }
-    let mut data = response.data.into_json().ok()?;
-    let recipes = data.get_mut("recipes")?.take();
+    let data = response.data.into_json().ok()?;
     Some(script_safe_json(
-        &serde_json::json!({ "initialRecipes": recipes }).to_string(),
+        &serde_json::json!({ "initialData": data }).to_string(),
     ))
 }
 
@@ -631,7 +670,8 @@ pub async fn serve_spa(
             .into_response();
     };
     let path = uri.path();
-    let page_js = find_page(manifest, path)
+    let matched = find_page(manifest, path);
+    let page_js = matched
         // Unmatched URL: fall back to the home page bundle. The home page
         // renders, and the client-side _app's effect can choose to handle
         // 404-ness once it sees that no page-specific data loads.
@@ -648,9 +688,13 @@ pub async fn serve_spa(
     let og = lookup_og_meta(&state, &headers, path)
         .await
         .unwrap_or_default();
-    let page_props = lookup_page_props(&state, path)
-        .await
-        .unwrap_or_else(|| "{}".to_string());
+    // Only seed props for a real route match; the home-bundle fallback for
+    // unknown URLs gets none.
+    let page_props = match matched {
+        Some(page) => lookup_page_props(&state, &page.pattern, path).await,
+        None => None,
+    }
+    .unwrap_or_else(|| "{}".to_string());
     let html = shell_html(
         manifest,
         page_js,
@@ -740,21 +784,33 @@ mod tests {
     }
 
     #[test]
-    fn recipes_index_query_extracts_from_shared_ts() {
-        let q = recipes_index_query().expect("query literal found");
-        assert!(q.trim_start().starts_with("query Recipes($kitchenSlug: String)"));
-        assert!(q.contains("recipes(kitchenSlug: $kitchenSlug)"));
-        assert!(!q.contains('`'));
+    fn page_data_table_parses_and_is_consistent() {
+        let table = parse_page_data(PAGE_DATA_JSON).expect("page-data.json parses");
+        assert!(table.len() >= 18, "expected every seeded route, got {}", table.len());
+        for (route, row) in &table {
+            assert!(row.query.trim_start().starts_with("query "), "{route}: not a query");
+            assert!(!row.query.contains('`'), "{route}: stray backtick");
+            for (name, value) in &row.variables {
+                assert!(row.query.contains(&format!("${name}")), "{route}: query lacks ${name}");
+                if let Some(param) = value.strip_prefix(':') {
+                    assert!(
+                        route.split('/').any(|seg| seg == format!(":{param}")),
+                        "{route}: variable {name} reads missing param :{param}"
+                    );
+                }
+            }
+        }
+        for route in ["/recipes", "/kitchens/:kitchen/recipes", "/recipes/:slug", "/menus", "/cookware/:id", "/list", "/"] {
+            assert!(table.contains_key(route), "missing {route}");
+        }
     }
 
     #[test]
-    fn recipes_index_routes() {
-        assert_eq!(recipes_index_kitchen("/recipes"), Some("home"));
-        assert_eq!(recipes_index_kitchen("/recipes/"), Some("home"));
-        assert_eq!(recipes_index_kitchen("/kitchens/cabin/recipes"), Some("cabin"));
-        assert_eq!(recipes_index_kitchen("/recipes/some-slug"), None);
-        assert_eq!(recipes_index_kitchen("/kitchens/cabin/recipes/new"), None);
-        assert_eq!(recipes_index_kitchen("/menus"), None);
+    fn route_params_extracts_named_segments() {
+        let p = route_params("/kitchens/:kitchen/recipes/:slug", "/kitchens/cabin/recipes/stew/");
+        assert_eq!(p.get("kitchen"), Some(&"cabin"));
+        assert_eq!(p.get("slug"), Some(&"stew"));
+        assert!(route_params("/recipes", "/recipes").is_empty());
     }
 
     #[test]

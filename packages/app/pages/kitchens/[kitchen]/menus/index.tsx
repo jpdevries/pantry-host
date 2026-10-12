@@ -1,7 +1,12 @@
 import Head from 'next/head';
-import MenusIndexPage from '@/components/pages/MenusIndexPage';
+import MenusIndexPage, { type MenusIndexData } from '@/components/pages/MenusIndexPage';
+import { getPageData, type PageDataContext, type PageDataProps } from '@/lib/pageData';
 
-export default function KitchenMenus() {
+export async function getServerSideProps(ctx: PageDataContext) {
+  return getPageData<MenusIndexData>('/kitchens/:kitchen/menus', ctx);
+}
+
+export default function KitchenMenus({ initialData }: PageDataProps<MenusIndexData>) {
   return (
     <>
       <Head>
@@ -12,7 +17,7 @@ export default function KitchenMenus() {
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary" />
       </Head>
-      <MenusIndexPage />
+      <MenusIndexPage initialData={initialData} />
     </>
   );
 }

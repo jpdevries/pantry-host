@@ -1,9 +1,10 @@
-import HomePage from '@/components/pages/HomePage';
+import HomePage, { type HomeData } from '@/components/pages/HomePage';
+import { getPageData, type PageDataContext, type PageDataProps } from '@/lib/pageData';
 
-/** Per-kitchen dashboard. The same HomePage also renders at the
- *  top-level `/` alias — both URLs are real. The active kitchen is
- *  read via `useKitchen()` inside HomePage; this wrapper doesn't need
- *  to resolve it. */
-export default function KitchenDashboard() {
-  return <HomePage />;
+export async function getServerSideProps(ctx: PageDataContext) {
+  return getPageData<HomeData>('/kitchens/:kitchen', ctx);
+}
+
+export default function KitchenDashboard({ initialData }: PageDataProps<HomeData>) {
+  return <HomePage initialData={initialData} />;
 }

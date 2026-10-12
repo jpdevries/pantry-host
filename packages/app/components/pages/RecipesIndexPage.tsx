@@ -10,7 +10,7 @@ import { isOwner } from '@/lib/isTrustedNetwork';
 import { useKitchen } from '@/lib/kitchen-context';
 import IngredientTypeahead from '@pantry-host/shared/components/IngredientTypeahead';
 import { isBrowser, isServer } from '@pantry-host/shared/env';
-import { RECIPES_INDEX_QUERY } from '@pantry-host/shared/queries/recipes-index';
+import { pageQuery } from '@pantry-host/shared/page-data';
 
 export interface RecipeIndexItem {
   id: string;
@@ -26,24 +26,27 @@ export interface RecipeIndexItem {
   queued: boolean;
 }
 type Recipe = RecipeIndexItem;
+export type RecipesIndexData = { recipes: RecipeIndexItem[] };
+
+const RECIPES_INDEX_QUERY = pageQuery('recipesIndex');
 
 const ADULT_TAGS = ['420', 'cannabis', 'adult-only'];
 
 interface Props {
-  // Seeded by the server — Rex getServerSideProps, or the Rust server's
-  // __REX_DATA__ shell (packages/server/src/frontend.rs). Undefined when the
-  // server couldn't load them; the client fetch below still runs either way.
-  initialRecipes?: Recipe[];
+  // Seeded by the server — Rex getServerSideProps (lib/pageData.ts), or the
+  // Rust server's __REX_DATA__ shell. Undefined when the server couldn't load
+  // it; the client fetch below still runs either way.
+  initialData?: RecipesIndexData;
 }
 
-export default function RecipesIndexPage({ initialRecipes }: Props) {
+export default function RecipesIndexPage({ initialData }: Props) {
   const kitchen = useKitchen();
   const cacheKey = `cache:recipes:${kitchen}`;
   // null = not loaded yet. Kept distinct from [] so "No recipes yet" only
   // renders once a fetch has actually come back empty. Server data wins over
   // the localStorage cache so the first client render matches the SSR HTML.
   const [recipes, setRecipes] = useState<Recipe[] | null>(
-    () => initialRecipes ?? cacheGet<Recipe[]>(cacheKey) ?? null,
+    () => initialData?.recipes ?? cacheGet<Recipe[]>(cacheKey) ?? null,
   );
   const [loadFailed, setLoadFailed] = useState(false);
   const list = recipes ?? [];

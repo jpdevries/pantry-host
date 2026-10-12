@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { gql } from '@/lib/gql';
 import { useKitchen } from '@/lib/kitchen-context';
 import RecipeCard from '@/components/RecipeCard';
+import { pageQuery } from '@pantry-host/shared/page-data';
 
 interface Recipe {
   id: string;
@@ -26,14 +27,9 @@ interface CookwareItem {
   recipes: Recipe[];
 }
 
-const COOKWARE_ITEM_QUERY = `
-  query CookwareItem($id: String!) {
-    cookwareItem(id: $id) {
-      id name brand notes tags
-      recipes { id slug title cookTime prepTime servings source tags photoUrl queued }
-    }
-  }
-`;
+export type CookwareDetailData = { cookwareItem: CookwareItem | null };
+
+const COOKWARE_ITEM_QUERY = pageQuery('cookwareDetail');
 
 const UPDATE_MUTATION = `
   mutation UpdateCookware($id: String!, $name: String!, $brand: String, $tags: [String!], $notes: String) {
@@ -41,12 +37,16 @@ const UPDATE_MUTATION = `
   }
 `;
 
-interface Props { id: string; }
+interface Props {
+  id: string;
+  /** Seeded by the server (lib/pageData.ts or the Rust shell). */
+  initialData?: CookwareDetailData;
+}
 
-export default function CookwareDetailPage({ id }: Props) {
+export default function CookwareDetailPage({ id, initialData }: Props) {
   const kitchen = useKitchen();
-  const [item, setItem] = useState<CookwareItem | null>(null);
-  const [notFound, setNotFound] = useState(false);
+  const [item, setItem] = useState<CookwareItem | null>(initialData?.cookwareItem ?? null);
+  const [notFound, setNotFound] = useState(initialData ? !initialData.cookwareItem : false);
   const [editing, setEditing] = useState(false);
 
   const cookwareBase = `/kitchens/${kitchen}/cookware`;
@@ -66,7 +66,7 @@ export default function CookwareDetailPage({ id }: Props) {
 
   return (
     <>
-      <Head><title>{item ? `${item.name} — Cookware` : 'Cookware'} — Pantry Host</title></Head>
+      <Head><title>{`${item ? `${item.name} — Cookware` : 'Cookware'} — Pantry Host`}</title></Head>
 
       <main id="stage" className="max-sm:min-h-screen px-4 py-10 md:px-8 max-w-4xl mx-auto">
         {/* Action bar */}

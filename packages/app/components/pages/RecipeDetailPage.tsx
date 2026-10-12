@@ -26,6 +26,7 @@ import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem } from '@pantry-host/shared/grocery-status';
 import { isOwner } from '@/lib/isTrustedNetwork';
 import { isBrowser } from '@pantry-host/shared/env';
+import { pageQuery } from '@pantry-host/shared/page-data';
 
 interface RecipeIngredient {
   ingredientName: string;
@@ -75,17 +76,7 @@ export interface Recipe {
   usedIn: SubRecipe[];
 }
 
-export const RECIPE_QUERY = `
-  query Recipe($id: String!) {
-    recipe(id: $id) {
-      id slug title description instructions servings prepTime cookTime
-      tags requiredCookware { id name brand } source sourceUrl photoUrl stepPhotos lastMadeAt queued createdAt
-      ingredients { ingredientName quantity unit itemSize itemSizeUnit sourceRecipeId }
-      groceryIngredients { ingredientName quantity unit itemSize itemSizeUnit }
-      usedIn { id slug title cookTime prepTime servings source tags photoUrl queued }
-    }
-  }
-`;
+export const RECIPE_QUERY = pageQuery('recipeDetail');
 
 const DELETE_RECIPE = `mutation DeleteRecipe($id: String!) { deleteRecipe(id: $id) }`;
 const COMPLETE_RECIPE = `mutation CompleteRecipe($id: String!, $servings: Int) { completeRecipe(id: $id, servings: $servings) { id lastMadeAt } }`;

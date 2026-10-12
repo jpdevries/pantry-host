@@ -1,12 +1,12 @@
 import Head from 'next/head';
-import RecipesIndexPage from '@/components/pages/RecipesIndexPage';
-import { getRecipesIndexProps, type RecipesIndexProps } from '@/lib/recipesIndexProps';
+import RecipesIndexPage, { type RecipesIndexData } from '@/components/pages/RecipesIndexPage';
+import { getPageData, type PageDataContext, type PageDataProps } from '@/lib/pageData';
 
-export async function getServerSideProps() {
-  return getRecipesIndexProps('home');
+export async function getServerSideProps(ctx: PageDataContext) {
+  return getPageData<RecipesIndexData>('/recipes', ctx);
 }
 
-export default function RecipesPage({ initialRecipes }: RecipesIndexProps) {
+export default function RecipesPage({ initialData }: PageDataProps<RecipesIndexData>) {
   return (
     <>
       <Head>
@@ -17,7 +17,7 @@ export default function RecipesPage({ initialRecipes }: RecipesIndexProps) {
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary" />
       </Head>
-      <RecipesIndexPage initialRecipes={initialRecipes} />
+      <RecipesIndexPage initialData={initialData} />
     </>
   );
 }

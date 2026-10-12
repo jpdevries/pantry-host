@@ -60,6 +60,39 @@
     }
   }
 
+  /* An explicit per-device choice (?theme=… handled by the inline theme
+     bootstrap, saved in localStorage; see components/DeviceSettings.tsx)
+     wins over the media query. It's the only route to dark mode on the
+     Kindle: its Silk browser doesn't support prefers-color-scheme at all.
+     Body-level tokens override the :root ones by inheritance. */
+  body[data-color-scheme="dark"] {
+    --color-bg-body: #000000;
+    --color-bg-card: #000000;
+    --color-border-card: #a1a1aa;
+    --color-text-primary: #fafafa;
+    --color-text-secondary: #d4d4d8;
+    --color-accent: #fafafa;
+    --color-accent-hover: #ffffff;
+    --color-accent-subtle: #27272a;
+    --color-ring-focus: #fafafa;
+    --color-danger: #f87171;
+    --color-warning: #fbbf24;
+  }
+
+  body[data-color-scheme="light"] {
+    --color-bg-body: #ffffff;
+    --color-bg-card: #ffffff;
+    --color-border-card: #71717a;
+    --color-text-primary: #09090b;
+    --color-text-secondary: #3f3f46;
+    --color-accent: #18181b;
+    --color-accent-hover: #09090b;
+    --color-accent-subtle: #e4e4e7;
+    --color-ring-focus: #09090b;
+    --color-danger: #b91c1c;
+    --color-warning: #92400e;
+  }
+
   /* ── Base ── */
   html {
     -webkit-text-size-adjust: 100%;
@@ -520,6 +553,16 @@
     color: var(--color-text-secondary);
     font-size: 0.9375rem;
     text-align: right;
+  }
+
+  /* ── Settings: per-device theme choice ── */
+  ul[aria-labelledby="device-theme-label"] > li {
+    display: inline-block;
+  }
+
+  a[data-theme-choice][aria-current="true"] {
+    background: var(--color-text-primary);
+    color: var(--color-bg-body);
   }
 
   /* ── Forms (settings and other native-POST pages) ── */

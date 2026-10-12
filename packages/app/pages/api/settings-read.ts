@@ -20,6 +20,7 @@
  * We surface this via `postSaveNotice` in the client adapter.
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { isOwnerRequest } from '@pantry-host/shared/owner-request';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
@@ -76,12 +77,7 @@ function readOverrides(): Record<string, string> {
 }
 
 function isLocalhostRequest(req: NextApiRequest): boolean {
-  const host = (req.headers.host ?? '').toLowerCase();
-  const hostname = host.replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
-  const isLoopbackHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
-  const proto = (req.headers['x-forwarded-proto'] as string) ?? '';
-  const isHttps = proto === 'https';
-  return isLoopbackHost || isHttps;
+  return isOwnerRequest(req.headers);
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

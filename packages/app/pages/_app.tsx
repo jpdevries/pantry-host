@@ -9,6 +9,7 @@ import { flush } from '@/lib/offlineQueue';
 import { registerFlush } from '@/lib/apiStatus';
 import { initTheme } from '@pantry-host/shared/theme';
 import { BlueskyAuthProvider } from '@pantry-host/shared/contexts/BlueskyAuth';
+import { THEME_INIT_SCRIPT } from '@pantry-host/shared/theme-init';
 import '../styles/globals.css';
 // Legacy / e-ink fallback (Kindle Silk 80 etc.). Self-gated with @supports, so
 // modern browsers skip it. Kept out of globals.css so Tailwind never touches it.
@@ -134,6 +135,13 @@ export default function App({ Component, pageProps }: AppProps) {
     <PreferBrowserChromeProvider userPref={preferBrowserChrome}>{/* tri-state: 'on' | 'off' | undefined */}
       <KitchenProvider kitchen={(pageProps as { kitchen?: string } | undefined)?.kitchen}>
         <BlueskyAuthProvider callbackPath="/oauth/bluesky/callback">
+          {/* Theme bootstrap, first thing in <body>. It lives here rather than
+              in _document.tsx because Rex renders _document's <Head> but drops
+              its <body> children. Applies the stored theme before the rest
+              paints, and handles ?theme=… for browsers that can't run the
+              bundles (the Kindle's Silk 80). The Rust SPA shell inlines the
+              same script itself. */}
+          <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
           <Nav />
           <OfflineBanner />
           <Component {...pageProps} />

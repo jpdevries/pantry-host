@@ -264,9 +264,9 @@ fn shell_html(
     // (Bluesky, iMessage, etc.) see the same preview metadata they got
     // from the Rex SSR build.
     let (title_html, og_meta_html) = render_og(og);
-    // The theme-init inline script is a near-verbatim copy of the one in
-    // packages/app/pages/_document.tsx: applies localStorage-backed theme
-    // pre-paint to avoid a flash of unstyled content.
+    // The theme-init inline script is shared with packages/app/pages/_app.tsx
+    // via packages/shared/src/theme-init.json: applies the localStorage-backed
+    // theme pre-paint, and accepts ?theme=… for browsers that can't run the app.
     format!(
         r##"<!DOCTYPE html>
 <html lang="en">
@@ -290,7 +290,7 @@ fn shell_html(
 {og_meta_html}
 </head>
 <body>
-<script>(function(){{if(typeof localStorage==='undefined')return;try{{var b=document.body,t=localStorage.getItem('theme-preference')||'system',hcStored=localStorage.getItem('high-contrast'),hc=hcStored!==null?hcStored==='true':matchMedia('(prefers-contrast:more)').matches,p=localStorage.getItem('theme-palette');if(!p){{var m=document.querySelector('meta[name="default-palette"]');if(m)p=m.getAttribute('content')}}if(t!=='system')b.dataset.colorScheme=t;if(hc)b.dataset.highContrast='';if(p&&p!=='default')b.dataset.theme=p;var dark=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme:dark)').matches);b.style.colorScheme=dark?'dark':'light'}}catch(e){{}}}})()</script>
+<script>{theme_init}</script>
 <div id="__rex"></div>
 <script id="__REX_DATA__" type="application/json">{page_props}</script>
 <script type="module" src="/_rex/static/{app_script}"></script>
@@ -306,7 +306,30 @@ fn shell_html(
         app_script = html_escape_attr(&manifest.app_script),
         page_js = html_escape_attr(page_js),
         page_props = page_props,
+        theme_init = theme_init_script(),
     )
+}
+
+/// The theme bootstrap script, shared verbatim with Rex's `_app.tsx`
+/// (`packages/shared/src/theme-init.json`). A trusted compile-time constant,
+/// so it's inlined as-is.
+const THEME_INIT_JSON: &str = include_str!("../../shared/src/theme-init.json");
+
+fn theme_init_script() -> &'static str {
+    static SCRIPT: OnceLock<String> = OnceLock::new();
+    SCRIPT.get_or_init(|| {
+        #[derive(Deserialize)]
+        struct ThemeInit {
+            script: String,
+        }
+        match serde_json::from_str::<ThemeInit>(THEME_INIT_JSON) {
+            Ok(t) => t.script,
+            Err(e) => {
+                tracing::error!("theme-init.json: {e}; shell ships without the theme bootstrap");
+                String::new()
+            }
+        }
+    })
 }
 
 /// Server-seeded page data: one GraphQL query per Rex route, shared verbatim
@@ -691,6 +714,14 @@ pub async fn serve_spa(
     // Only seed props for a real route match; the home-bundle fallback for
     // unknown URLs gets none.
     let page_props = match matched {
+        // Settings aren't GraphQL: seed them from the same snapshot
+        // /api/settings-read returns, owner-gated by these request headers.
+        Some(page) if page.pattern == "/settings" => Some(script_safe_json(
+            &serde_json::json!({
+                "settings": crate::routes::settings::settings_snapshot(&state, &headers)
+            })
+            .to_string(),
+        )),
         Some(page) => lookup_page_props(&state, &page.pattern, path).await,
         None => None,
     }

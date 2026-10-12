@@ -101,15 +101,24 @@ matches the request URL against the `pages` table (Rex's `:param` and
 
 Module scripts execute in source order, so `_app` runs before the page
 bundle and `__REX_APP__` is defined by the time hydration starts. There's
-no server-side render — the `<div id="__rex">` ships empty and the page
-bundle paints client-side.
+no server-side render — the binary has no JS runtime, so the
+`<div id="__rex">` ships empty and the page bundle paints client-side.
 
-This means `getServerSideProps` pages (e.g. `/recipes/:slug`) lose their
-pre-rendered OG metadata. The page itself falls back to a client-side
-fetch via `window.location.pathname`, so the recipe still loads — just
-without SEO-friendly `<meta property="og:*">` tags. Acceptable trade-off
-for a self-hosted home app; revisit if/when we care about Bluesky link
-previews.
+What the shell *can* carry without a JS runtime is data computed natively:
+
+- **OG metadata** for detail pages (`/recipes/:slug`, `/menus/:slug`, and
+  their `/kitchens/:kitchen/…` forms) — looked up from SQLite per request.
+- **Initial page props** in `<script id="__REX_DATA__">` for the recipes
+  index (`/recipes`, `/kitchens/:kitchen/recipes`). The server runs the
+  same GraphQL query the page runs (shared verbatim from
+  `packages/shared/src/queries/recipes-index.ts` via `include_str!`) and
+  emits `{"initialRecipes": [...]}` — the same props the Rex
+  `getServerSideProps` produces, so the page renders the list on first
+  paint instead of waiting on a round trip. Every other route ships `{}`.
+
+To seed another route, give its Rex page a `getServerSideProps`, move its
+query into `packages/shared/src/queries/`, and add a matching arm to
+`lookup_page_props` in `src/frontend.rs`.
 
 ### `/api/*` parity
 

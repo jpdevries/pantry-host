@@ -10,8 +10,9 @@ import { isOwner } from '@/lib/isTrustedNetwork';
 import { useKitchen } from '@/lib/kitchen-context';
 import IngredientTypeahead from '@pantry-host/shared/components/IngredientTypeahead';
 import { isBrowser, isServer } from '@pantry-host/shared/env';
+import { RECIPES_INDEX_QUERY } from '@pantry-host/shared/queries/recipes-index';
 
-interface Recipe {
+export interface RecipeIndexItem {
   id: string;
   slug: string | null;
   title: string;
@@ -24,19 +25,28 @@ interface Recipe {
   photoUrl: string | null;
   queued: boolean;
 }
-
-const RECIPES_QUERY = `
-  query Recipes($kitchenSlug: String) {
-    recipes(kitchenSlug: $kitchenSlug) { id slug title cookTime prepTime servings source sourceUrl tags photoUrl queued }
-  }
-`;
+type Recipe = RecipeIndexItem;
 
 const ADULT_TAGS = ['420', 'cannabis', 'adult-only'];
 
-export default function RecipesIndexPage() {
+interface Props {
+  // Seeded by the server — Rex getServerSideProps, or the Rust server's
+  // __REX_DATA__ shell (packages/server/src/frontend.rs). Undefined when the
+  // server couldn't load them; the client fetch below still runs either way.
+  initialRecipes?: Recipe[];
+}
+
+export default function RecipesIndexPage({ initialRecipes }: Props) {
   const kitchen = useKitchen();
   const cacheKey = `cache:recipes:${kitchen}`;
-  const [recipes, setRecipes] = useState<Recipe[]>(() => cacheGet<Recipe[]>(cacheKey) ?? []);
+  // null = not loaded yet. Kept distinct from [] so "No recipes yet" only
+  // renders once a fetch has actually come back empty. Server data wins over
+  // the localStorage cache so the first client render matches the SSR HTML.
+  const [recipes, setRecipes] = useState<Recipe[] | null>(
+    () => initialRecipes ?? cacheGet<Recipe[]>(cacheKey) ?? null,
+  );
+  const [loadFailed, setLoadFailed] = useState(false);
+  const list = recipes ?? [];
   const [owner, setOwner] = useState(false);
   const [ageVerified, setAgeVerified] = useState(() => {
     if (isBrowser) return localStorage.getItem('age-verified') === 'true';
@@ -88,18 +98,19 @@ export default function RecipesIndexPage() {
   // hint still rotates day-to-day. Falls back to a static string until
   // the recipes query resolves so the SSR'd input matches first paint.
   const placeholder = useMemo(() => {
-    if (!recipes.length) return 'Search recipes…';
+    if (!recipes?.length) return 'Search recipes…';
     return pickDaily(recipes)?.title ?? 'Search recipes…';
   }, [recipes]);
 
   useEffect(() => { setOwner(isOwner()); }, []);
 
   useEffect(() => {
-    gql<{ recipes: Recipe[] }>(RECIPES_QUERY, { kitchenSlug: kitchen })
-      .then((d) => { setRecipes(d.recipes); cacheSet(cacheKey, d.recipes); })
+    gql<{ recipes: Recipe[] }>(RECIPES_INDEX_QUERY, { kitchenSlug: kitchen })
+      .then((d) => { setRecipes(d.recipes); setLoadFailed(false); cacheSet(cacheKey, d.recipes); })
       .catch(() => {
         const cached = cacheGet<Recipe[]>(cacheKey);
         if (cached) setRecipes(cached);
+        setLoadFailed(true);
       });
   }, [kitchen]);
 
@@ -129,7 +140,7 @@ export default function RecipesIndexPage() {
   ];
 
   const availableFilters = RECIPE_FILTERS.filter((f) =>
-    recipes.some((r) => r.tags.some((t) => f.tags.includes(t.toLowerCase())))
+    list.some((r) => r.tags.some((t) => f.tags.includes(t.toLowerCase())))
   );
 
   function toggleFilter(key: string) {
@@ -166,7 +177,7 @@ export default function RecipesIndexPage() {
           )}
         </div>
 
-        {!ageVerified && recipes.some((r) => r.tags.some((t) => ADULT_TAGS.includes(t.toLowerCase()))) && (
+        {!ageVerified && list.some((r) => r.tags.some((t) => ADULT_TAGS.includes(t.toLowerCase()))) && (
           <div className="mb-6 p-4 border border-[var(--color-border-card)] bg-[var(--color-bg-card)] rounded flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-[var(--color-text-secondary)]">
               Some recipes are marked as adult-only. <span className="font-medium">Are you 21 or older?</span>
@@ -190,7 +201,7 @@ export default function RecipesIndexPage() {
               value={search}
               onChange={setSearch}
               placeholder={placeholder}
-              suggestions={recipes.map((r) => r.title)}
+              suggestions={list.map((r) => r.title)}
               inputMode="search"
               enterKeyHint="search"
               ariaLabel="Recipe title suggestions"
@@ -263,6 +274,19 @@ export default function RecipesIndexPage() {
 
         {(() => {
           const q = search.toLowerCase().trim();
+          if (recipes === null) return loadFailed ? (
+            <p className="text-center py-12 text-[var(--color-text-secondary)]">Couldn&rsquo;t load recipes.</p>
+          ) : (
+            <>
+              <p className="sr-only">Loading recipes…</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" aria-hidden="true">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-64 rounded-xl bg-[var(--color-bg-card)] animate-pulse" />
+                ))}
+              </div>
+            </>
+          );
+
           let visible = ageVerified
             ? recipes
             : recipes.filter((r) => !r.tags.some((t) => ADULT_TAGS.includes(t.toLowerCase())));

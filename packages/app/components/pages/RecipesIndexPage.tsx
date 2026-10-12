@@ -37,9 +37,20 @@ interface Props {
   // Rust server's __REX_DATA__ shell. Undefined when the server couldn't load
   // it; the client fetch below still runs either way.
   initialData?: RecipesIndexData;
+  // The request's URL query, from the server (lib/pageData.ts). When present,
+  // URL-driven state starts from it on both the server and the client, so the
+  // SSR HTML and the first client render agree. Absent on the Rust SPA shell,
+  // which renders client-side only and reads window.location instead.
+  query?: Record<string, string>;
 }
 
-export default function RecipesIndexPage({ initialData }: Props) {
+/** URL param from the server-provided query, else from the browser URL. */
+function urlParam(query: Record<string, string> | undefined, name: string): string | null {
+  if (query) return query[name] ?? null;
+  return isBrowser ? new URLSearchParams(window.location.search).get(name) : null;
+}
+
+export default function RecipesIndexPage({ initialData, query }: Props) {
   const kitchen = useKitchen();
   const cacheKey = `cache:recipes:${kitchen}`;
   // null = not loaded yet. Kept distinct from [] so "No recipes yet" only
@@ -51,26 +62,19 @@ export default function RecipesIndexPage({ initialData }: Props) {
   const [loadFailed, setLoadFailed] = useState(false);
   const list = recipes ?? [];
   const [owner, setOwner] = useState(false);
-  const [ageVerified, setAgeVerified] = useState(() => {
-    if (isBrowser) return localStorage.getItem('age-verified') === 'true';
-    return false;
-  });
-  const [search, setSearch] = useState(() => {
-    if (isBrowser) {
-      return new URLSearchParams(window.location.search).get('search') ?? '';
-    }
-    return '';
-  });
+  // localStorage-only, so the server can't know it: start from the server's
+  // answer (false) and read it after mount. Reading it during the first
+  // render made verified users' first render differ from the SSR HTML.
+  const [ageVerified, setAgeVerified] = useState(false);
+  useEffect(() => {
+    if (localStorage.getItem('age-verified') === 'true') setAgeVerified(true);
+  }, []);
+  const [search, setSearch] = useState(() => urlParam(query, 'search') ?? '');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   // `?favorites=1` — intersect visible recipes with localStorage.favorites.
-  // Off unless the URL explicitly asks. Hydrates after mount (same guard
-  // as `search`) so SSR doesn't touch `window.location`.
-  const [favoritesOnly, setFavoritesOnly] = useState(() => {
-    if (isBrowser) {
-      return new URLSearchParams(window.location.search).get('favorites') === '1';
-    }
-    return false;
-  });
+  // Off unless the URL explicitly asks. Same source as `search`, so the
+  // server renders the (initially empty) favorites view too.
+  const [favoritesOnly, setFavoritesOnly] = useState(() => urlParam(query, 'favorites') === '1');
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   useEffect(() => { setFavoriteIds(readFavorites()); }, []);
   function clearFavoritesFilter() {

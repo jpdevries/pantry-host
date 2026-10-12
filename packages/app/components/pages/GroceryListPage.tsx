@@ -7,7 +7,6 @@ import { useKitchen } from '@/lib/kitchen-context';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem, normalizeIngredientName, type GroceryStatus, type PantryLookup } from '@pantry-host/shared/grocery-status';
 import { ShoppingCart, Basket, MapPin } from '@phosphor-icons/react';
-import { isServer } from '@pantry-host/shared/env';
 import { pageQuery } from '@pantry-host/shared/page-data';
 import { compareText } from '@pantry-host/shared/compare-text';
 
@@ -120,20 +119,22 @@ export default function GroceryListPage({ initialData }: { initialData?: Grocery
   const [loading, setLoading] = useState(!initialData);
   const [addingCommon, setAddingCommon] = useState(false);
   const [hasCommon, setHasCommon] = useState(() => hasCommonTag(initialData?.ingredients ?? []));
-  const [commonItems, setCommonItems] = useState<string[]>(() => {
-    if (isServer) return [];
+  // Both are localStorage-only, so the server renders them empty; read them
+  // after mount so the first client render matches the SSR HTML (reading
+  // during render added list rows the server never sent). Writes happen
+  // only in event handlers, so nothing overwrites them before this runs.
+  const [commonItems, setCommonItems] = useState<string[]>([]);
+  const [checked, setChecked] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
     try {
       const raw = localStorage.getItem('groceryCommonItems');
-      return raw ? (JSON.parse(raw) as string[]) : [];
-    } catch { return []; }
-  });
-  const [checked, setChecked] = useState<Set<string>>(() => {
-    if (isServer) return new Set();
+      if (raw) setCommonItems(JSON.parse(raw) as string[]);
+    } catch { /* ignore */ }
     try {
       const raw = localStorage.getItem('groceryChecked');
-      return raw ? new Set<string>(JSON.parse(raw) as string[]) : new Set();
-    } catch { return new Set(); }
-  });
+      if (raw) setChecked(new Set<string>(JSON.parse(raw) as string[]));
+    } catch { /* ignore */ }
+  }, []);
 
   const [harvestLocations, setHarvestLocations] = useState<string[]>([]);
 

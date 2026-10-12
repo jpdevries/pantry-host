@@ -238,10 +238,12 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
   const [menuSelections, setMenuSelections] = useState<Record<string, boolean>>({});
   const [savingMenus, setSavingMenus] = useState(false);
   const [menuStatus, setMenuStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [ageVerified, setAgeVerified] = useState(() => {
-    if (isBrowser) return localStorage.getItem('age-verified') === 'true';
-    return false;
-  });
+  // localStorage-only: start from the server's answer (false), read after
+  // mount, so the first client render matches the SSR HTML.
+  const [ageVerified, setAgeVerified] = useState(false);
+  useEffect(() => {
+    if (localStorage.getItem('age-verified') === 'true') setAgeVerified(true);
+  }, []);
   // recipe-api.com key for the NutritionFacts display block. Only fetched
   // for owner (loopback / HTTPS) — guests get null and the block hides itself.
   const [recipeApiKey, setRecipeApiKey] = useState<string | null>(null);

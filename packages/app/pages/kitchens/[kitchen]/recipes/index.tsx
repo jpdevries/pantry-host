@@ -5,6 +5,6 @@ export async function getServerSideProps(ctx: PageDataContext) {
   return getPageData<RecipesIndexData>('/kitchens/:kitchen/recipes', ctx);
 }
 
-export default function KitchenRecipes({ initialData }: PageDataProps<RecipesIndexData>) {
-  return <RecipesIndexPage initialData={initialData} />;
+export default function KitchenRecipes({ initialData, query }: PageDataProps<RecipesIndexData>) {
+  return <RecipesIndexPage initialData={initialData} query={query} />;
 }

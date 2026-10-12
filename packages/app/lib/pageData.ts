@@ -6,6 +6,11 @@ export interface PageDataProps<T> {
   initialData?: T;
   /** Active kitchen slug, read by `_app`'s KitchenProvider during SSR. */
   kitchen?: string;
+  /** The request's URL query. Rex's SSR router has no URL (see
+   *  lib/kitchen-context.tsx), so pages whose first render depends on the
+   *  query (e.g. /recipes?search=…) read it from here; otherwise the SSR HTML
+   *  and the first client render disagree and hydration fails. */
+  query?: Record<string, string>;
 }
 
 // Shared getServerSideProps body for every route in
@@ -27,6 +32,7 @@ export interface PageDataProps<T> {
 // rendered them.
 export interface PageDataContext {
   params?: Record<string, string | string[] | undefined>;
+  query?: Record<string, string>;
 }
 
 export async function getPageData<T>(route: string, ctx: PageDataContext = {}): Promise<{ props: PageDataProps<T> }> {
@@ -34,10 +40,11 @@ export async function getPageData<T>(route: string, ctx: PageDataContext = {}): 
   // can't resolve it from the URL (see lib/kitchen-context.tsx).
   const param = ctx.params?.kitchen;
   const kitchen = typeof param === 'string' && param ? param : 'home';
+  const query = ctx.query ?? {};
   const request = pageDataRequest(route, ctx.params);
   if (!request) {
     console.error('[pageData] no page-data row for route %s', route);
-    return { props: { kitchen } };
+    return { props: { kitchen, query } };
   }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5000);
@@ -51,17 +58,17 @@ export async function getPageData<T>(route: string, ctx: PageDataContext = {}): 
     if (!res.ok) {
       const snippet = (await res.text()).slice(0, 200);
       console.error('[pageData] %s non-OK response status=%d body=%s', route, res.status, snippet);
-      return { props: { kitchen } };
+      return { props: { kitchen, query } };
     }
     const body = (await res.json()) as { data?: T | null; errors?: unknown };
     if (body.errors || !body.data) {
       console.error('[pageData] %s GraphQL errors vars=%s: %s', route, JSON.stringify(request.variables), JSON.stringify(body.errors));
-      return { props: { kitchen } };
+      return { props: { kitchen, query } };
     }
-    return { props: { initialData: body.data, kitchen } };
+    return { props: { initialData: body.data, kitchen, query } };
   } catch (e) {
     console.error('[pageData] %s fetch failed: %s', route, e instanceof Error ? (e.stack ?? e.message) : String(e));
-    return { props: { kitchen } };
+    return { props: { kitchen, query } };
   } finally {
     clearTimeout(timer);
   }

@@ -6,7 +6,7 @@ export async function getServerSideProps(ctx: PageDataContext) {
   return getPageData<RecipesIndexData>('/recipes', ctx);
 }
 
-export default function RecipesPage({ initialData }: PageDataProps<RecipesIndexData>) {
+export default function RecipesPage({ initialData, query }: PageDataProps<RecipesIndexData>) {
   return (
     <>
       <Head>
@@ -17,7 +17,7 @@ export default function RecipesPage({ initialData }: PageDataProps<RecipesIndexD
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary" />
       </Head>
-      <RecipesIndexPage initialData={initialData} />
+      <RecipesIndexPage initialData={initialData} query={query} />
     </>
   );
 }

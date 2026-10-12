@@ -10,6 +10,7 @@ import ImportSources from './sections/ImportSources';
 import Kitchens from './sections/Kitchens';
 import DemoVideos from './sections/DemoVideos';
 import { Docker, RaspberryPi } from './sections/SelfHost';
+import EReader from './sections/EReader';
 import Philosophy from './sections/Philosophy';
 import Footer from '@pantry-host/shared/components/Footer';
 import AccessibilityPreferences from '@pantry-host/shared/components/AccessibilityPreferences';
@@ -74,6 +75,7 @@ function Landing() {
         <DemoVideos />
         <Docker />
         <RaspberryPi />
+        <EReader />
         <Philosophy />
       </main>
     </>

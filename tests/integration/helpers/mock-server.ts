@@ -25,6 +25,27 @@ const MOCK_RECIPE_HTML = `<!doctype html>
 <body><h1>Mock Tomato Soup</h1></body>
 </html>`;
 
+// No LD-JSON, microdata, or class="*ingredient*" containers — only headings,
+// so /fetch-recipe has to fall through to the heuristic heading strategies.
+const MOCK_HEURISTIC_HTML = `<!doctype html>
+<html>
+<head><title>Mock Heading Pancakes</title></head>
+<body>
+<article>
+  <h2>Ingredients</h2>
+  <ul>
+    <li>1 cup flour</li>
+    <li>2 eggs</li>
+  </ul>
+  <h2>Instructions</h2>
+  <ol>
+    <li>Whisk flour and eggs</li>
+    <li>Fry in a hot pan</li>
+  </ol>
+</article>
+</body>
+</html>`;
+
 const MOCK_GENERATED_RECIPES = [
   {
     title: 'Mock Salt Bowl',
@@ -169,6 +190,11 @@ export async function startMockServer(): Promise<MockServer> {
     if (req.method === 'GET' && req.url === '/recipe.html') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(MOCK_RECIPE_HTML);
+      return;
+    }
+    if (req.method === 'GET' && req.url === '/heuristic.html') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(MOCK_HEURISTIC_HTML);
       return;
     }
     if (req.method === 'POST' && req.url === '/v1/messages') {

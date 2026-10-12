@@ -525,22 +525,21 @@ fn extract_from_html_heuristic(html: &str) -> Option<ParsedRecipe> {
     // Strategy 2: heading "Ingredients" → <ul>
     if ingredients.is_empty() {
         static HEAD_ING: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?i)<h[2-4][^>]*>[^<]*ingredients[^<]*</h[2-4]>\s*([\s\S]*?)(?=<h[2-4]|</section|</article)")
-                .unwrap()
+            Regex::new(r"(?i)<h[2-4][^>]*>[^<]*ingredients[^<]*</h[2-4]>\s*").unwrap()
         });
-        for cap in HEAD_ING.captures_iter(html) {
-            if let Some(block) = cap.get(1) {
-                for li in LI_RE.captures_iter(block.as_str()) {
-                    if let Some(text) = li.get(1) {
-                        let cleaned = decode_html_entities(strip_tags(text.as_str()).trim());
-                        if !cleaned.is_empty() && cleaned.len() < 200 {
-                            ingredients.push(cleaned);
-                        }
+        static HEAD_ING_END: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"(?i)<h[2-4]|</section|</article").unwrap());
+        for block in heading_blocks(html, &HEAD_ING, &HEAD_ING_END) {
+            for li in LI_RE.captures_iter(block) {
+                if let Some(text) = li.get(1) {
+                    let cleaned = decode_html_entities(strip_tags(text.as_str()).trim());
+                    if !cleaned.is_empty() && cleaned.len() < 200 {
+                        ingredients.push(cleaned);
                     }
                 }
-                if !ingredients.is_empty() {
-                    break;
-                }
+            }
+            if !ingredients.is_empty() {
+                break;
             }
         }
     }
@@ -578,59 +577,59 @@ fn extract_from_html_heuristic(html: &str) -> Option<ParsedRecipe> {
     // Instructions — strategy B: heading + content
     if instructions.is_empty() {
         static INSTR_HEAD: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?i)<h[2-4][^>]*>[^<]*(?:instruction|direction|method|step)[^<]*</h[2-4]>\s*([\s\S]*?)(?=<h[2-4]|</section|</article|<div\s)")
+            Regex::new(r"(?i)<h[2-4][^>]*>[^<]*(?:instruction|direction|method|step)[^<]*</h[2-4]>\s*")
                 .unwrap()
+        });
+        static INSTR_HEAD_END: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?i)<h[2-4]|</section|</article|<div\s").unwrap()
         });
         static SOCIAL_SKIP: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"(?i)^(share|tweet|pin|print|email|facebook|twitter)").unwrap()
         });
         static NUM_PREFIX: LazyLock<Regex> =
             LazyLock::new(|| Regex::new(r"^\d+\.").unwrap());
-        for cap in INSTR_HEAD.captures_iter(html) {
-            if let Some(block) = cap.get(1) {
-                let block_str = block.as_str();
-                let mut steps: Vec<String> = Vec::new();
-                for li in LI_RE.captures_iter(block_str) {
-                    if let Some(text) = li.get(1) {
-                        let cleaned = decode_html_entities(strip_tags(text.as_str()).trim());
-                        if !cleaned.is_empty() {
-                            steps.push(cleaned);
+        for block_str in heading_blocks(html, &INSTR_HEAD, &INSTR_HEAD_END) {
+            let mut steps: Vec<String> = Vec::new();
+            for li in LI_RE.captures_iter(block_str) {
+                if let Some(text) = li.get(1) {
+                    let cleaned = decode_html_entities(strip_tags(text.as_str()).trim());
+                    if !cleaned.is_empty() {
+                        steps.push(cleaned);
+                    }
+                }
+            }
+            if !steps.is_empty() {
+                instructions = number_steps(steps);
+                break;
+            }
+            // Plain-text fallback inside the heading block
+            let with_lines = BR_RE.replace_all(block_str, "\n");
+            let stripped = strip_tags(&with_lines);
+            let mut plain: Vec<String> = Vec::new();
+            for line in stripped.split('\n') {
+                let t = line.trim();
+                if t.is_empty() || t.len() >= 300 {
+                    continue;
+                }
+                if SOCIAL_SKIP.is_match(t) || t.starts_with("http") {
+                    continue;
+                }
+                plain.push(t.to_string());
+            }
+            if !plain.is_empty() {
+                let lines: Vec<String> = plain
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, s)| {
+                        if NUM_PREFIX.is_match(&s) {
+                            s
+                        } else {
+                            format!("{}. {}", i + 1, s)
                         }
-                    }
-                }
-                if !steps.is_empty() {
-                    instructions = number_steps(steps);
-                    break;
-                }
-                // Plain-text fallback inside the heading block
-                let with_lines = BR_RE.replace_all(block_str, "\n");
-                let stripped = strip_tags(&with_lines);
-                let mut plain: Vec<String> = Vec::new();
-                for line in stripped.split('\n') {
-                    let t = line.trim();
-                    if t.is_empty() || t.len() >= 300 {
-                        continue;
-                    }
-                    if SOCIAL_SKIP.is_match(t) || t.starts_with("http") {
-                        continue;
-                    }
-                    plain.push(t.to_string());
-                }
-                if !plain.is_empty() {
-                    let lines: Vec<String> = plain
-                        .into_iter()
-                        .enumerate()
-                        .map(|(i, s)| {
-                            if NUM_PREFIX.is_match(&s) {
-                                s
-                            } else {
-                                format!("{}. {}", i + 1, s)
-                            }
-                        })
-                        .collect();
-                    instructions = lines.join("\n");
-                    break;
-                }
+                    })
+                    .collect();
+                instructions = lines.join("\n");
+                break;
             }
         }
     }
@@ -646,6 +645,25 @@ fn extract_from_html_heuristic(html: &str) -> Option<ParsedRecipe> {
         photo_url: None,
         ingredients: ingredients.iter().map(|s| parse_ingredient(s)).collect(),
         required_cookware: Vec::new(),
+    })
+}
+
+/// Yield the text after each `heading` match, up to (not including) the first
+/// `end` match after it — the TS heuristic's `heading([\s\S]*?)(?=end)`,
+/// which the `regex` crate can't compile (no look-around). Same semantics: a
+/// heading with no `end` after it yields nothing, and the next heading search
+/// resumes at the `end` match, so that match can itself open the next block.
+fn heading_blocks<'a>(
+    html: &'a str,
+    heading: &'a Regex,
+    end: &'a Regex,
+) -> impl Iterator<Item = &'a str> + 'a {
+    let mut pos = 0;
+    std::iter::from_fn(move || {
+        let start = heading.find_at(html, pos)?.end();
+        let stop = end.find_at(html, start)?.start();
+        pos = stop;
+        Some(&html[start..stop])
     })
 }
 
@@ -882,6 +900,87 @@ mod tests {
         assert_eq!(r.ingredients[0].unit.as_deref(), Some("cup"));
         assert!(r.instructions.contains("Mix oats and honey."));
         assert!(r.instructions.starts_with("1. "));
+    }
+
+    #[test]
+    fn heuristic_heading_ingredients_and_instructions() {
+        // No JSON-LD, microdata, or class containers — only the heading
+        // strategies can find anything. The ingredients block must stop at
+        // the next <h2>, the instructions block at </article>.
+        let html = r##"
+            <html><head><title>Heading Pancakes</title></head>
+            <body><article>
+              <h2>Ingredients</h2>
+              <ul>
+                <li>1 cup flour</li>
+                <li>2 eggs</li>
+              </ul>
+              <h2>Instructions</h2>
+              <ol>
+                <li>Whisk flour and eggs.</li>
+                <li>Fry in a hot pan.</li>
+              </ol>
+            </article>
+            <ul><li>Related: 3 cups of other stuff</li></ul>
+            </body></html>
+        "##;
+        let r = extract(html).expect("extract");
+        assert_eq!(r.title, "Heading Pancakes");
+        assert_eq!(r.ingredients.len(), 2);
+        assert_eq!(r.ingredients[0].ingredient_name, "flour");
+        assert_eq!(r.ingredients[0].quantity, Some(1.0));
+        assert_eq!(r.ingredients[0].unit.as_deref(), Some("cup"));
+        assert_eq!(r.ingredients[1].ingredient_name, "eggs");
+        assert_eq!(r.instructions, "1. Whisk flour and eggs.\n2. Fry in a hot pan.");
+    }
+
+    #[test]
+    fn heuristic_heading_instructions_plain_text_stops_at_div() {
+        let html = r##"
+            <html><head><title>Plain Rice</title></head>
+            <body><section>
+              <H3>Ingredients</H3>
+              <ul><li>1 cup rice</li></ul>
+              <H3>Directions</H3>
+              <p>Rinse the rice.<br>Simmer 18 minutes.</p>
+              <DIV class="comments">Great recipe!</DIV>
+            </section></body></html>
+        "##;
+        let r = extract(html).expect("extract");
+        assert_eq!(r.ingredients.len(), 1);
+        assert_eq!(r.ingredients[0].ingredient_name, "rice");
+        assert_eq!(r.instructions, "1. Rinse the rice.\n2. Simmer 18 minutes.");
+    }
+
+    #[test]
+    fn heuristic_heading_terminator_can_open_next_block() {
+        // The first heading's block has no <li>; its terminator is itself an
+        // ingredients heading, which must still be matched (look-ahead
+        // semantics — the terminator isn't consumed).
+        let html = r##"
+            <html><head><title>Butter Sauce</title></head>
+            <body><section>
+              <h2>Ingredients</h2>
+              <p>You'll need just one thing.</p>
+              <h3>Ingredients for the sauce</h3>
+              <ul><li>2 tbsp butter</li></ul>
+            </section></body></html>
+        "##;
+        let r = extract(html).expect("extract");
+        assert_eq!(r.ingredients.len(), 1);
+        assert_eq!(r.ingredients[0].ingredient_name, "butter");
+        assert_eq!(r.ingredients[0].unit.as_deref(), Some("tbsp"));
+    }
+
+    #[test]
+    fn heuristic_heading_without_terminator_finds_nothing() {
+        // Matches the TS `(?=…)` regex: a heading block that never reaches
+        // a terminator doesn't match at all.
+        let html = r##"
+            <html><head><title>Unterminated</title></head>
+            <body><h2>Ingredients</h2><ul><li>1 cup rice</li></ul></body></html>
+        "##;
+        assert!(extract(html).is_none());
     }
 
     #[test]

@@ -15,10 +15,12 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
     "@pantry-host/shared": "*",
+    "nodemailer": "^7.0.13",
     "sharp": "^0.34.5",
     "zod": "^3.24.4"
   },
   "devDependencies": {
+    "@types/nodemailer": "^8.0.2",
     "tsx": "^4.19.0",
     "typescript": "^5.7.2"
   }

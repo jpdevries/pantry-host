@@ -149,6 +149,7 @@ Exports used by all packages:
 | `@pantry-host/shared/owner-request` | `isOwnerRequest(headers)` — the server-side owner gate (loopback host or `x-forwarded-proto: https`), shared by `/api/settings-read`, `/api/settings-write` and the `/settings` page's `getServerSideProps`. |
 | `@pantry-host/shared/compare-text` | `compareText(a, b)` — case-insensitive, ICU-free string order. Use instead of `localeCompare` in any sort that runs during SSR (gotcha #16). |
 | `@pantry-host/shared/export-book` | `buildBook(input)` — a kitchen as pandoc Markdown + YAML metadata + CSS (menus by course, recipes A–Z, tag index), for the publish-kitchen skill. `BOOK_QUERY` fetches what it needs; ingredient and step formatting are shared with `export-recipe`. Pure, no I/O. |
+| `@pantry-host/shared/publish-book` | **Node only.** `publishKitchenBook(slug, opts)` fetches a kitchen, downloads and normalizes photos, draws the cover and runs pandoc; `checkBookTools`, `listBookKitchens`, and the Drive for desktop helpers `resolveDriveFolder` / `copyToDrive`. Used by `packages/app/scripts/publish-book.ts` and the MCP `publish_kitchen_book` tool. |
 
 ### Storage adapter pattern
 
@@ -225,13 +226,14 @@ Exposes the PantryHost GraphQL API as MCP (Model Context Protocol) tools so exte
 - **Dual transport**: stdio (Claude Desktop) via default, HTTP on port 5001 via `--http` flag
 - **Optional auth**: Set `MCP_API_KEY` env var to require `Authorization: Bearer` for HTTP transport
 
-### Tools (30 total)
-- **Read (9):** search_pantry, search_recipes, get_recipe, list_cookware, get_cookware, list_kitchens, get_kitchen, list_menus, get_menu
-- **Write (16):** add_ingredient, add_ingredients, update_ingredient, remove_ingredient, create_recipe, update_recipe, set_recipe_photo, delete_recipe, mark_recipe_cooked, queue_recipe, add_cookware, update_cookware, delete_cookware, create_menu, update_menu, delete_menu, toggle_recipe_in_menu
+### Tools (34 total)
+- **Read (11):** search_pantry, search_recipes, get_recipe, recipe_nutrition, recipe_allergens, list_cookware, get_cookware, list_kitchens, get_kitchen, list_menus, get_menu
+- **Write (21):** add_ingredient, add_ingredients, add_pantry_alias, update_ingredient, remove_ingredient, create_recipe, update_recipe, set_recipe_photo, delete_recipe, mark_recipe_cooked, queue_recipe, add_cookware, update_cookware, delete_cookware, create_menu, update_menu, delete_menu, toggle_recipe_in_menu, create_kitchen, update_kitchen, delete_kitchen
 - **AI (1):** generate_recipes (requires `AI_API_KEY` on the GraphQL server)
+- **Books (1):** publish_kitchen_book: kitchens as EPUBs, built on the MCP host with `@pantry-host/shared/publish-book` (needs pandoc 3+ and ImageMagick there). Each book comes back as a `pantry://books/<file>` resource link and is saved in `packages/app/public/books/` (gitignored), so Rex serves it at a home-network download link (`BOOKS_URL`, else the IP in `public/network-info.json`, on APP_URL's port). `sendToKindle: true` also emails it via `SMTP_URL` to `KINDLE_EMAIL`, only when the user asks, since it puts the book on Amazon's servers.
 
 ### Resources
-`pantry://ingredients`, `pantry://recipes`, `pantry://cookware`, `pantry://menus`, `pantry://kitchens`
+`pantry://ingredients`, `pantry://recipes`, `pantry://cookware`, `pantry://menus`, `pantry://kitchens`, `pantry://books/{file}` (EPUBs from publish_kitchen_book)
 
 ### File structure
 ```
@@ -246,6 +248,7 @@ packages/mcp/
 │   │   ├── cookware.ts       # Cookware CRUD
 │   │   ├── menus.ts          # Menu CRUD
 │   │   ├── kitchens.ts       # Kitchen CRUD
+│   │   ├── books.ts          # publish_kitchen_book + pantry://books/ resources
 │   │   └── generate.ts       # AI recipe generation
 │   └── resources/
 │       └── pantry.ts         # pantry:// read-only resources
@@ -502,7 +505,7 @@ npm install  # from repo root, handles all workspaces
 ```
 
 ### Publish kitchens as EPUBs (publish-kitchen skill)
-`.claude/skills/publish-kitchen/SKILL.md` builds kitchens into EPUBs in the Claude Code session and pushes them to an e-reader, so the device just reads a file instead of reaching the server. The engine is `packages/app/scripts/publish-book.ts`:
+`.claude/skills/publish-kitchen/SKILL.md` builds kitchens into EPUBs in the Claude Code session and pushes them to an e-reader, so the device just reads a file instead of reaching the server. The engine is `@pantry-host/shared/publish-book` (Node only), run by the CLI `packages/app/scripts/publish-book.ts` and by the MCP tool `publish_kitchen_book`:
 ```bash
 npx tsx packages/app/scripts/publish-book.ts --list
 npx tsx packages/app/scripts/publish-book.ts --kitchen bar --photos color --drive-folder "$KINDLE_DRIVE_FOLDER_ID"

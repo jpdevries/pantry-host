@@ -23,7 +23,11 @@ packages/server/static/manifest.json
 *.pem
 .claude/settings.local.json
 .claude/worktrees/
-.claude/skills/
+# Personal skills stay local; project skills are listed below.
+.claude/skills/*
+!.claude/skills/publish-kitchen/
+# publish-kitchen skill output
+exports/
 dist
 packages/app/public/uploads/
 packages/app/.cache/

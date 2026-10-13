@@ -148,6 +148,7 @@ Exports used by all packages:
 | `@pantry-host/shared/legacy-boot` | `LEGACY_BOOT_SCRIPT` — the ES5 loader for the legacy copy of the client bundles (gotcha #19), plus a guarded `AbortSignal.timeout` polyfill. Source is `legacy-boot.json`, rendered from `_app.tsx` next to `THEME_INIT_SCRIPT` and `include_str!`'d into the Rust SPA shell. |
 | `@pantry-host/shared/owner-request` | `isOwnerRequest(headers)` — the server-side owner gate (loopback host or `x-forwarded-proto: https`), shared by `/api/settings-read`, `/api/settings-write` and the `/settings` page's `getServerSideProps`. |
 | `@pantry-host/shared/compare-text` | `compareText(a, b)` — case-insensitive, ICU-free string order. Use instead of `localeCompare` in any sort that runs during SSR (gotcha #16). |
+| `@pantry-host/shared/export-book` | `buildBook(input)` — a kitchen as pandoc Markdown + YAML metadata + CSS (menus by course, recipes A–Z, tag index), for the publish-kitchen skill. `BOOK_QUERY` fetches what it needs; ingredient and step formatting are shared with `export-recipe`. Pure, no I/O. |
 
 ### Storage adapter pattern
 
@@ -499,6 +500,19 @@ rm -rf .rex/build
 ```bash
 npm install  # from repo root, handles all workspaces
 ```
+
+### Publish kitchens as EPUBs (publish-kitchen skill)
+`.claude/skills/publish-kitchen/SKILL.md` builds kitchens into EPUBs in the Claude Code session and pushes them to an e-reader, so the device just reads a file instead of reaching the server. The engine is `packages/app/scripts/publish-book.ts`:
+```bash
+npx tsx packages/app/scripts/publish-book.ts --list
+npx tsx packages/app/scripts/publish-book.ts --kitchen bar --photos color --drive-folder "$KINDLE_DRIVE_FOLDER_ID"
+```
+- **Tools:** it needs pandoc 3+ and ImageMagick.
+- **Where books go:** always `exports/pantry-host-<slug>.epub` (gitignored).
+- **Drive:** `--drive-folder` copies the book into the Drive for desktop folder whose `com.google.drivefs.item-id#S` xattr matches, so Drive uploads it from disk.
+- **Don't send big files through connectors:** the Drive and Gmail connectors take files as base64 inside the tool call, which only works for a few KB.
+- **Summary:** `missingPhotos` lists each broken recipe photo link with its reason.
+- **Defaults** live in `.env.local`: `GRAPHQL_URL`, `APP_URL`, `KINDLE_DRIVE_FOLDER_ID`, `KINDLE_EMAIL`.
 
 ### Build packages
 ```bash

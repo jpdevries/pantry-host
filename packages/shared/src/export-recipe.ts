@@ -30,13 +30,17 @@ function formatDuration(minutes: number | null): string | undefined {
   return `PT${h ? h + 'H' : ''}${m ? m + 'M' : ''}`;
 }
 
-function formatIngredient(ing: { ingredientName: string; quantity: number | null; unit: string | null; itemSize?: number | null; itemSizeUnit?: string | null }): string {
+/** `formatQuantity` lets the ebook print ½ where the HTML export prints 0.5. */
+export function formatIngredient(
+  ing: { ingredientName: string; quantity: number | null; unit: string | null; itemSize?: number | null; itemSizeUnit?: string | null },
+  formatQuantity: (n: number) => string = String,
+): string {
   const parts: string[] = [];
-  if (ing.quantity != null) parts.push(String(ing.quantity));
+  if (ing.quantity != null) parts.push(formatQuantity(ing.quantity));
   // When item_size is set, express as "{qty} {item_size}{item_size_unit} {name}"
   // e.g. "2 16oz pepper steaks". Fall back to single-dim unit if not set.
   if (ing.itemSize != null) {
-    parts.push(`${ing.itemSize}${ing.itemSizeUnit ?? ''}`);
+    parts.push(`${formatQuantity(ing.itemSize)}${ing.itemSizeUnit ?? ''}`);
   } else if (ing.unit) {
     parts.push(ing.unit);
   }
@@ -44,7 +48,7 @@ function formatIngredient(ing: { ingredientName: string; quantity: number | null
   return parts.join(' ');
 }
 
-function parseInstructionSteps(text: string): string[] {
+export function parseInstructionSteps(text: string): string[] {
   return text
     .split(/\n/)
     .map((line) => line.replace(/^\d+[\.\)]\s*/, '').trim())
@@ -66,7 +70,7 @@ function buildJsonLd(recipe: ExportableRecipe): string {
   if (recipe.requiredCookware.length) ld.tool = recipe.requiredCookware;
   if (recipe.sourceUrl) ld.isBasedOn = recipe.sourceUrl;
 
-  ld.recipeIngredient = recipe.ingredients.map(formatIngredient);
+  ld.recipeIngredient = recipe.ingredients.map((ing) => formatIngredient(ing));
 
   ld.recipeInstructions = parseInstructionSteps(recipe.instructions).map((text) => ({
     '@type': 'HowToStep',

@@ -25,7 +25,7 @@ export default function EReader() {
         <BookOpenText size={32} weight="light" />
       </div>
       <h2 className="text-3xl sm:text-4xl font-bold text-center mb-4">
-        Cook from your e&#8209;reader
+        From e&#8209;reader to e&#8209;feader
       </h2>
       <p className="text-center text-[var(--color-text-secondary)] text-sm sm:text-base max-w-2xl mx-auto mb-10 leading-relaxed">
         Prop a Kindle on the counter and cook from your self&#8209;hosted Pantry&nbsp;Host.
@@ -49,10 +49,10 @@ export default function EReader() {
       <div className="mt-6 rounded-xl border border-[var(--color-border-card)] bg-[var(--color-bg-card)] p-5">
         <h3 className="text-lg font-bold mb-2">Take your cookbook off Wi&#8209;Fi</h3>
         <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-          Away from home, an e&#8209;reader can&rsquo;t reach your server. Ask Claude&nbsp;Code to
-          publish a kitchen and it builds an EPUB cookbook with photos, menus by course, and
-          recipes A&ndash;Z, then drops it in the Google&nbsp;Drive folder your Kindle imports
-          from. The e&#8209;reader just reads a file, so your recipes go wherever it&nbsp;does.{' '}
+          Away from home, an e&#8209;reader can&rsquo;t reach your server. Ask Claude&nbsp;Code, or
+          a similar agent harness, to publish a kitchen and it builds an EPUB cookbook with
+          photos, menus by course, and recipes A&ndash;Z, then pushes it to your device. The
+          e&#8209;reader just reads a file, so your recipes go wherever it&nbsp;does.{' '}
           <a
             href="https://github.com/jpdevries/pantry-host?tab=readme-ov-file#kitchens-as-ebooks"
             target="_ph_power-user"

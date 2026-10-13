@@ -270,7 +270,7 @@ The `publish-kitchen` skill turns a kitchen into an EPUB cookbook and pushes it 
 Publish the Bar kitchen to my Kindle
 ```
 
-Claude builds the book in the session with [pandoc](https://pandoc.org) and [ImageMagick](https://imagemagick.org) (`brew install pandoc imagemagick`). It has a photo cover, menus by course, recipes A–Z and an index by tag. Claude then copies it into a Google Drive folder your Kindle imports from, saves it locally, or sends a text-only edition to your Send to Kindle address. Set `KINDLE_DRIVE_FOLDER_ID` and `KINDLE_EMAIL` in `.env.local` to make those the defaults. The engine is `packages/app/scripts/publish-book.ts` if you'd rather run it yourself.
+Claude builds the book in the session with [pandoc](https://pandoc.org) and [ImageMagick](https://imagemagick.org) (`brew install pandoc imagemagick`). It has a photo cover, menus by course, recipes A–Z and an index by tag. Claude then pushes it to your device. It can go into a synced folder your e-reader imports from, stay in a local folder, or go as a text-only edition to your Send to Kindle address. A local folder keeps the book on your machine; a synced folder or Send to Kindle puts a copy on that service's servers, and Claude says so before it delivers. Set `KINDLE_DRIVE_FOLDER_ID` and `KINDLE_EMAIL` in `.env.local` to make the folder and address the defaults. The engine is `packages/app/scripts/publish-book.ts` if you'd rather run it yourself.
 
 ### Claude in Chrome
 

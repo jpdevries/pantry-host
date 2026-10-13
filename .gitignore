@@ -26,8 +26,9 @@ packages/server/static/manifest.json
 # Personal skills stay local; project skills are listed below.
 .claude/skills/*
 !.claude/skills/publish-kitchen/
-# publish-kitchen skill output
+# publish-kitchen skill output, and books the MCP tool serves from the app
 exports/
+packages/app/public/books/
 dist
 packages/app/public/uploads/
 packages/app/.cache/

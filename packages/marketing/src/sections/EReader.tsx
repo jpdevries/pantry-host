@@ -51,8 +51,8 @@ export default function EReader() {
         <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
           Away from home, an e&#8209;reader can&rsquo;t reach your server. Ask Claude&nbsp;Code, or
           a similar agent harness, to publish a kitchen and it builds an EPUB cookbook with
-          photos, menus by course, and recipes A&ndash;Z, then pushes it to your device. The
-          e&#8209;reader just reads a file, so your recipes go wherever it&nbsp;does.{' '}
+          photos, menus by course, and recipes A&ndash;Z, then pushes it to your
+          device.{' '}
           <a
             href="https://github.com/jpdevries/pantry-host?tab=readme-ov-file#kitchens-as-ebooks"
             target="_ph_power-user"

@@ -46,9 +46,26 @@ export default function EReader() {
           </div>
         ))}
       </div>
+      <div className="mt-6 rounded-xl border border-[var(--color-border-card)] bg-[var(--color-bg-card)] p-5">
+        <h3 className="text-lg font-bold mb-2">Take your cookbook off Wi&#8209;Fi</h3>
+        <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+          Away from home, an e&#8209;reader can&rsquo;t reach your server. Ask Claude&nbsp;Code to
+          publish a kitchen and it builds an EPUB cookbook with photos, menus by course, and
+          recipes A&ndash;Z, then drops it in the Google&nbsp;Drive folder your Kindle imports
+          from. The e&#8209;reader just reads a file, so your recipes go wherever it&nbsp;does.{' '}
+          <a
+            href="https://github.com/jpdevries/pantry-host?tab=readme-ov-file#kitchens-as-ebooks"
+            target="_ph_power-user"
+            className="underline hover:text-[var(--color-accent)]"
+          >
+            How it&nbsp;works
+          </a>
+        </p>
+      </div>
       <p className="text-center text-xs text-[var(--color-text-secondary)] mt-6">
-        For the Host&nbsp;It tier. Tested on the Kindle Scribe Colorsoft with both the
-        Docker&nbsp;install and the Rust server the Pi&nbsp;Zero&nbsp;W image&nbsp;runs.
+        The app on your e&#8209;reader is part of the Host&nbsp;It tier, tested on the Kindle
+        Scribe Colorsoft with both the Docker&nbsp;install and the Rust server the
+        Pi&nbsp;Zero&nbsp;W image&nbsp;runs. EPUB cookbooks are part of the Power&nbsp;User&nbsp;tier.
       </p>
     </section>
   );

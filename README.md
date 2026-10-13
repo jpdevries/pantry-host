@@ -262,6 +262,16 @@ claude
 
 From there you can import recipes from URLs, generate new ones from your pantry, manage ingredients, and build features conversationally.
 
+#### Kitchens as ebooks
+
+The `publish-kitchen` skill turns a kitchen into an EPUB cookbook and pushes it to your e-reader, so your recipes are on a Kindle even when it can't reach your server. Ask Claude Code something like:
+
+```
+Publish the Bar kitchen to my Kindle
+```
+
+Claude builds the book in the session with [pandoc](https://pandoc.org) and [ImageMagick](https://imagemagick.org) (`brew install pandoc imagemagick`). It has a photo cover, menus by course, recipes A–Z and an index by tag. Claude then copies it into a Google Drive folder your Kindle imports from, saves it locally, or sends a text-only edition to your Send to Kindle address. Set `KINDLE_DRIVE_FOLDER_ID` and `KINDLE_EMAIL` in `.env.local` to make those the defaults. The engine is `packages/app/scripts/publish-book.ts` if you'd rather run it yourself.
+
 ### Claude in Chrome
 
 No server? No problem. Open [my.pantryhost.app](https://my.pantryhost.app) in Chrome with the [Claude in Chrome](https://chromewebstore.google.com/detail/claude/danfokkoeegljpdgjhoelpmjibkjkfmm) extension and Claude becomes the backend. It can read your pantry, fetch recipe URLs, parse ingredients, and fill in forms — all without a server.

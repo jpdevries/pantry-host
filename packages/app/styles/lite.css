@@ -503,6 +503,17 @@
     margin: 0 auto;
   }
 
+  /* A page-level aside after <main> (the recipe page's "I Made This" and
+     Share block) sits in the article's column: 48rem of content, centered,
+     inset by main's 1rem padding. It's outside <main>, so main's frame
+     doesn't reach it. */
+  main + aside {
+    display: block;
+    max-width: 50rem;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 0;
+  }
+
   .legible {
     max-width: 72ch;
   }

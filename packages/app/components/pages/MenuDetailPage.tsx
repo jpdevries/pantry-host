@@ -285,7 +285,7 @@ export default function MenuDetailPage({ menuId, initialMenu }: Props) {
             )}
           </>)}
           {supportsFullscreen && (
-            <button type="button" onClick={isFullscreen ? exitZen : enterZen} aria-label={isFullscreen ? 'Exit full screen' : 'Enter full screen'} aria-pressed={isFullscreen} className="btn-secondary p-2">
+            <button type="button" data-fullscreen-toggle onClick={isFullscreen ? exitZen : enterZen} aria-label={isFullscreen ? 'Exit full screen' : 'Enter full screen'} aria-pressed={isFullscreen} className="btn-secondary p-2">
               {isFullscreen ? <ArrowsIn size={18} aria-hidden /> : <ArrowsOut size={18} aria-hidden />}
             </button>
           )}

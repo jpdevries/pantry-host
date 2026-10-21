@@ -226,7 +226,11 @@
   }
 
   .hidden,
-  .zen-exit-btn {
+  .zen-exit-btn,
+  /* The Fullscreen API is there on the Kindle's Silk but does nothing, and
+     palettes are color themes an e-ink screen can't show; light/dark stays. */
+  button[data-fullscreen-toggle], /* outranks .btn-secondary's display below */
+  [data-palette-picker] {
     display: none;
   }
 
@@ -722,6 +726,11 @@
     margin-right: 0.25em;
   }
 
+  /* The recipe page's tag row sits right on the title without Tailwind. */
+  [data-recipe-tags] {
+    margin: 0.75rem 0 1rem;
+  }
+
   /* ── Recipe detail ── */
   article > div:first-of-type img {
     width: 100%;
@@ -860,8 +869,12 @@
     color: var(--color-danger);
   }
 
-  /* ── Footer ── */
-  footer {
+  /* ── Footer ──
+        Scoped to the page footer: blockquote attributions are <footer>s
+        too, and globals.css's unlayered `aside + footer { padding-top: 0 }`
+        (recipe pages end in an aside) outranks a bare `footer` rule, which
+        put the column titles right on the divider. ── */
+  footer[rel="contentinfo"] {
     margin-top: 2.5rem;
     padding: 2rem 1rem 1rem;
     border-top: 2px solid var(--color-text-primary);
@@ -869,12 +882,12 @@
     font-size: 0.9375rem;
   }
 
-  footer > div {
+  footer[rel="contentinfo"] > div {
     max-width: 64rem;
     margin: 0 auto;
   }
 
-  footer h3 {
+  footer[rel="contentinfo"] h3 {
     margin: 0 0 0.375rem;
     font-family: var(--lite-font-sans);
     font-size: 0.8125rem;
@@ -882,41 +895,41 @@
     text-transform: uppercase;
   }
 
-  footer .print-break-after {
+  footer[rel="contentinfo"] .print-break-after {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
     grid-gap: 1rem;
     margin-bottom: 1.5rem;
   }
 
-  footer dl {
+  footer[rel="contentinfo"] dl {
     margin: 0;
   }
 
-  footer dt,
-  footer dd {
+  footer[rel="contentinfo"] dt,
+  footer[rel="contentinfo"] dd {
     display: inline;
     margin: 0;
   }
 
-  footer dt {
+  footer[rel="contentinfo"] dt {
     font-weight: 700;
   }
 
-  footer a + a {
+  footer[rel="contentinfo"] a + a {
     margin-left: 1rem;
   }
 
-  footer details {
+  footer[rel="contentinfo"] details {
     margin-top: 1rem;
   }
 
-  footer details a {
+  footer[rel="contentinfo"] details a {
     display: inline-block;
     margin: 0.25rem 0.75rem 0 0;
   }
 
-  footer details a + a {
+  footer[rel="contentinfo"] details a + a {
     margin-left: 0;
   }
 }

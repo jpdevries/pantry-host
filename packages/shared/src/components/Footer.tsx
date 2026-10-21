@@ -447,8 +447,8 @@ export default function Footer() {
                 })}
               </div>
 
-              {/* Palette selector */}
-              <label className="flex items-center gap-1.5 select-none">
+              {/* Palette selector (data-palette-picker: lite.css hides it on e-ink) */}
+              <label data-palette-picker className="flex items-center gap-1.5 select-none">
                 <span className="text-xs">Palette</span>
                 <select
                   value={palette}

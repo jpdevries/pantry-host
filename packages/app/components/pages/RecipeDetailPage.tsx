@@ -692,7 +692,7 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
               </>
             )}
             {supportsFullscreen && (
-              <button type="button" onClick={isFullscreen ? exitZen : enterZen} aria-label={isFullscreen ? 'Exit full screen' : 'Enter full screen'} aria-pressed={isFullscreen} className="btn-secondary p-2">
+              <button type="button" data-fullscreen-toggle onClick={isFullscreen ? exitZen : enterZen} aria-label={isFullscreen ? 'Exit full screen' : 'Enter full screen'} aria-pressed={isFullscreen} className="btn-secondary p-2">
                 {isFullscreen ? <ArrowsIn size={18} aria-hidden /> : <ArrowsOut size={18} aria-hidden />}
               </button>
             )}
@@ -737,7 +737,7 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
           </ImageBoundary>
 
           <header className="mb-8">
-            <div className="flex flex-wrap gap-2 mb-3">
+            <div data-recipe-tags className="flex flex-wrap gap-2 mb-3">
               {recipe.source === 'ai-generated' && (
                 <span className="tag inline-flex items-center gap-1" title="AI-generated recipe">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 640 512" fill="currentColor" aria-hidden="true">

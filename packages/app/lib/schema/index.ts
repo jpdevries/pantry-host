@@ -906,6 +906,8 @@ builder.mutationField('toggleRecipeQueued', (t) =>
 builder.mutationField('generateRecipes', (t) =>
   t.field({
     type: [RecipeType],
+    description:
+      'Experimental. Invents three recipes from scratch out of the current pantry and cookware and saves them as ai-generated. Results are untested ideas, not reliable recipes; adapting existing recipes is the stronger use of AI.',
     resolve: async () => {
       const ingredients = await sql`SELECT * FROM ingredients ORDER BY name`;
       const cookware = await sql`SELECT * FROM cookware ORDER BY name`;

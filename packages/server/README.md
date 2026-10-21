@@ -14,8 +14,9 @@ server talk to — *plus* the side endpoints that live on the same port
 - `POST /fetch-recipe` — three-tier scraper: JSON-LD → schema.org
   microdata → heuristic HTML. Includes cookware substring detection
   against the cookware table.
-- `generateRecipes` GraphQL mutation — direct HTTP call to the Anthropic
-  Messages API (no SDK). Requires `AI_API_KEY` or `ANTHROPIC_API_KEY`.
+- `generateRecipes` GraphQL mutation (experimental: from-scratch ideas,
+  not tested recipes) — direct HTTP call to the Anthropic Messages API
+  (no SDK). Requires `AI_API_KEY` or `ANTHROPIC_API_KEY`.
 - `GET /` (and any other GET that isn't an API path) — serves the Rex-built
   React app as a pure-client SPA. Per-page JS chunks live under
   `/_rex/static/`, uploaded images at `/uploads/`, and the HTML shell is
@@ -306,7 +307,7 @@ and images are tagged `pantry-server:pi-{armv6,armv7,arm64}`.
 | `UPLOADS_DIR` | `../app/public/uploads` | Where `/upload` writes originals + variants |
 | `IMAGE_PROCESSING` / `ENABLE_IMAGE_PROCESSING` | `true` | Set to `false`/`0` to skip variant generation (saves disk on Pi) |
 | `IMAGE_CONCURRENCY` | `1` | Concurrent variant pipelines. Bump on amd64 hosts with more RAM |
-| `AI_API_KEY` (or `ANTHROPIC_API_KEY`) | unset | Required for the `generateRecipes` mutation; otherwise it errors with a clear message |
+| `AI_API_KEY` (or `ANTHROPIC_API_KEY`) | unset | Required for the experimental `generateRecipes` mutation; otherwise it errors with a clear message |
 | `OVERRIDES_PATH` | `<dirname(SQLITE_DB_PATH)>/.settings-overrides.json` | Where /api/settings-write persists overrides |
 | `RECIPE_API_KEY` | unset | Surfaced by /api/recipe-api-key when the caller is an owner |
 | `CACHE_DIR` | `<dirname(SQLITE_DB_PATH)>/.cache` | Disk cache for the Wikibooks dataset download |

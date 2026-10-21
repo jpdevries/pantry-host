@@ -41,7 +41,7 @@ export function Docker() {
         </p>
       </div>
       <p className="text-center text-xs text-[var(--color-text-secondary)] mt-6">
-        Optional: pass <code className="font-mono">AI_API_KEY</code> to enable AI&nbsp;recipe&nbsp;generation.
+        Optional: pass <code className="font-mono">AI_API_KEY</code> to try the experimental AI&nbsp;recipe&nbsp;generator.
       </p>
       <p className="text-center text-xs text-[var(--color-text-secondary)] mt-3">
         Add <a href="https://tailscale.com/" className="underline hover:text-[var(--color-text-primary)]" target="_blank" rel="noopener noreferrer">Tailscale</a> for

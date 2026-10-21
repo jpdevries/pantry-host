@@ -27,8 +27,8 @@ const tiers = [
     name: 'One Click',
     audience: 'Browser',
     description:
-      <>Run Pantry&nbsp;Host entirely in your browser. No server, no install. Your data lives in your browser via PGlite and <abbr title="Origin Private File System">OPFS</abbr>.</>,
-    features: ['Works offline', 'Zero setup', 'Photo storage', 'Open any at:// recipe URL', 'Recipe generation, imports, and conversational pantry management*'],
+      <>Run Pantry&nbsp;Host entirely in your browser. No server, no install. Your data lives in your browser via SQLite and <abbr title="Origin Private File System">OPFS</abbr>.</>,
+    features: ['Works offline', 'Zero setup', 'Photo storage', 'Open any at:// recipe URL', 'AI recipe adaptations, imports, and conversational pantry management*'],
     footnote: '*With Claude in\u00a0Chrome',
     cta: { label: 'Open in browser', href: 'https://my.pantryhost.app/recipes/import#stage' },
     icon: IconBrowser,
@@ -39,8 +39,8 @@ const tiers = [
     audience: 'Self-hosted',
     description:
       <>Run on a Mac&nbsp;Mini or Raspberry&nbsp;Pi at home. Everyone in the household sees the same pantry, recipes, and grocery&nbsp;list &mdash; synced across every phone, tablet, and laptop on your&nbsp;network. Connect your favorite AI&nbsp;assistant via <abbr title="Model Context Protocol">MCP</abbr>.</>,
-    features: ['Sync across every device at home', 'Shared grocery list for the household', 'AI recipe generation*', 'MCP server for AI integrations'],
-    footnote: '*With your own API key',
+    features: ['Sync across every device at home', 'Shared grocery list for the household', 'MCP server for AI integrations', 'AI recipe adaptations*'],
+    footnote: '*With your own AI assistant',
     cta: { label: 'View setup guide', href: 'https://github.com/jpdevries/pantry-host?tab=readme-ov-file#local-hosting', target: '_ph_self-hosted' },
     icon: IconServer,
     eta: { display: '~15 min setup', iso: 'PT15M' },
@@ -49,8 +49,8 @@ const tiers = [
     name: 'Power User',
     audience: 'Claude Code',
     description:
-      <>Use Claude&nbsp;Code to self-host or Claude in&nbsp;Chrome to supercharge the browser version. Import recipes from any URL, generate new ones, manage your pantry conversationally.</>,
-    features: ['AI recipe generation', 'URL recipe import', 'Conversational pantry management', 'EPUB cookbooks for your e\u2011reader'],
+      <>Use Claude&nbsp;Code to self-host or Claude in&nbsp;Chrome to supercharge the browser version. Import recipes from any URL, adapt them to what you have, manage your pantry conversationally.</>,
+    features: ['AI recipe adaptations', 'URL recipe import', 'Conversational pantry management', 'EPUB cookbooks for your e\u2011reader'],
     cta: { label: 'Clone and Run', href: 'https://github.com/jpdevries/pantry-host?tab=readme-ov-file#power-user', target: '_ph_power-user' },
     icon: IconTerminal,
     eta: { display: '~5 min setup', iso: 'PT5M' },

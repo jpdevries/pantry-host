@@ -22,7 +22,7 @@ const capabilities = [
   },
   {
     title: 'Get recipe help',
-    description: 'Search recipes by tag or cookware. Generate new ones from what\u2019s on hand. Queue meals for the week.',
+    description: 'Search recipes by tag or cookware. Adapt them to what\u2019s on hand. Queue meals for the week.',
     icon: ForkKnife,
   },
   {

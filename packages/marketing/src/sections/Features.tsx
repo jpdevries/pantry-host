@@ -22,8 +22,8 @@ const features = [
     icon: FileArrowUp,
   },
   {
-    title: 'AI generation',
-    description: 'Generate recipes from what you have on hand. Powered by Claude, using your own API key.',
+    title: 'AI adaptations',
+    description: 'Scale, swap, and rework your own recipes around what you have on hand with your AI assistant. A from-scratch generator is included as an experiment.',
     icon: Sparkle,
   },
   {

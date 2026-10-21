@@ -1,5 +1,6 @@
-//! Minimal Anthropic Messages API client for the `generateRecipes`
-//! resolver. Talks HTTP directly via `reqwest` — no SDK — because the only
+//! Minimal Anthropic Messages API client for the experimental
+//! `generateRecipes` resolver (from-scratch recipes are ideas to riff on,
+//! not tested recipes; AI is stronger at adapting existing ones). Talks HTTP directly via `reqwest` — no SDK — because the only
 //! call we make is `messages.create` with a single user message.
 //!
 //! The prompt is ported verbatim from `packages/app/lib/claude.ts`. Don't

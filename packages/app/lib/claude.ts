@@ -26,6 +26,11 @@ interface GeneratedRecipe {
   ingredients: GeneratedIngredient[];
 }
 
+/**
+ * Experimental: invents recipes from scratch out of the pantry + cookware.
+ * The model is much better at adapting existing recipes than inventing new
+ * ones, so treat the output as ideas to riff on, not tested recipes.
+ */
 export async function generateRecipes(
   ingredients: { name: string; quantity: number | null; unit: string | null; itemSize?: number | null; itemSizeUnit?: string | null }[],
   cookware: { name: string; tags?: string[]; notes?: string | null }[],

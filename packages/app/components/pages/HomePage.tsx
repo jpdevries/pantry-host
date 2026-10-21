@@ -100,9 +100,9 @@ export default function HomePage({ initialData }: { initialData?: HomeData }) {
     <>
       <Head>
         <title>{pageTitle}</title>
-        <meta name="description" content="Family recipe manager — pantry, cookware, and AI-generated recipes." />
+        <meta name="description" content="Family recipe manager — pantry, cookware, recipes, and grocery lists." />
         <meta property="og:title" content={pageTitle} />
-        <meta property="og:description" content="Family recipe manager — pantry, cookware, and AI-generated recipes." />
+        <meta property="og:description" content="Family recipe manager — pantry, cookware, recipes, and grocery lists." />
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary" />
       </Head>
@@ -124,7 +124,7 @@ export default function HomePage({ initialData }: { initialData?: HomeData }) {
             {kitchenName}
           </h1>
           <p className="text-lg text-[var(--color-text-secondary)] max-w-prose">
-            Manage your pantry and cookware, then let AI suggest recipes tailored to what you have on hand.
+            Manage your pantry, cookware, and recipes, and plan meals around what you have on hand.
           </p>
         </section>
 
@@ -205,7 +205,7 @@ export default function HomePage({ initialData }: { initialData?: HomeData }) {
         {isSecure && (
           <section aria-labelledby="ai-heading" className="mb-12">
             <h2 id="ai-heading" className="text-xl font-bold mb-2">Artificial Intelligence</h2>
-            <p className="legible text-sm text-[var(--color-text-secondary)] mb-4">Generate a recipe based on the ingredients and cookware in your kitchen.<br />Your ingredient list is sent to the Anthropic API. Anthropic does not use API data to train models or sell it to third parties.</p>
+            <p className="legible text-sm text-[var(--color-text-secondary)] mb-4">Brainstorm recipe ideas from the ingredients and cookware in your kitchen.<br />Your ingredient list is sent to the Anthropic API. Anthropic does not use API data to train models or sell it to third parties.</p>
             <GenerateButton ingredientCount={ingredientCount} cookware={cookwareList} />
           </section>
         )}

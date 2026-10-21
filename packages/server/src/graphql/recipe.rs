@@ -793,8 +793,13 @@ impl RecipeMutation {
         })
     }
 
-    /// Generate three recipes from the current pantry + cookware via the
-    /// Anthropic Messages API and persist them as `source = "ai-generated"`.
+    /// Experimental. Invents three recipes from scratch out of the current
+    /// pantry and cookware and saves them as ai-generated. Results are
+    /// untested ideas, not reliable recipes; adapting existing recipes is the
+    /// stronger use of AI.
+    ///
+    /// Calls the Anthropic Messages API and persists the results with
+    /// `source = "ai-generated"`.
     /// Requires `AI_API_KEY` (or `ANTHROPIC_API_KEY`) on the server.
     async fn generate_recipes(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<Recipe>> {
         let pool = ctx.data::<Pool>()?;

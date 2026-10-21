@@ -112,7 +112,7 @@ export default function GenerateButton({ ingredientCount, cookware = [] }: Props
         onClick={handleGenerate}
         disabled={loading || ingredientCount === 0}
         aria-busy={loading}
-        aria-describedby={error ? 'generate-error' : undefined}
+        aria-describedby={error ? 'generate-note generate-error' : 'generate-note'}
         className="btn-primary text-base px-8 py-4 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? (
@@ -121,9 +121,17 @@ export default function GenerateButton({ ingredientCount, cookware = [] }: Props
             Generating…
           </>
         ) : (
-          '✦ What can I make?'
+          <>
+            <span aria-hidden="true">✦</span> What can I make?{' '}
+            {/* Inside the button so "Experimental" is part of its accessible name. */}
+            <span className="tag rounded-full">Experimental</span>
+          </>
         )}
       </button>
+
+      <p id="generate-note" className="mt-3 text-sm text-[var(--color-text-secondary)]">
+        Experimental: ideas to riff on, not tested recipes. AI does better adapting recipes you already have.
+      </p>
 
       {ingredientCount === 0 && (
         <p className="mt-3 text-sm text-[var(--color-text-secondary)]">

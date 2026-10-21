@@ -2,9 +2,9 @@
 
 > There's already enough of your data in the cloud. Keep your recipes and pantry closer to home — running on your own hardware, on your own network, never stored in the cloud.
 
-<sub><em>\*The optional AI&ndash;powered recipe creation feature sends your ingredient list to [Anthropic](https://docs.anthropic.com/en/docs/about-claude/models) to generate suggestions. Everything else stays entirely on your local machine.</em></sub>
+<sub><em>\*The optional, experimental AI&ndash;powered recipe generator sends your ingredient list to [Anthropic](https://docs.anthropic.com/en/docs/about-claude/models) to generate suggestions. Everything else stays entirely on your local machine.</em></sub>
 
-A self-hosted Progressive Web&nbsp;App for managing your kitchen. Track your pantry and cookware, import recipes from URLs or `at://` AT Protocol URIs, generate AI-suggested meals from what you already have, and take your grocery list, fully informed by a recipe queue, to the store — even offline.
+A self-hosted Progressive Web&nbsp;App for managing your kitchen. Track your pantry and cookware, import recipes from URLs or `at://` AT Protocol URIs, adapt recipes to what you already have with your AI assistant, and take your grocery list, fully informed by a recipe queue, to the store — even offline.
 
 Built with Rex (React + rolldown), GraphQL (Pothos + graphql-yoga), SQLite (Node's built-in `node:sqlite`), and Tailwind CSS. Runs great on a Mac Mini, or whatever.
 
@@ -13,7 +13,7 @@ Want to access the API away from home? You can't. Unless you set up a [Tailscale
 ## Features
 
 - **Pantry** — track ingredients by category with quantities and tags; batch-scan groceries with your camera
-- **Recipes** — add recipes manually or import from a URL; AI-generate recipes from your pantry
+- **Recipes** — add recipes manually or import from a URL; brainstorm ideas from your pantry with the experimental AI generator
 - **Federated recipes** — import from Bluesky via `at://` URIs, or browse publishers aggregated at [feed.pantryhost.app](https://feed.pantryhost.app/api/recipes) (paste any `at://…` URI into the browser's address bar on `my.pantryhost.app/at/…` to open it as a first-class detail page with QR sharing)
 - **Grocery list** — queue recipes to cook; see what ingredients you're missing
 - **Cookware** — track what equipment you have so AI suggestions stay realistic
@@ -24,7 +24,7 @@ Want to access the API away from home? You can't. Unless you set up a [Tailscale
 ## Requirements
 
 - Node.js 22+ (the database is embedded via Node's built-in `node:sqlite` — no separate database server to install)
-- An AI API key (only required for AI recipe generation) — [Anthropic](https://console.anthropic.com/)
+- An AI API key (only required for the experimental AI recipe generator) — [Anthropic](https://console.anthropic.com/)
 
 ---
 
@@ -59,7 +59,7 @@ docker compose up -d
 
 Open [http://localhost:3000](http://localhost:3000). The app and GraphQL API start with an embedded SQLite database — the schema is applied automatically on first boot. There's no separate database server to run.
 
-To enable AI recipe generation, pass your API key:
+To try the experimental AI recipe generator, pass your API key:
 
 ```bash
 AI_API_KEY=sk-ant-... docker compose up -d
@@ -143,7 +143,7 @@ AI_PROVIDER=anthropic
 AI_API_KEY=sk-ant-...
 ```
 
-`SQLITE_DB_PATH` is optional — it defaults to `./pantry.db`. `AI_PROVIDER` and `AI_API_KEY` are only needed for AI recipe generation; everything else works without them.
+`SQLITE_DB_PATH` is optional — it defaults to `./pantry.db`. `AI_PROVIDER` and `AI_API_KEY` are only needed for the experimental AI recipe generator; everything else works without them.
 
 ### 3. Run as a persistent service with pm2
 
@@ -260,7 +260,7 @@ cd pantry-host
 claude
 ```
 
-From there you can import recipes from URLs, generate new ones from your pantry, manage ingredients, and build features conversationally.
+From there you can import recipes from URLs, adapt them to what's in your pantry, manage ingredients, and build features conversationally.
 
 #### Kitchens as ebooks
 
@@ -315,6 +315,6 @@ See [INTEGRATIONS.md](INTEGRATIONS.md#openclaw-whatsapp-telegram-discord) for th
 | Variable | Required | Description |
 |---|---|---|
 | `SQLITE_DB_PATH` | No | Path to the SQLite database file (default: `./pantry.db`) |
-| `AI_PROVIDER` | No | AI provider for recipe generation (default: `anthropic`) |
+| `AI_PROVIDER` | No | AI provider for the experimental recipe generator (default: `anthropic`) |
 | `AI_API_KEY` | No | API key for the configured AI provider |
 | `GRAPHQL_PORT` | No | GraphQL server port (default: `4001`) |

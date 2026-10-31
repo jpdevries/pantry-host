@@ -33,43 +33,61 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   });
 
   return new Promise<void>((resolve) => {
+    // formidable doesn't await this callback, so a rejection here is swallowed.
+    // Every path — including an unexpected throw (fs.rename across devices, a
+    // missing uploads dir, bad permissions) — must answer and resolve(), or the
+    // request hangs until the client times out and Rex leaks a pending promise.
     form.parse(req, async (err, _fields, files) => {
-      if (err) {
-        res.status(400).json({ error: err.message });
-        return resolve();
+      try {
+        if (err) {
+          res.status(400).json({ error: err.message });
+          return resolve();
+        }
+
+        const fileField = files.file;
+        const file: File | undefined = Array.isArray(fileField) ? fileField[0] : fileField;
+        if (!file) {
+          res.status(400).json({ error: 'No file uploaded' });
+          return resolve();
+        }
+
+        const ext = path.extname(file.originalFilename ?? '.jpg').toLowerCase() || '.jpg';
+        const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+        if (!allowed.includes(ext)) {
+          await fs.unlink(file.filepath).catch(() => {});
+          res.status(400).json({ error: 'Invalid file type' });
+          return resolve();
+        }
+
+        const uuid = randomUUID();
+        const filename = `${uuid}${ext}`;
+        const dest = path.join(uploadsDir, filename);
+        await fs.rename(file.filepath, dest);
+
+        // Generate responsive variants (WebP, JPEG, grayscale) in background.
+        // Don't block the response — variants are a progressive enhancement.
+        // Disabled via ENABLE_IMAGE_PROCESSING=false for constrained devices (Pi).
+        if (FEATURES.imageProcessing) {
+          processUploadedImage(dest, uploadsDir, uuid).catch((e) =>
+            console.error('[upload] Failed to generate image variants:', e),
+          );
+        }
+
+        res.json({ url: `/uploads/${filename}` });
+        resolve();
+      } catch (e) {
+        console.error('[upload] Unexpected error:', e);
+        // Answering can itself fail (headers already flushed). Keep that
+        // failure inside the catch so resolve() below is always reached —
+        // a throw escaping here would strand the very promise this exists
+        // to settle, which is the hang we're fixing.
+        try {
+          if (!res.headersSent) res.status(500).json({ error: 'Upload failed' });
+        } catch (sendErr) {
+          console.error('[upload] Failed to send error response:', sendErr);
+        }
+        resolve();
       }
-
-      const fileField = files.file;
-      const file: File | undefined = Array.isArray(fileField) ? fileField[0] : fileField;
-      if (!file) {
-        res.status(400).json({ error: 'No file uploaded' });
-        return resolve();
-      }
-
-      const ext = path.extname(file.originalFilename ?? '.jpg').toLowerCase() || '.jpg';
-      const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
-      if (!allowed.includes(ext)) {
-        await fs.unlink(file.filepath).catch(() => {});
-        res.status(400).json({ error: 'Invalid file type' });
-        return resolve();
-      }
-
-      const uuid = randomUUID();
-      const filename = `${uuid}${ext}`;
-      const dest = path.join(uploadsDir, filename);
-      await fs.rename(file.filepath, dest);
-
-      // Generate responsive variants (WebP, JPEG, grayscale) in background.
-      // Don't block the response — variants are a progressive enhancement.
-      // Disabled via ENABLE_IMAGE_PROCESSING=false for constrained devices (Pi).
-      if (FEATURES.imageProcessing) {
-        processUploadedImage(dest, uploadsDir, uuid).catch((e) =>
-          console.error('[upload] Failed to generate image variants:', e),
-        );
-      }
-
-      res.json({ url: `/uploads/${filename}` });
-      resolve();
     });
   });
 }

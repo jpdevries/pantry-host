@@ -1,6 +1,6 @@
 # Integrations
 
-PantryHost ships an [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server with 28 tools exposing the full GraphQL API. Any MCP-compatible AI client can search your pantry, manage recipes, menus, build grocery lists, and more — right from your LAN.
+PantryHost ships an [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server with 34 tools exposing the full GraphQL API. Any MCP-compatible AI client can search your pantry, manage recipes, menus, build grocery lists, publish kitchens as EPUB cookbooks, and more — right from your LAN.
 
 ## Supported Clients
 

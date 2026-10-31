@@ -38,6 +38,7 @@
     "./ingredient-groups": "./src/ingredient-groups.ts",
     "./export-recipe": "./src/export-recipe.ts",
     "./export-book": "./src/export-book.ts",
+    "./publish-book": "./src/publish-book.ts",
     "./cooklang": "./src/cooklang.ts",
     "./mealdb": "./src/mealdb.ts",
     "./publicdomainrecipes": "./src/publicdomainrecipes.ts",

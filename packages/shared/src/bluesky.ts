@@ -338,11 +338,27 @@ export function blueskyToRecipe(
     }
   }
 
+  // ── Provenance ──
+  // Two facts have to survive the round trip, and `sourceUrl` only holds one.
+  // `sourceUrl` stays the AT URI so detail pages keep rendering this as an AT
+  // Protocol record, and the record's own `#adaptedFrom` attribution — the
+  // original author, which publish preserves but import used to drop on the
+  // floor — is surfaced in the description alongside the republisher.
+  // `sourceUrl` is a non-Bluesky origin, `originalUri` an upstream AT record.
+  const upstream = record.attribution?.sourceUrl ?? record.attribution?.originalUri;
+  // Skip when the author already wrote the credit into the body themselves —
+  // otherwise the same URL renders twice.
+  const adaptedFrom =
+    upstream && !(record.text ?? '').includes(upstream)
+      ? `Adapted from ${upstream}`
+      : undefined;
+
   const handleClean = handle?.replace(/^@/, '');
   const attribution = handleClean
     ? `Shared by @${handleClean} on Bluesky (https://bsky.app/profile/${handleClean})`
     : undefined;
-  const description = [record.text, attribution].filter(Boolean).join('\n\n');
+  const via = [adaptedFrom, attribution].filter(Boolean).join('\n');
+  const description = [record.text, via || undefined].filter(Boolean).join('\n\n');
 
   return {
     title: record.name,

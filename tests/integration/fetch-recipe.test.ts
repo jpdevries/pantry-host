@@ -35,6 +35,34 @@ describe('POST /fetch-recipe', () => {
     assert.match(data.instructions, /Saute the onion/);
   });
 
+  // /heuristic.html has only "Ingredients" / "Instructions" headings, so this
+  // runs the last-resort heuristic. Its regexes once used look-ahead, which
+  // panicked on first use: the debug build leaves the request hanging (hence
+  // the timeout) and the release build's panic=abort kills the whole process.
+  it('parses a heading-only page via the HTML heuristic', async () => {
+    const { url, mockUrl } = harness();
+    const r = await fetch(`${url}/fetch-recipe`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: `${mockUrl}/heuristic.html` }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    assert.ok(r.ok);
+
+    const data = (await r.json()) as {
+      title: string;
+      ingredients: { ingredientName: string; quantity: number | null; unit: string | null }[];
+      instructions: string;
+    };
+    assert.equal(data.title, 'Mock Heading Pancakes');
+    assert.deepEqual(
+      data.ingredients.map((i) => i.ingredientName),
+      ['flour', 'eggs'],
+    );
+    assert.equal(data.ingredients[0].unit, 'cup');
+    assert.equal(data.instructions, '1. Whisk flour and eggs\n2. Fry in a hot pan');
+  });
+
   it('returns 502 when the target URL is unreachable', async () => {
     const { url } = harness();
     const r = await fetch(`${url}/fetch-recipe`, {

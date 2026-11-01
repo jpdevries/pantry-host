@@ -25,6 +25,7 @@ import {
   type ReviewFinding,
   type ReviewSignal,
 } from '../pantry-review';
+import { Snowflake } from '@phosphor-icons/react';
 import type { GqlClient } from './CookPreviewModal';
 
 const REVIEW_QUERY = `
@@ -83,6 +84,25 @@ function fmtQty(r: PantryRowForReview): string {
  *  relative phrase as text and the absolute date behind them, so assistive
  *  tech and parsers get the real value. `finding.reason` stays the plain
  *  text for the MCP tool. */
+/** Tags the review calls out on every row. Only `frozen` for now: it
+ *  changes the shelf-life estimate, so seeing it explains a long best-by at
+ *  a glance. The icon matches the pantry page's frozen category glyph. */
+const HIGHLIGHTED_TAGS = new Set(['frozen']);
+
+function highlightedTags(row: PantryRowForReview): string[] {
+  return (row.tags ?? []).filter((t) => HIGHLIGHTED_TAGS.has(t.toLowerCase()));
+}
+
+function TagChip({ tag }: { tag: string }) {
+  const frozen = tag.toLowerCase() === 'frozen';
+  return (
+    <span className="tag">
+      {frozen && <Snowflake size={12} aria-hidden />}
+      {tag}
+    </span>
+  );
+}
+
 function Reason({ f, row, now }: { f: ReviewFinding; row: PantryRowForReview; now: number }) {
   const stocked = f.since ? <RelativeTime iso={f.since} now={now} /> : null;
   switch (f.signal) {
@@ -498,6 +518,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, co
                             <span className="font-medium">{row.name}</span>
                             {fmtQty(row) && <span className="ml-2 text-sm text-[var(--color-text-secondary)]">{fmtQty(row)}</span>}
                             {row.category && <span className="ml-2 text-xs uppercase tracking-wide text-[var(--color-text-secondary)]">{row.category}</span>}
+                            {highlightedTags(row).map((t) => <span key={t} className="ml-2"><TagChip tag={t} /></span>)}
                             <span id={`review-reason-${row.id}`} className="block text-sm text-[var(--color-text-secondary)] mt-0.5">
                               <Reason f={f} row={row} now={now} />
                             </span>
@@ -541,7 +562,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, co
                                     <span>
                                       <span className="font-medium">{r.name}</span>
                                       {fmtQty(r) && <span className="ml-2 text-[var(--color-text-secondary)]">{fmtQty(r)}</span>}
-                                      {r.tags && r.tags.length > 0 && <span className="ml-2">{r.tags.map((t) => <span key={t} className="tag mr-1">{t}</span>)}</span>}
+                                      {r.tags && r.tags.length > 0 && <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">{r.tags.map((t) => <TagChip key={t} tag={t} />)}</span>}
                                       {exp && <span className="block text-xs text-[var(--color-text-secondary)]">best by <RelativeTime iso={exp.date} mode="date" />{exp.provenance === 'estimated' ? ' (estimated)' : ''}</span>}
                                     </span>
                                   </label>

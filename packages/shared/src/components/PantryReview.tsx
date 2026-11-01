@@ -37,7 +37,6 @@ const REVIEW_QUERY = `
 `;
 const TOUCH = `mutation Touch($ids: [String!]!) { touchIngredients(ids: $ids) { id } }`;
 const UPDATE_MANY = `mutation UpdateMany($inputs: [IngredientPatchInput!]!) { updateIngredients(inputs: $inputs) { id } }`;
-const DELETE_MANY = `mutation DeleteMany($ids: [String!]!) { deleteIngredients(ids: $ids) }`;
 const MERGE = `
   mutation Merge($survivorId: String!, $mergeIds: [String!]!) {
     mergeIngredients(survivorId: $survivorId, mergeIds: $mergeIds) { ingredient { id name } mergedIds unmergedQuantities }
@@ -58,11 +57,11 @@ interface Props {
 }
 
 const SIGNAL_BLURB: Record<ReviewSignal, string> = {
-  expired: 'Past a stated best-by date, or past the estimate for its category.',
+  expired: 'Past a stated best-by date, or past the estimate for its category. Still good? Mark it in stock and the estimate restarts from today.',
   expiring: 'Best-by within three days. Worth cooking with first.',
-  stale: 'No best-by date and no estimate for its category, and untouched for six months. Still here?',
+  stale: 'No best-by date and no estimate for its category, and untouched for six months. Still here? Mark it in stock; gone? Mark it out of stock.',
   duplicate: 'Rows that look like the same item. Merging sums quantities, keeps every tag, and makes the other names aliases of the one you keep.',
-  outOfStock: 'At zero for two weeks or more. Delete them, or restock from the pantry page.',
+  outOfStock: 'At zero for two weeks or more. Restock from the pantry page, or delete them there.',
 };
 
 function fmtQty(r: PantryRowForReview): string {
@@ -120,20 +119,13 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [activeBar, setActiveBar] = useState<'top' | 'bottom'>('top');
-  // When an inline confirmation or date field closes, its buttons unmount
-  // and focus would drop to <body>, outside the shortcut scope. Put it back
-  // on the button that opened it (a no-op when that button is disabled
-  // because the selection was just cleared; run() has focused the heading).
-  const deleteBtnRef = useRef<Record<'top' | 'bottom', HTMLButtonElement | null>>({ top: null, bottom: null });
+  // When the inline date field closes, its controls unmount and focus would
+  // drop to <body>, outside the shortcut scope. Put it back on the button
+  // that opened it (a no-op when that button is disabled because the
+  // selection was just cleared; run() has focused the heading).
   const expiryBtnRef = useRef<Record<'top' | 'bottom', HTMLButtonElement | null>>({ top: null, bottom: null });
-  const prevConfirm = useRef(false);
   const prevExpiry = useRef(false);
-  useEffect(() => {
-    if (prevConfirm.current && !confirmDelete) deleteBtnRef.current[activeBar]?.focus();
-    prevConfirm.current = confirmDelete;
-  }, [confirmDelete, activeBar]);
   useEffect(() => {
     if (prevExpiry.current && !showExpiry) expiryBtnRef.current[activeBar]?.focus();
     prevExpiry.current = showExpiry;
@@ -196,7 +188,6 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
       await fn();
       await load();
       setSelected(new Set());
-      setConfirmDelete(false);
       setShowExpiry(false);
       setStatus(label);
       setUndo(undoable ? { label, inputs: undoable.inputs } : null);
@@ -212,10 +203,10 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
   const n = ids.length;
   const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
-  const stillHaveIt = () => run(`Marked ${plural(n, 'item')} as still in stock.`, async () => { await gql(TOUCH, { ids }); });
-  const usedUp = () => {
+  const markInStock = () => run(`Marked ${plural(n, 'item')} in stock.`, async () => { await gql(TOUCH, { ids }); });
+  const markOutOfStock = () => {
     const previous = ids.map((id) => ({ id, quantity: byId.get(id)?.quantity ?? null }));
-    return run(`Set ${plural(n, 'item')} to out of stock.`, async () => {
+    return run(`Marked ${plural(n, 'item')} out of stock.`, async () => {
       await gql(UPDATE_MANY, { inputs: ids.map((id) => ({ id, quantity: 0 })) });
     }, { inputs: previous });
   };
@@ -223,7 +214,6 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
     expiryValue ? `Set best-by ${expiryValue} on ${plural(n, 'item')}.` : `Cleared the best-by date on ${plural(n, 'item')}.`,
     async () => { await gql(UPDATE_MANY, { inputs: ids.map((id) => ({ id, expiresAt: expiryValue || null })) }); },
   );
-  const remove = () => run(`Deleted ${plural(n, 'item')}.`, async () => { await gql(DELETE_MANY, { ids }); });
   const undoLast = () => {
     if (!undo) return;
     const inputs = undo.inputs;
@@ -260,7 +250,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
     if (tag === 'INPUT' && (t as HTMLInputElement).type !== 'checkbox' && (t as HTMLInputElement).type !== 'radio') return;
     const key = e.key.toLowerCase();
     if (key === 'escape') {
-      if (confirmDelete || showExpiry) { setConfirmDelete(false); setShowExpiry(false); }
+      if (showExpiry) setShowExpiry(false);
       else if (n > 0) setSelected(new Set());
       else return;
       e.preventDefault();
@@ -269,10 +259,9 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
     if (selectableIds.length === 0) return;
     switch (key) {
       case 'a': toggleAll(); break;
-      case 's': if (n > 0) stillHaveIt(); break;
-      case 'u': if (n > 0) usedUp(); break;
-      case 'b': if (n > 0) { setActiveBar('top'); setShowExpiry(true); setConfirmDelete(false); } break;
-      case 'd': if (n > 0) { setActiveBar('top'); setConfirmDelete(true); setShowExpiry(false); } break;
+      case 'i': if (n > 0) markInStock(); break;
+      case 'o': if (n > 0) markOutOfStock(); break;
+      case 'b': if (n > 0) { setActiveBar('top'); setShowExpiry(true); } break;
       default: return;
     }
     e.preventDefault();
@@ -287,10 +276,9 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
    *  confirmation open in whichever bar asked for them. */
   function renderActions(pos: 'top' | 'bottom') {
     const mine = activeBar === pos;
-    const open = (what: 'expiry' | 'delete') => {
+    const openExpiry = () => {
       setActiveBar(pos);
-      setShowExpiry(what === 'expiry');
-      setConfirmDelete(what === 'delete');
+      setShowExpiry(true);
     };
     return (
       <div className="flex flex-wrap items-center gap-2">
@@ -300,11 +288,11 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
         <button type="button" onClick={toggleAll} disabled={busy} aria-keyshortcuts="a" className="btn-secondary text-sm">
           {n === selectableIds.length ? 'Select none' : 'Select all'}{kbd('A')}
         </button>
-        <button type="button" onClick={stillHaveIt} disabled={busy || n === 0} aria-keyshortcuts="s" className="btn-secondary text-sm">
-          Still have it{kbd('S')}
+        <button type="button" onClick={markInStock} disabled={busy || n === 0} aria-keyshortcuts="i" className="btn-secondary text-sm">
+          Mark in stock{kbd('I')}
         </button>
-        <button type="button" onClick={usedUp} disabled={busy || n === 0} aria-keyshortcuts="u" className="btn-secondary text-sm">
-          Used up{kbd('U')}
+        <button type="button" onClick={markOutOfStock} disabled={busy || n === 0} aria-keyshortcuts="o" className="btn-secondary text-sm">
+          Mark out of stock{kbd('O')}
         </button>
         {showExpiry && mine ? (
           <span className="inline-flex items-center gap-2">
@@ -314,19 +302,8 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
             <button type="button" onClick={() => setShowExpiry(false)} className="btn-secondary text-sm">Cancel</button>
           </span>
         ) : (
-          <button type="button" ref={(el) => { expiryBtnRef.current[pos] = el; }} onClick={() => open('expiry')} disabled={busy || n === 0} aria-keyshortcuts="b" className="btn-secondary text-sm">
-            Set best-by…{kbd('B')}
-          </button>
-        )}
-        {confirmDelete && mine ? (
-          <span className="inline-flex items-center gap-2 ml-auto">
-            <span className="text-xs text-[var(--color-text-secondary)]">Delete {plural(n, 'item')}?</span>
-            <button type="button" autoFocus onClick={remove} disabled={busy} className="btn-danger text-sm">Yes, delete</button>
-            <button type="button" onClick={() => setConfirmDelete(false)} className="btn-secondary text-sm">No</button>
-          </span>
-        ) : (
-          <button type="button" ref={(el) => { deleteBtnRef.current[pos] = el; }} onClick={() => open('delete')} disabled={busy || n === 0} aria-keyshortcuts="d" className="btn-danger text-sm ml-auto">
-            Delete{kbd('D')}
+          <button type="button" ref={(el) => { expiryBtnRef.current[pos] = el; }} onClick={openExpiry} disabled={busy || n === 0} aria-keyshortcuts="b" className="btn-secondary text-sm">
+            Set best-by date{kbd('B')}
           </button>
         )}
       </div>
@@ -374,7 +351,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
         >
           {renderActions('top')}
           <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-            Keyboard: with focus in this review, <kbd>A</kbd> selects all or none, <kbd>S</kbd> still have it, <kbd>U</kbd> used up, <kbd>B</kbd> best-by, <kbd>D</kbd> delete (then <kbd>Enter</kbd> to confirm), <kbd>Esc</kbd> clears the selection. Each group also has its own select-all checkbox.
+            Keyboard: with focus in this review, <kbd>A</kbd> selects all or none, <kbd>I</kbd> marks in stock, <kbd>O</kbd> marks out of stock, <kbd>B</kbd> sets a best-by date, <kbd>Esc</kbd> clears the selection. Each group also has its own select-all checkbox. To delete rows, use the pantry page.
           </p>
         </div>
       )}

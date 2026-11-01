@@ -283,11 +283,14 @@ schema change, so it ships first and alone.
    static bar after the last group for anyone who reads to the end; with
    nothing selected the action buttons are disabled, so a keyboard user
    meets one live Select-all button before the rows. Single-key shortcuts
-   (A select all/none, S still have it, U used up, B best-by, D delete,
-   Esc clear) are bound on the review's root so they only fire while focus
+   (A select all/none, I mark in stock, O mark out of stock, B set best-by
+   date, Esc clear) are bound on the review's root so they only fire while focus
    is inside it (WCAG 2.1.4), exposed with `aria-keyshortcuts` and visible
-   `<kbd>` hints plus a one-line legend. Inline confirmations return focus
-   to the button that opened them.
+   `<kbd>` hints plus a one-line legend. The bar has four CTAs — Select
+   all, Mark in stock, Mark out of stock, Set best-by date — and no Delete;
+   deleting stays per row on the pantry page and Merge stays on each
+   duplicate group. Closing the inline date field returns focus to its
+   button.
 4. **MCP.** The tools above, `pantry://review`, updated tool descriptions.
    Tool count moves from 34 to 39.
 

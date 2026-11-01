@@ -1,4 +1,4 @@
-import { Barcode, ClipboardText, FileArrowUp, Sparkle, Leaf, Palette, ShieldCheck, Heartbeat } from '@phosphor-icons/react';
+import { Barcode, ClipboardText, FileArrowUp, Sparkle, Leaf, Palette, ShieldCheck, Heartbeat, ListChecks } from '@phosphor-icons/react';
 
 const features = [
   {
@@ -10,6 +10,11 @@ const features = [
     title: 'Nutrition & allergens',
     description: 'Estimated calories and macros from stored Open Food\u00a0Facts data. Allergen warning chips from your `contains-*` recipe tags, unioned with any allergens in stored barcode metadata.',
     icon: Heartbeat,
+  },
+  {
+    title: 'Pantry Review',
+    description: 'Flags pantry rows that look expired, expiring, stale, duplicated, or out of stock. Dates are estimated from category and stock-in date unless you set one, and yours always wins.',
+    icon: ListChecks,
   },
   {
     title: 'Grocery list',
@@ -44,7 +49,7 @@ const features = [
 ];
 // Offline-first is intentionally absent from this grid — covered
 // implicitly by the "Three ways to run it" tiers (browser PWA + self-host)
-// and by the SelfHost section. Keeps the grid at 8 cards (clean 4×2/2×4).
+// and by the SelfHost section. Nine cards fill a clean 3×3 at desktop width.
 
 export default function Features() {
   return (
@@ -70,7 +75,7 @@ export default function Features() {
       >
         What Pantry Host&nbsp;does
       </h2>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {features.map((f) => (
           <div
             key={f.title}

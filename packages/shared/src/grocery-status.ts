@@ -53,7 +53,7 @@ export interface RecipeIngredientForStatus {
  * in itemSizeUnit — i.e., "3 whole × 12 fl_oz" collapses to "36 fl_oz".
  * When itemSize is null, the row collapses to its (quantity, unit) as-is.
  */
-function toTotal(row: {
+export function toTotal(row: {
   quantity?: number | null;
   unit?: string | null;
   itemSize?: number | null;

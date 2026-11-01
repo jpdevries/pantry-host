@@ -11,6 +11,11 @@
  * files must be kept in lock-step when the schema changes. If you edit one,
  * edit the other.
  *
+ * Fresh installs only: `CREATE TABLE IF NOT EXISTS` never adds a column to a
+ * table that already exists. A column added after its table first shipped
+ * also goes in `migrations.json` (see `migrations.ts`), which every runtime
+ * applies right after this schema.
+ *
  * Conventions:
  *   - IDs are TEXT (UUIDs); callers supply `crypto.randomUUID()` on insert.
  *   - Timestamps are TEXT (ISO 8601), defaulted with CURRENT_TIMESTAMP.
@@ -45,6 +50,8 @@ CREATE TABLE IF NOT EXISTS ingredients (
   aliases        TEXT,
   barcode        TEXT,
   product_meta   TEXT,
+  expires_at     TEXT,
+  stocked_at     TEXT,
   kitchen_id     TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE,
   created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))

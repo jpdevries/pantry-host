@@ -1,5 +1,6 @@
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { SCHEMA_SQL } from '@pantry-host/shared/sql/schema';
+import { pendingMigrations } from '@pantry-host/shared/sql/migrations';
 
 let _db: DatabaseSync | undefined;
 let _schemaApplied = false;
@@ -13,6 +14,11 @@ function getDB(): DatabaseSync {
   db.exec('PRAGMA busy_timeout = 5000');
   if (!_schemaApplied) {
     db.exec(SCHEMA_SQL);
+    // Columns added after their table first shipped. The schema above is
+    // CREATE TABLE IF NOT EXISTS, so it never touches an existing table.
+    const columnsOf = (table: string) =>
+      (db.prepare('SELECT name FROM pragma_table_info(?)').all(table) as { name: string }[]).map((r) => r.name);
+    for (const ddl of pendingMigrations(columnsOf)) db.exec(ddl);
     _schemaApplied = true;
   }
   _db = db;

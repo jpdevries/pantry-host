@@ -42,7 +42,14 @@ pub struct IngredientRow {
     /// Raw JSON text from `product_meta`. Exposed verbatim as a String over
     /// GraphQL (the TS resolver did the same — clients parse client-side).
     pub product_meta: Option<String>,
+    /// Explicit best-by date (ISO 8601) or None.
+    pub expires_at: Option<String>,
+    /// When stock last came in; None on rows written before the column
+    /// existed (readers fall back to `created_at`).
+    pub stocked_at: Option<String>,
+    pub updated_at: Option<String>,
     pub created_at: String,
+    pub kitchen_id: String,
 }
 
 impl IngredientRow {
@@ -61,7 +68,11 @@ impl IngredientRow {
             aliases_json: row.get("aliases").ok(),
             barcode: row.get("barcode").ok(),
             product_meta: row.get("product_meta").ok(),
+            expires_at: row.get("expires_at").ok(),
+            stocked_at: row.get("stocked_at").ok(),
+            updated_at: row.get("updated_at").ok(),
             created_at: row.get("created_at").unwrap_or_default(),
+            kitchen_id: row.get("kitchen_id").unwrap_or_default(),
         })
     }
 }

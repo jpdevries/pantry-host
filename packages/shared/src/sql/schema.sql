@@ -14,7 +14,10 @@
 --   - Decimals are REAL.
 --
 -- Every statement is wrapped in `IF NOT EXISTS` so it's idempotent on existing
--- databases.
+-- databases. That makes this file fresh-install only: `CREATE TABLE IF NOT
+-- EXISTS` never adds a column to a table that already exists. Columns added
+-- after a table first shipped are listed in `migrations.json` next to this
+-- file, and every runtime applies the missing ones right after this schema.
 
 CREATE TABLE IF NOT EXISTS kitchens (
   id          TEXT PRIMARY KEY,
@@ -38,6 +41,8 @@ CREATE TABLE IF NOT EXISTS ingredients (
   aliases        TEXT,
   barcode        TEXT,
   product_meta   TEXT,
+  expires_at     TEXT,
+  stocked_at     TEXT,
   kitchen_id     TEXT NOT NULL REFERENCES kitchens(id) ON DELETE CASCADE,
   created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))

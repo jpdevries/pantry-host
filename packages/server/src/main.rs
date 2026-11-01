@@ -25,9 +25,11 @@ mod ingredient_parse;
 mod installer;
 mod iso_duration;
 mod models;
+mod pantry_decrement;
 mod routes;
 mod scrape;
 mod tailscale;
+mod units;
 
 use std::sync::Mutex;
 

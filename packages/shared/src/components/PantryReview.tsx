@@ -122,6 +122,15 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
   const [status, setStatus] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [activeBar, setActiveBar] = useState<'top' | 'bottom'>('top');
+  const [showExpiry, setShowExpiry] = useState(false);
+  const [expiryValue, setExpiryValue] = useState('');
+  const [survivors, setSurvivors] = useState<Record<string, string>>({});
+  const [confirmMerge, setConfirmMerge] = useState<string | null>(null);
+  const [undo, setUndo] = useState<{ label: string; inputs: { id: string; quantity: number | null }[] } | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  // (After every useState above: these effects list showExpiry and
+  // confirmDelete as dependencies, so they must come after both.)
   // When an inline confirmation or date field closes, its controls unmount
   // and focus would drop to <body>, outside the shortcut scope. Put it back
   // on the button that opened it (a no-op when that button is disabled
@@ -138,12 +147,6 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
     if (prevExpiry.current && !showExpiry) expiryBtnRef.current[activeBar]?.focus();
     prevExpiry.current = showExpiry;
   }, [showExpiry, activeBar]);
-  const [showExpiry, setShowExpiry] = useState(false);
-  const [expiryValue, setExpiryValue] = useState('');
-  const [survivors, setSurvivors] = useState<Record<string, string>>({});
-  const [confirmMerge, setConfirmMerge] = useState<string | null>(null);
-  const [undo, setUndo] = useState<{ label: string; inputs: { id: string; quantity: number | null }[] } | null>(null);
-  const headingRef = useRef<HTMLHeadingElement>(null);
 
   const load = useCallback(async () => {
     try {

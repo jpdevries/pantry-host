@@ -144,6 +144,7 @@ Exports used by all packages:
 | `@pantry-host/shared/adapters/file-storage` | FileStorageAdapter interface |
 | `@pantry-host/shared/sql/schema` | Canonical SQLite DDL string. Imported by both `packages/app/lib/db.ts` and `packages/web/lib/db.ts` — single source of truth, resolves the schema-drift gotcha. |
 | `@pantry-host/shared/sql/migrations` | `COLUMN_MIGRATIONS` (from `migrations.json`, also `include_str!`'d by the Rust server) and `pendingMigrations(columnsOf)` — the DDL still to run on an existing database. Fresh installs get the same columns from the schema. |
+| `@pantry-host/shared/pantry-review` | `reviewPantry(rows, options)` → findings per signal (`expired`, `expiring`, `stale`, `duplicate`, `outOfStock`) with a reason and expiry provenance; `estimatedExpiry(row)` (stated `expiresAt` wins, else `stockedAt + shelfLife`, derived at read time, never stored); `shelfLife(row)` (OFF category tags → `frozen` tag → pantry category table); `findDuplicates`, `pickSurvivor`, `planMerge` (client preview of `mergeIngredients`). Pure; the review page, pantry badges, dashboard card and MCP `review_pantry` all call it. |
 | `@pantry-host/shared/pantry-decrement` | `planPantryDecrement({ recipeServings, servings, lines, pantry })` — what cooking a recipe does to each pantry row (`decremented`, `unmatched`, `always_on_hand`, `untracked`, `no_quantity`, `unconvertible`). Pure; used by both TS `cookRecipe` resolvers, ported to `packages/server/src/pantry_decrement.rs`. |
 | `@pantry-host/shared/page-data` | Server-seeded page data. `page-data.json` maps each Rex route pattern (`/menus`, `/kitchens/:kitchen/recipes/:slug`, …) to a GraphQL query; `pageQuery(name)` gives components the query, `pageDataRequest(route, params)` feeds `packages/app/lib/pageData.ts` (`getPageData`), and the Rust server `include_str!`s the JSON to fill the same `initialData` in its SPA shell. Queries stay interpolation-free JSON strings. |
 | `@pantry-host/shared/theme-init` | `THEME_INIT_SCRIPT` — the ES5 theme bootstrap (stored theme/palette/high-contrast pre-paint, plus `?theme=system\|light\|dark` for browsers that can't run the bundles). Source is `theme-init.json`, also `include_str!`'d into the Rust SPA shell. Rendered from `_app.tsx`, not `_document.tsx` (gotcha #18). |
@@ -524,6 +525,12 @@ npx tsx packages/app/scripts/publish-book.ts --kitchen bar --photos color --driv
 cd packages/marketing && npx vite build   # → dist/
 cd packages/web && npx vite build         # → dist/
 ```
+
+### Shared unit tests
+```bash
+cd packages/shared && npm test            # tsx --test src/**/*.test.ts (node:test, no server)
+```
+Pure shared modules get a sibling `*.test.ts` (see `pantry-review.test.ts`). Integration tests that need the GraphQL server live in `tests/integration/` and run against the Rust binary via `npm run test:integration`.
 
 ## Gotchas
 

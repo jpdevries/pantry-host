@@ -5,6 +5,9 @@
   "license": "MIT",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "scripts": {
+    "test": "tsx --test 'src/**/*.test.ts'"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./env": "./src/env.ts",
@@ -54,6 +57,7 @@
     "./import-utils": "./src/import-utils.ts",
     "./grocery-status": "./src/grocery-status.ts",
     "./pantry-decrement": "./src/pantry-decrement.ts",
+    "./pantry-review": "./src/pantry-review.ts",
     "./units": "./src/units.ts",
     "./product-meta": "./src/product-meta.ts",
     "./plu": "./src/plu.ts",

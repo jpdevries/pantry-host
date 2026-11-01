@@ -681,6 +681,18 @@
     margin-top: 1.5rem;
   }
 
+  /* ── Pantry category nav ──
+        Rendered before <main> (it's the sticky pill strip), so main's frame
+        doesn't reach it: with the utilities gone it had no gutter. Give it
+        main's column and inset. The pills stack one per line here, which
+        reads as an index on e-ink, so leave them stacked. ── */
+  nav[aria-label="Pantry categories"] {
+    display: block;
+    max-width: 64rem;
+    margin: 0 auto;
+    padding: 1rem 1rem 0;
+  }
+
   /* ── Wrapping lists ──
         `flex flex-wrap` chip and card lists (home cookware and kitchens,
         the grocery list's queued recipes) flow inline instead of one item

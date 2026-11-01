@@ -146,7 +146,7 @@ Exports used by all packages:
 | `@pantry-host/shared/sql/schema` | Canonical SQLite DDL string. Imported by both `packages/app/lib/db.ts` and `packages/web/lib/db.ts` — single source of truth, resolves the schema-drift gotcha. |
 | `@pantry-host/shared/sql/migrations` | `COLUMN_MIGRATIONS` (from `migrations.json`, also `include_str!`'d by the Rust server) and `pendingMigrations(columnsOf)` — the DDL still to run on an existing database. Fresh installs get the same columns from the schema. |
 | `@pantry-host/shared/pantry-review` | `reviewPantry(rows, options)` → findings per signal (`expired`, `expiring`, `stale`, `duplicate`, `outOfStock`) with a reason and expiry provenance; `estimatedExpiry(row)` (stated `expiresAt` wins, else `stockedAt + shelfLife`, derived at read time, never stored); `shelfLife(row)` (OFF category tags → `frozen` tag → pantry category table); `findDuplicates`, `pickSurvivor`, `planMerge` (client preview of `mergeIngredients`). Pure; the review page, pantry badges, dashboard card and MCP `review_pantry` all call it. |
-| `@pantry-host/shared/components/PantryReview` | The `/ingredients/review` page body for both tiers: one fieldset per review signal, a checkbox per row, one sticky bulk action bar (Still have it / Used up / Set best-by / Delete, with Undo for Used up), per-group survivor radio + Merge for duplicates with a `planMerge` preview, a pre-mounted `role="status"` region. Props: `gql`, `kitchenSlug`, `pantryHref`, `canEdit`, `renderLink`. `data-requires-js`. |
+| `@pantry-host/shared/components/PantryReview` | The `/ingredients/review` page body for both tiers: one fieldset per review signal, a checkbox per row, a sticky action bar first in DOM order plus the same bar after the last group (Select all / Mark in stock / Mark out of stock / Set best-by date / Delete, with Undo for out of stock), single-key shortcuts A I O B D Esc scoped to focus inside the review (`aria-keyshortcuts` + `<kbd>` hints), per-group survivor radio + Merge for duplicates with a `planMerge` preview, a pre-mounted `role="status"` region. After an action, focus follows the APG: next listed row, else previous, else the pressed control, else the bar used, else the heading. Props: `gql`, `kitchenSlug`, `pantryHref`, `canEdit`, `confirmDestructive`, `renderLink`. `data-requires-js`. |
 | `@pantry-host/shared/components/CookPreviewModal` | "I Made This" preview: `planCook(gql, recipeId, servings)` runs `cookRecipe(dryRun: true)`, the modal shows the planned decrements as checkboxes (unmatched / untracked / unconvertible lines listed under "Not changed"), `applyCookPlan` writes only the confirmed rows. Replaced the retype-the-numbers modal in the app and added the flow to the web tier. |
 | `@pantry-host/shared/relative-time` | Intl-free date text: `relativeDays` ("20 days ago" / "in 3 days", by UTC calendar day), `formatDate` ("8 Nov 2026"), `isoDate`, `isoDays` ("P14D"). Backs `components/RelativeTime`. |
 | `@pantry-host/shared/components/RelativeTime` | `<time datetime>` for pantry dates: relative phrase as text with the absolute date as `title` (default), or `mode="date"`. `Duration` renders days as `<time datetime="P14D">`. Use it for every date the UI shows (review reasons, duplicate cards, form hints, "Last made on"). No `Intl`, so it is SSR-safe under Rex. |
@@ -234,14 +234,15 @@ Exposes the PantryHost GraphQL API as MCP (Model Context Protocol) tools so exte
 - **Dual transport**: stdio (Claude Desktop) via default, HTTP on port 5001 via `--http` flag
 - **Optional auth**: Set `MCP_API_KEY` env var to require `Authorization: Bearer` for HTTP transport
 
-### Tools (34 total)
-- **Read (11):** search_pantry, search_recipes, get_recipe, recipe_nutrition, recipe_allergens, list_cookware, get_cookware, list_kitchens, get_kitchen, list_menus, get_menu
-- **Write (21):** add_ingredient, add_ingredients, add_pantry_alias, update_ingredient, remove_ingredient, create_recipe, update_recipe, set_recipe_photo, delete_recipe, mark_recipe_cooked, queue_recipe, add_cookware, update_cookware, delete_cookware, create_menu, update_menu, delete_menu, toggle_recipe_in_menu, create_kitchen, update_kitchen, delete_kitchen
+### Tools (39 total)
+- **Read (12):** search_pantry, review_pantry, search_recipes, get_recipe, recipe_nutrition, recipe_allergens, list_cookware, get_cookware, list_kitchens, get_kitchen, list_menus, get_menu
+- **Write (25):** add_ingredient, add_ingredients, add_pantry_alias, update_ingredient, update_ingredients (bulk patch, omitted fields kept), touch_ingredients ("still have it"), merge_ingredients, remove_ingredient, remove_ingredients, create_recipe, update_recipe, set_recipe_photo, delete_recipe, mark_recipe_cooked (now `servings`, `decrementPantry`, `dryRun`; returns per-line pantry changes), queue_recipe, add_cookware, update_cookware, delete_cookware, create_menu, update_menu, delete_menu, toggle_recipe_in_menu, create_kitchen, update_kitchen, delete_kitchen
+- **Pantry Review (`tools/review.ts`):** `review_pantry` runs `@pantry-host/shared/pantry-review` over the kitchen's rows and returns findings per signal (expired, expiring, stale, duplicate, outOfStock) with names, reasons, provenance (stated vs estimated), a suggested `survivorId` for duplicates, and `nextSteps` naming the tool that answers each signal. Same engine as the review page, so agent and UI never disagree.
 - **AI (1):** generate_recipes (requires `AI_API_KEY` on the GraphQL server)
 - **Books (1):** publish_kitchen_book: kitchens as EPUBs, built on the MCP host with `@pantry-host/shared/publish-book` (needs pandoc 3+ and ImageMagick there). Each book comes back as a `pantry://books/<file>` resource link and is saved in `packages/app/public/books/` (gitignored), so Rex serves it at a home-network download link (`BOOKS_URL`, else the IP in `public/network-info.json`, on APP_URL's port). `sendToKindle: true` also emails it via `SMTP_URL` to `KINDLE_EMAIL`, only when the user asks, since it puts the book on Amazon's servers.
 
 ### Resources
-`pantry://ingredients`, `pantry://recipes`, `pantry://cookware`, `pantry://menus`, `pantry://kitchens`, `pantry://books/{file}` (EPUBs from publish_kitchen_book)
+`pantry://ingredients`, `pantry://review` (current review findings, home kitchen), `pantry://recipes`, `pantry://cookware`, `pantry://menus`, `pantry://kitchens`, `pantry://books/{file}` (EPUBs from publish_kitchen_book)
 
 ### File structure
 ```
@@ -257,6 +258,7 @@ packages/mcp/
 │   │   ├── menus.ts          # Menu CRUD
 │   │   ├── kitchens.ts       # Kitchen CRUD
 │   │   ├── books.ts          # publish_kitchen_book + pantry://books/ resources
+│   │   ├── review.ts         # review_pantry + fetchReview (pantry://review)
 │   │   └── generate.ts       # AI recipe generation
 │   └── resources/
 │       └── pantry.ts         # pantry:// read-only resources
@@ -481,6 +483,8 @@ ATPROTO_CLIENT_ID=                                              # optional, OAut
 GRAPHQL_URL=http://localhost:4001/graphql                       # MCP server's GraphQL target
 APP_URL=http://localhost:3000                                   # MCP server's target for /api/upload (set_recipe_photo)
 ENABLE_IMAGE_PROCESSING=true                                    # false: skip sharp variants, save disk (Pi)
+REVIEW_CONFIRM_DESTRUCTIVE=false                                # true: Pantry Review asks before Delete and Merge (Delete then offers "Mark out of stock instead"). Shared settings schema; the web tier keeps it in localStorage.
+PANTRY_TRUST_LAN=false                                          # true: every trusted-network host (LAN, .local, Tailscale) is an owner. Both servers emit <meta name="trust-lan">; isOwner() honours it. The pantry-host-prod launch config sets it for e-reader testing on the home Wi-Fi.
 ```
 
 ## Dev vs Prod mode
@@ -546,7 +550,7 @@ Pure shared modules get a sibling `*.test.ts` (see `pantry-review.test.ts`). Int
 3. **SW serving stale assets**: The SW auto-purges stale Rex bundles by build hash. If you still see issues, clear the cache: `caches.delete('pantry-host-shell').then(() => location.reload())`. Test offline behavior in prod mode only (`rex build` + `rex start`).
 4. **No `<Link>` in app**: Rex uses plain `<a>` tags. The web package uses React Router `<Link>`.
 5. **Tailwind v4 in Rex**: Rex 0.19.2 has Tailwind v4 built in. Don't use `@apply` — use plain CSS in `globals.css`.
-6. **Guest mode (app only)**: Owner = `localhost` / `127.0.0.1` / HTTPS. Guest = HTTP on any other hostname (e.g. `http://192.168.x.x:3000`). Owners see Add, Edit, Delete, Import, inactive menus, batch scan, AI generation. Guests get read-only access to active content. The `isOwner()` function in `lib/isTrustedNetwork.ts` controls this. Not applicable to web package.
+6. **Guest mode (app only)**: Owner = `localhost` / `127.0.0.1` / HTTPS. Guest = HTTP on any other hostname (e.g. `http://192.168.x.x:3000`). Owners see Add, Edit, Delete, Import, inactive menus, batch scan, AI generation, and the Pantry Review action bar. Guests get read-only access to active content (the review page shows findings without actions). The `isOwner()` function in `lib/isTrustedNetwork.ts` controls this. **Opt-in:** `PANTRY_TRUST_LAN=true` makes Rex (`_document.tsx`) and the Rust binary emit `<meta name="trust-lan" content="true">`, and then any `isTrustedNetwork()` host (RFC1918 LAN, `.local`, `.ts.net`, Tailscale CGNAT) is an owner too — the posture for a single-user home server and for testing on a Kindle over the home Wi-Fi. Not applicable to web package.
 7. **SQLite-wasm WASM size**: ~700 KB gzipped. First load applies the schema and creates `/pantryhost.db` inside OPFS via the SAH-Pool VFS. Subsequent loads are instant. Falls back to in-memory if OPFS is unavailable (Safari private mode, sandboxed Playwright Chromium).
 8. **Schema sync**: DDL lives in `@pantry-host/shared/sql/schema` — both `packages/app/lib/db.ts` and `packages/web/lib/db.ts` import the same string. **Resolver code** (`lib/schema/index.ts`) is still maintained per-package; the web copy is essentially the app's minus the `generateRecipes` mutation. Keep query/mutation surfaces in sync by hand when adding new operations. **Adding a column**: the schema is `CREATE TABLE IF NOT EXISTS` only, so existing databases (self-hosters' `pantry.db`, OPFS stores from earlier web builds) never get a column from it. Add the column to `schema.sql` + `schema.ts` *and* append `{ table, column, ddl }` to `packages/shared/src/sql/migrations.json`; the three db layers run the pending ones on boot. `tests/integration/migrations.test.ts` and `db::tests` in Rust check the contract.
 9. **Rex router `query` unreliable in prod**: `useRouter().query` sometimes returns empty on dynamic routes in production builds. Always fall back to parsing `window.location.pathname` for route params (see `MenuDetailPage.tsx` for the pattern).

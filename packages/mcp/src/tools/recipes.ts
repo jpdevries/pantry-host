@@ -180,14 +180,29 @@ Accepts at:// AT Protocol URIs in sourceUrl; tag with "bluesky" for federated im
 
   server.tool(
     'mark_recipe_cooked',
-    'Record that a recipe was cooked (sets lastMadeAt to now).',
-    { id: z.string().describe('Recipe ID') },
-    async ({ id }) => {
-      const data = await gql<{ completeRecipe: { title: string; lastMadeAt: string } }>(
-        `mutation($id: String!) { completeRecipe(id: $id) { title lastMadeAt } }`,
-        { id },
+    'Record that a recipe was cooked (sets lastMadeAt to now) and decrement the pantry by what the recipe used. Each recipe line is matched to a pantry row the way the grocery list does it, scaled by `servings` against the recipe\'s own servings, converted to the pantry row\'s unit, subtracted and clamped at 0. Returns one change per line with a `status`: decremented | unmatched (not in the pantry) | always_on_hand | untracked (no quantity) | no_quantity (the recipe gives no amount) | unconvertible (units don\'t bridge). Call with `dryRun: true` first when the user should see what will change, then again without it to apply; `decrementPantry: false` only records the cook.',
+    {
+      id: z.string().describe('Recipe ID'),
+      servings: z.number().int().positive().optional().describe('Servings actually cooked; scales the decrement. Default: as written.'),
+      decrementPantry: z.boolean().optional().describe('Default true. False records the cook without touching the pantry.'),
+      dryRun: z.boolean().optional().describe('Default false. True returns the plan and writes nothing.'),
+    },
+    async ({ id, servings, decrementPantry, dryRun }) => {
+      const data = await gql<{ cookRecipe: { applied: boolean; recipe: { title: string; lastMadeAt: string | null }; pantryChanges: { recipeIngredient: string; ingredientId: string | null; pantryName: string | null; before: number | null; after: number | null; unit: string | null; status: string }[] } }>(
+        `mutation($id: String!, $servings: Int, $decrementPantry: Boolean, $dryRun: Boolean) {
+          cookRecipe(id: $id, servings: $servings, decrementPantry: $decrementPantry, dryRun: $dryRun) {
+            applied recipe { title lastMadeAt }
+            pantryChanges { recipeIngredient ingredientId pantryName before after unit status }
+          }
+        }`,
+        { id, servings, decrementPantry: decrementPantry ?? true, dryRun: dryRun ?? false },
       );
-      return { content: [{ type: 'text' as const, text: `Marked "${data.completeRecipe.title}" as cooked at ${data.completeRecipe.lastMadeAt}` }] };
+      const r = data.cookRecipe;
+      const changed = r.pantryChanges.filter((c) => c.status === 'decremented');
+      const head = r.applied
+        ? `Marked "${r.recipe.title}" as cooked at ${r.recipe.lastMadeAt}. ${changed.length} pantry row(s) decremented.`
+        : `Dry run for "${r.recipe.title}": ${changed.length} pantry row(s) would be decremented. Nothing was written.`;
+      return { content: [{ type: 'text' as const, text: `${head}\n${JSON.stringify(r.pantryChanges, null, 2)}` }] };
     },
   );
 

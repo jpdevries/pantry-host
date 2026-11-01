@@ -51,6 +51,13 @@ export default function Document() {
             this meta before falling back to its heuristic; entries can be
             scoped to a page hostname (`host=origin`, see lib/apiUrl.ts). */}
         {process.env.PUBLIC_API_ORIGIN && <meta name="api-origin" content={process.env.PUBLIC_API_ORIGIN} />}
+        {/* Single-user home-server posture, same switch as the Rust binary:
+            with PANTRY_TRUST_LAN=true every trusted-network visitor (LAN,
+            .local, Tailscale) counts as owner, so a Kindle or phone on the
+            home Wi-Fi over plain HTTP gets Add / Edit / Delete. isOwner()
+            in lib/isTrustedNetwork.ts reads this. Off by default so a dev
+            server exposed over LAN stays read-only for guests. */}
+        {process.env.PANTRY_TRUST_LAN === 'true' && <meta name="trust-lan" content="true" />}
         {/* Rex doesn't inline process.env into client bundles, so the
             publish dry-run flag rides the same meta channel as
             default-palette / api-origin. isDryRun() in

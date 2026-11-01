@@ -1,6 +1,6 @@
 # Pantry Review — bulk update and purge
 
-Design proposal. Status: Phase 1 in PR #67, Phase 2 in PR #68 (stacked), Phase 3 built on `feat/pantry-review-phase3` (stacked on Phase 2); Phase 4 not started.
+Design proposal. Status: Phase 1 in PR #67, Phase 2 in PR #68, Phase 3 in PR #69 (each stacked on the last), Phase 4 built on `feat/pantry-review-phase4` (stacked on Phase 3).
 
 ## Problem
 
@@ -308,8 +308,15 @@ schema change, so it ships first and alone.
    under the top bar that jumps to them (and a link back): merging first
    removes rows from the per-item groups, so a keyboard user has fewer
    checkboxes to pass.
-4. **MCP.** The tools above, `pantry://review`, updated tool descriptions.
-   Tool count moves from 34 to 39.
+4. **MCP.** Done. `review_pantry` (read; `tools/review.ts`, same engine as
+   the UI, returns findings with names, provenance, `survivorId` and
+   `nextSteps` naming the tool for each signal), `update_ingredients`,
+   `touch_ingredients`, `remove_ingredients`, `merge_ingredients`;
+   `mark_recipe_cooked` gains `servings`, `decrementPantry` and `dryRun` and
+   returns the per-line pantry changes; `search_pantry`, `add_ingredient(s)`
+   and `update_ingredient` carry `expiresAt`; `pantry://review` resource.
+   Tool count 34 → 39. `tests/integration/mcp-pantry-review.test.ts` drives
+   the server over stdio (Node 20 via `MCP_NODE`, like the book tests).
 
 ## Open questions
 

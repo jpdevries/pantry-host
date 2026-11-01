@@ -80,8 +80,10 @@ pub struct IngredientPatchInput {
     pub id: String,
     pub name: Option<String>,
     pub category: Option<String>,
-    pub quantity: Option<f64>,
-    pub unit: Option<String>,
+    /// Omit to keep, null to clear (back to "untracked"), a number to set.
+    pub quantity: MaybeUndefined<f64>,
+    /// Omit to keep, null to clear, a string to set.
+    pub unit: MaybeUndefined<String>,
     pub item_size: Option<f64>,
     pub item_size_unit: Option<String>,
     pub always_on_hand: Option<bool>,
@@ -109,7 +111,8 @@ pub struct MergeIngredientsResult {
 ///   - false (updateIngredient): quantity and unit are written as given, so
 ///     omitting them clears them. The edit form always sends both.
 ///   - true (updateIngredients): omitted fields are left alone, so a bulk
-///     patch that only sets expiresAt can't wipe quantities.
+///     patch that only sets expiresAt can't wipe quantities; an explicit
+///     null clears quantity / unit (back to "untracked").
 ///
 /// `expires_at`: omitted keeps, null clears, a string sets. `stocked_at`
 /// moves to now only when the quantity goes up; `updated_at` always moves.
@@ -120,7 +123,10 @@ fn patch_ingredient(
 ) -> rusqlite::Result<Ingredient> {
     let aoh_param: Option<i64> = p.always_on_hand.map(|b| if b { 1 } else { 0 });
     let aoh_is_true: i64 = if p.always_on_hand == Some(true) { 1 } else { 0 };
-    let keep: i64 = if keep_quantity { 1 } else { 0 };
+    let keep_qty: i64 = if keep_quantity && p.quantity.is_undefined() { 1 } else { 0 };
+    let keep_unit: i64 = if keep_quantity && p.unit.is_undefined() { 1 } else { 0 };
+    let quantity: Option<f64> = p.quantity.clone().take();
+    let unit: Option<String> = p.unit.clone().take();
     let pm_json = p.product_meta.as_deref().and_then(|s| normalize_product_meta(Some(s)));
     let tags_text = p
         .tags
@@ -141,8 +147,8 @@ fn patch_ingredient(
             name = COALESCE(?1, name),
             category = COALESCE(?2, category),
             always_on_hand = COALESCE(?3, always_on_hand),
-            quantity = CASE WHEN ?4 = 1 THEN NULL WHEN ?5 = 1 THEN COALESCE(?6, quantity) ELSE ?6 END,
-            unit = CASE WHEN ?4 = 1 THEN NULL WHEN ?5 = 1 THEN COALESCE(?7, unit) ELSE ?7 END,
+            quantity = CASE WHEN ?4 = 1 THEN NULL WHEN ?5 = 1 THEN quantity ELSE ?6 END,
+            unit = CASE WHEN ?4 = 1 THEN NULL WHEN ?18 = 1 THEN unit ELSE ?7 END,
             item_size = COALESCE(?8, item_size),
             item_size_unit = COALESCE(?9, item_size_unit),
             tags = COALESCE(?10, tags),
@@ -158,9 +164,9 @@ fn patch_ingredient(
             p.category,
             aoh_param,
             aoh_is_true,
-            keep,
-            p.quantity,
-            p.unit,
+            keep_qty,
+            quantity,
+            unit,
             p.item_size,
             p.item_size_unit,
             tags_text,
@@ -171,6 +177,7 @@ fn patch_ingredient(
             expires_at,
             now,
             p.id,
+            keep_unit,
         ],
     )?;
     if changed == 0 {
@@ -438,8 +445,10 @@ impl IngredientMutation {
             id,
             name,
             category,
-            quantity,
-            unit,
+            // Replace semantics: an omitted quantity/unit clears it, so an
+            // absent arg maps to Null, not Undefined.
+            quantity: quantity.map_or(MaybeUndefined::Null, MaybeUndefined::Value),
+            unit: unit.map_or(MaybeUndefined::Null, MaybeUndefined::Value),
             item_size,
             item_size_unit,
             always_on_hand,
@@ -453,7 +462,8 @@ impl IngredientMutation {
     }
 
     /// Patch many pantry rows in one transaction. Omitted fields are kept;
-    /// `expiresAt: null` clears the date. Returns rows in input order.
+    /// an explicit null clears `quantity`, `unit` or `expiresAt`. Returns
+    /// rows in input order.
     async fn update_ingredients(
         &self,
         ctx: &Context<'_>,

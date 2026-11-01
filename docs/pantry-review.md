@@ -1,6 +1,6 @@
 # Pantry Review — bulk update and purge
 
-Design proposal. Status: Phase 1 in PR #67; Phase 2 built on `feat/pantry-review-phase2` (stacked on Phase 1); Phases 3–4 not started.
+Design proposal. Status: Phase 1 in PR #67, Phase 2 in PR #68 (stacked), Phase 3 built on `feat/pantry-review-phase3` (stacked on Phase 2); Phase 4 not started.
 
 ## Problem
 
@@ -106,7 +106,7 @@ refinement for scanned rows (see above). Rough first cut by pantry category:
 | deli & charcuterie | 5 | | snacks | 90 |
 | vegetables | 7 | | nuts & seeds | 180 |
 | fruit | 7 | | condiments & sauces | 180 |
-| dairy | 14 | | beverages | 180 |
+| dairy | 14 | | beverages | 365 |
 | frozen (category or tag) | 180 | | oils & vinegars | 365 |
 | dry goods & grains | 365 | | herbs & spices | 365 |
 | legumes & pulses | 365 | | baking | 365 |
@@ -213,9 +213,10 @@ component state until the next action.
   shared function. "Needs review (N)" link next to Batch Scan when findings
   exist.
 - Dashboard: a "Needs review" stat card beside Ingredients.
-- `IngredientForm`: optional Expires date input. Batch scan rows get the same
-  field, prefilled from the category estimate so the user only edits outliers.
-- Recipe detail, both tiers: "I Made This" calls `completeRecipe(dryRun: true)`,
+- `IngredientForm`: optional Best-by date input, with a hint showing the
+  estimate the review would otherwise make. Batch scan rows are not prefilled:
+  a prefilled estimate would be saved as a stated date.
+- Recipe detail, both tiers: "I Made This" calls `cookRecipe(dryRun: true)`,
   shows the planned changes with per-line checkboxes, then commits. Replaces
   the retype-the-numbers modal in the app and adds the flow to the web tier.
 
@@ -257,8 +258,21 @@ schema change, so it ships first and alone.
    yogurt, a restocked jar that must not flag, a frozen steak, UHT milk from a
    barcode, always-on-hand salt. One freshness signal per row by priority
    (out of stock, expired, expiring, stale); duplicates overlap freely.
-3. **UI.** Review page, badges, dashboard card, expiry field, new "I Made
-   This" preview, both tiers. Verified on :5174 and :3000.
+3. **UI.** Done, both tiers. `/ingredients/review` (shared
+   `components/PantryReview`, wrapped per tier), review badges and a
+   "Review (N)" link on the pantry list, a "Needs review" dashboard card,
+   a Best-by field in `IngredientForm` whose hint shows the estimate the
+   review would make, and `components/CookPreviewModal` replacing the
+   retype-the-numbers modal: `cookRecipe(dryRun)` → checkboxes → only
+   confirmed rows are written (`applyCookPlan`). Verified in the browser on
+   :3000 and :5174, including merge, bulk delete, partial cook, and the
+   dialog's focus trap / `aria-hidden` / focus return (the last was a
+   shared-Modal bug, fixed there). Scope notes: Undo covers "Used up" only
+   (delete and merge confirm instead; touch has no previous state to
+   restore). Batch scan does **not** prefill Best-by from the estimate:
+   that would turn estimates into stated dates. The first review of an old
+   pantry is a wall of "expired" rows stocked months ago; "Select all" +
+   "Still have it" is the designed one-click way through it.
 4. **MCP.** The tools above, `pantry://review`, updated tool descriptions.
    Tool count moves from 34 to 39.
 

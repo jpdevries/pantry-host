@@ -73,8 +73,10 @@ export const CATEGORY_SHELF_LIFE_DAYS: Record<string, number | null> = {
   snacks: 90,
   'nuts & seeds': 180,
   'condiments & sauces': 180,
-  beverages: 180,
   frozen: 180,
+  // Wine, spirits, coffee beans and sodas all outlast a season; fresh juice is
+  // caught by the OFF `juice` rule when scanned.
+  beverages: 365,
   'oils & vinegars': 365,
   'herbs & spices': 365,
   baking: 365,
@@ -205,6 +207,15 @@ export function estimatedExpiry(row: PantryRowForReview): ExpiryEstimate | null 
 export type ReviewSignal = 'expired' | 'expiring' | 'stale' | 'duplicate' | 'outOfStock';
 
 export const REVIEW_SIGNALS: readonly ReviewSignal[] = ['expired', 'expiring', 'stale', 'duplicate', 'outOfStock'];
+
+/** Short labels for badges and section headings, in review order. */
+export const REVIEW_SIGNAL_LABELS: Record<ReviewSignal, string> = {
+  expired: 'Expired',
+  expiring: 'Expiring soon',
+  stale: 'Possibly stale',
+  duplicate: 'Likely duplicates',
+  outOfStock: 'Out of stock',
+};
 
 export interface ReviewFinding {
   signal: ReviewSignal;

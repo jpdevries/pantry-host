@@ -20,6 +20,8 @@
     "./components/Footer": "./src/components/Footer.tsx",
     "./components/AccessibilityPreferences": "./src/components/AccessibilityPreferences.tsx",
     "./components/Modal": "./src/components/Modal.tsx",
+    "./components/PantryReview": "./src/components/PantryReview.tsx",
+    "./components/CookPreviewModal": "./src/components/CookPreviewModal.tsx",
     "./components/IngredientEditor": "./src/components/IngredientEditor.tsx",
     "./components/IngredientForm": "./src/components/IngredientForm.tsx",
     "./components/IngredientTypeahead": "./src/components/IngredientTypeahead.tsx",

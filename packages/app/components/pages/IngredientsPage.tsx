@@ -50,6 +50,7 @@ import { cacheSet, cacheGet } from '@pantry-host/shared/cache';
 import { HIDDEN_TAGS, CATEGORY_GROUPS } from '@pantry-host/shared/constants';
 import { isOwner } from '@/lib/isTrustedNetwork';
 import { pageQuery } from '@pantry-host/shared/page-data';
+import { reviewPantry, REVIEW_SIGNAL_LABELS, type ReviewSignal } from '@pantry-host/shared/pantry-review';
 
 interface Ingredient {
   id: string;
@@ -64,6 +65,9 @@ interface Ingredient {
   tags: string[];
   barcode: string | null;
   productMeta: string | null;
+  expiresAt: string | null;
+  stockedAt: string;
+  updatedAt: string;
   createdAt: string;
 }
 
@@ -184,6 +188,23 @@ export default function IngredientsPage({ initialData }: { initialData?: Ingredi
 
   const grouped = groupBy(filtered, (i) => i.category ?? 'other');
 
+  // Review badges depend on "now", so compute them after mount: the server
+  // render and the first client render must agree (Rex hydration).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const review = useMemo(() => (mounted ? reviewPantry(ingredients) : null), [mounted, ingredients]);
+  const flagById = useMemo(() => {
+    const m = new Map<string, ReviewSignal>();
+    for (const f of review?.findings ?? []) {
+      for (const id of f.ids) {
+        // One badge per row: a freshness signal beats "duplicate".
+        if (!m.has(id) || m.get(id) === 'duplicate') m.set(id, f.signal);
+      }
+    }
+    return m;
+  }, [review]);
+  const reviewCount = review?.flaggedIds.length ?? 0;
+
   return (
     <>
       <Head>
@@ -226,6 +247,11 @@ export default function IngredientsPage({ initialData }: { initialData?: Ingredi
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
           <h1 className="text-4xl font-bold">What's in Your Pantry?</h1>
           <div className="flex gap-3 flex-wrap">
+            {isSecure && reviewCount > 0 && (
+              <a href={`/kitchens/${kitchen}/ingredients/review#stage`} className="btn-secondary" data-requires-js>
+                Review <span className="tabular-nums">({reviewCount})</span>
+              </a>
+            )}
             {isSecure && (
               <button type="button" onClick={() => setShowBatchScan(true)} className="btn-secondary" aria-label="Batch scan groceries with camera">
                 <Camera size={16} aria-hidden />
@@ -333,6 +359,9 @@ export default function IngredientsPage({ initialData }: { initialData?: Ingredi
                     <div className="flex items-center gap-3 py-3">
                       <div className="flex-1 min-w-0">
                         <span className="font-medium" id={`ing-${ing.id}`}>{ing.name}</span>
+                        {flagById.get(ing.id) && (
+                          <span className="tag ml-2 align-middle">{REVIEW_SIGNAL_LABELS[flagById.get(ing.id)!]}</span>
+                        )}
                         {(ing.barcode || ing.productMeta) && (
                           <span
                             className="inline-flex items-center gap-0.5 ml-1.5 text-[var(--color-text-secondary)] align-text-bottom"

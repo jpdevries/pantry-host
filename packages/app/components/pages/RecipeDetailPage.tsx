@@ -16,7 +16,8 @@ import { downloadCooklang, stepPhotoBaseUrl } from '@pantry-host/shared/cooklang
 import { hasCooklangSyntax, extractCooklang } from '@pantry-host/shared/cooklang-parser';
 import PixabayImage from '@pantry-host/shared/components/PixabayImage';
 import ImageBoundary from '@pantry-host/shared/components/ImageBoundary';
-import Modal from '@pantry-host/shared/components/Modal';
+import CookPreviewModal, { planCook, applyCookPlan } from '@pantry-host/shared/components/CookPreviewModal';
+import type { PantryChange } from '@pantry-host/shared/pantry-decrement';
 import { NutritionSource } from '@pantry-host/shared/components/NutritionSource';
 import { AllergensLine } from '@pantry-host/shared/components/AllergensLine';
 import { getAllergenIcon } from '@pantry-host/shared/components/allergen-icons';
@@ -82,7 +83,6 @@ const DELETE_RECIPE = `mutation DeleteRecipe($id: String!) { deleteRecipe(id: $i
 const COMPLETE_RECIPE = `mutation CompleteRecipe($id: String!, $servings: Int) { completeRecipe(id: $id, servings: $servings) { id lastMadeAt } }`;
 const TOGGLE_QUEUED = `mutation ToggleQueued($id: String!) { toggleRecipeQueued(id: $id) { id queued } }`;
 const PANTRY_QUERY = `query Ingredients($kitchenSlug: String) { ingredients(kitchenSlug: $kitchenSlug) { id name aliases quantity unit itemSize itemSizeUnit alwaysOnHand barcode productMeta } }`;
-const UPDATE_INGREDIENT = `mutation UpdateIngredient($id: String!, $quantity: Float) { updateIngredient(id: $id, quantity: $quantity) { id quantity } }`;
 
 // Intl.DateTimeFormat's ICU pattern cache blows Rex's V8 SSR isolate heap
 // ("Fatal process out of memory: DateTimePatternGeneratorCache::CreateGenerator"),
@@ -296,10 +296,10 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
   const [togglingQueue, setTogglingQueue] = useState(false);
   const [favorited, setFavorited] = useState(false);
   const [favoritedRecipes, setFavoritedRecipes] = useState<SubRecipe[]>([]);
-  const [showPantryUpdate, setShowPantryUpdate] = useState(false);
-  const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
-  const [pantryEdits, setPantryEdits] = useState<Map<string, number>>(new Map());
-  const [savingPantry, setSavingPantry] = useState(false);
+  // "I Made This": the server plans the pantry decrement (dry run), the
+  // modal shows it, and only confirmed lines are written.
+  const [cookPlan, setCookPlan] = useState<PantryChange[] | null>(null);
+  const [savingCook, setSavingCook] = useState(false);
   const [exportPhotoUrl, setExportPhotoUrl] = useState<string | null>(null);
 
   // Resolve local upload photos to base64 data URIs for export
@@ -546,45 +546,42 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
   }
 
   async function handleComplete() {
-    if (!recipe) return;
+    // Not `disabled` while busy: a disabled button loses focus, and the
+    // preview dialog returns focus to whatever was focused when it opened.
+    if (!recipe || completing) return;
     setCompleting(true);
     try {
-      const result = await gql<{ completeRecipe: { lastMadeAt: string } }>(COMPLETE_RECIPE, { id: recipe.id, servings });
-      // Optimistically set before await to avoid layout shift
-      setLastMadeAt((prev) => result.completeRecipe.lastMadeAt ?? prev);
-      // Track in localStorage
-      try {
-        const madeRecipes: Record<string, string> = JSON.parse(localStorage.getItem('madeRecipes') ?? '{}');
-        madeRecipes[recipe.id] = result.completeRecipe.lastMadeAt;
-        localStorage.setItem('madeRecipes', JSON.stringify(madeRecipes));
-      } catch { /* ignore */ }
-      // Fetch pantry items and show update modal — only items relevant to this recipe
-      const data = await gql<{ ingredients: PantryItem[] }>(PANTRY_QUERY, { kitchenSlug: kitchen });
-      const recipeNames = recipe.ingredients.map((ri) => ri.ingredientName.toLowerCase());
-      const editable = data.ingredients.filter((i) => {
-        if (i.alwaysOnHand || i.quantity == null) return false;
-        const lower = i.name.toLowerCase();
-        return recipeNames.some((rn) => rn.includes(lower) || lower.includes(rn));
-      });
-      if (editable.length > 0) {
-        setPantryItems(editable);
-        setPantryEdits(new Map());
-        setShowPantryUpdate(true);
+      const plan = await planCook(gql, recipe.id, servings);
+      if (plan.some((c) => c.status === 'decremented')) {
+        setCookPlan(plan); // the cook is recorded when the user confirms or skips
+      } else {
+        await finishCook(plan, []); // nothing to subtract: record it now
       }
+    } catch (err) {
+      console.error(err);
     } finally {
       setCompleting(false);
     }
   }
 
-  async function handleSavePantry() {
-    setSavingPantry(true);
+  async function finishCook(plan: PantryChange[], selectedIds: string[]) {
+    if (!recipe) return;
+    setSavingCook(true);
     try {
-      for (const [id, quantity] of pantryEdits) {
-        await gql(UPDATE_INGREDIENT, { id, quantity });
-      }
-      setShowPantryUpdate(false);
+      const made = await applyCookPlan(gql, { recipeId: recipe.id, servings, plan, selectedIds });
+      setLastMadeAt((prev) => made ?? prev);
+      try {
+        const madeRecipes: Record<string, string> = JSON.parse(localStorage.getItem('madeRecipes') ?? '{}');
+        if (made) madeRecipes[recipe.id] = made;
+        localStorage.setItem('madeRecipes', JSON.stringify(madeRecipes));
+      } catch { /* ignore */ }
+      setCookPlan(null);
+      // Quantities changed; refresh the pantry that drives the ingredient auto-check.
+      gql<{ ingredients: PantryItem[] }>(PANTRY_QUERY, { kitchenSlug: kitchen }).then((d) => setPantry(d.ingredients)).catch(() => {});
+    } catch (err) {
+      console.error(err);
     } finally {
-      setSavingPantry(false);
+      setSavingCook(false);
     }
   }
 
@@ -1022,7 +1019,6 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
             <button
               type="button"
               onClick={handleComplete}
-              disabled={completing}
               aria-busy={completing}
               aria-pressed={!!lastMadeAt}
               className="inline-flex items-center gap-2 btn-secondary text-sm transition-colors"
@@ -1302,54 +1298,14 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
         </div>
       </aside>
 
-      <Modal open={showPantryUpdate} onClose={() => setShowPantryUpdate(false)} title="Update pantry quantities">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-card)] shrink-0">
-          <h2 className="font-bold text-lg">Update Pantry</h2>
-          <button type="button" onClick={() => setShowPantryUpdate(false)} className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] p-1" aria-label="Close">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-        <div className="overflow-y-auto flex-1 divide-y divide-[var(--color-border-card)]">
-          {pantryItems.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 px-4 py-2.5">
-              <span className="flex-1 text-sm truncate">{item.name}</span>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                defaultValue={item.quantity ?? 0}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value);
-                  setPantryEdits((prev) => {
-                    const next = new Map(prev);
-                    if (val === item.quantity) next.delete(item.id);
-                    else next.set(item.id, isNaN(val) ? 0 : val);
-                    return next;
-                  });
-                }}
-                aria-label={`Quantity for ${item.name}`}
-                className="field-input w-20 text-right tabular-nums"
-              />
-              <span className="text-xs text-[var(--color-text-secondary)] w-10">{item.unit ?? ''}</span>
-            </div>
-          ))}
-          {pantryItems.length === 0 && (
-            <p className="px-4 py-6 text-sm text-[var(--color-text-secondary)] text-center">No pantry items with tracked quantities.</p>
-          )}
-        </div>
-        <div className="flex gap-3 p-4 border-t border-[var(--color-border-card)] shrink-0">
-          <button type="button" onClick={() => setShowPantryUpdate(false)} className="btn-secondary flex-1">Skip</button>
-          <button
-            type="button"
-            onClick={handleSavePantry}
-            disabled={savingPantry || pantryEdits.size === 0}
-            aria-busy={savingPantry}
-            className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {savingPantry ? 'Saving…' : `Save${pantryEdits.size > 0 ? ` (${pantryEdits.size})` : ''}`}
-          </button>
-        </div>
-      </Modal>
+      <CookPreviewModal
+        open={cookPlan != null}
+        plan={cookPlan ?? []}
+        saving={savingCook}
+        onClose={() => setCookPlan(null)}
+        onSkip={() => { if (cookPlan) finishCook(cookPlan, []); }}
+        onConfirm={(ids) => { if (cookPlan) finishCook(cookPlan, ids); }}
+      />
     </>
   );
 }

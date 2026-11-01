@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
+import { reviewPantry, REVIEW_SIGNAL_LABELS, type ReviewSignal } from '@pantry-host/shared/pantry-review';
 import { gql } from '@/lib/gql';
 import { HIDDEN_TAGS, ALL_CATEGORIES, CATEGORY_GROUPS } from '@pantry-host/shared/constants';
 import {
@@ -49,19 +50,19 @@ import BatchScanSession from '../components/BatchScanSession';
 
 const QUERY = `
   query Ingredients($kitchenSlug: String) {
-    ingredients(kitchenSlug: $kitchenSlug) { id name aliases category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta createdAt }
+    ingredients(kitchenSlug: $kitchenSlug) { id name aliases category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta expiresAt stockedAt updatedAt createdAt }
   }
 `;
 
 const ADD_MUTATION = `
-  mutation($name: String!, $aliases: [String!], $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!], $kitchenSlug: String) {
-    addIngredient(name: $name, aliases: $aliases, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags, kitchenSlug: $kitchenSlug) { id }
+  mutation($name: String!, $aliases: [String!], $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!], $expiresAt: String, $kitchenSlug: String) {
+    addIngredient(name: $name, aliases: $aliases, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags, expiresAt: $expiresAt, kitchenSlug: $kitchenSlug) { id }
   }
 `;
 
 const UPDATE_MUTATION = `
-  mutation($id: String!, $name: String, $aliases: [String!], $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!]) {
-    updateIngredient(id: $id, name: $name, aliases: $aliases, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags) { id }
+  mutation($id: String!, $name: String, $aliases: [String!], $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!], $expiresAt: String) {
+    updateIngredient(id: $id, name: $name, aliases: $aliases, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags, expiresAt: $expiresAt) { id }
   }
 `;
 
@@ -146,6 +147,19 @@ export default function IngredientsPage() {
     );
   }, [ingredients, filter, recentlyAdded, recentCutoff]);
 
+  const review = useMemo(() => reviewPantry(ingredients as Parameters<typeof reviewPantry>[0]), [ingredients]);
+  const flagById = useMemo(() => {
+    const m = new Map<string, ReviewSignal>();
+    for (const f of review.findings) {
+      for (const id of f.ids) {
+        // One badge per row: a freshness signal beats "duplicate".
+        if (!m.has(id) || m.get(id) === 'duplicate') m.set(id, f.signal);
+      }
+    }
+    return m;
+  }, [review]);
+  const reviewCount = review.flaggedIds.length;
+
   const grouped = filtered.reduce<Record<string, IngredientData[]>>((acc, ing) => {
     const cat = ing.category || 'other';
     (acc[cat] ??= []).push(ing);
@@ -157,6 +171,11 @@ export default function IngredientsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="text-3xl font-bold">What's in Your Pantry?</h1>
         <div className="flex gap-2">
+          {reviewCount > 0 && (
+            <Link to={`/kitchens/${kitchen}/ingredients/review`} className="btn-secondary">
+              Review <span className="tabular-nums">({reviewCount})</span>
+            </Link>
+          )}
           {isSecure && (
             <button type="button" onClick={() => setScanning(true)} className="btn-secondary">
               Batch Scan
@@ -256,6 +275,9 @@ export default function IngredientsPage() {
                     <div className="flex items-center gap-3 py-3">
                       <div className="flex-1 min-w-0">
                         <span id={`ing-${ing.id}`} className="text-sm font-medium">{ing.name}</span>
+                        {flagById.get(ing.id) && (
+                          <span className="tag ml-2 align-middle">{REVIEW_SIGNAL_LABELS[flagById.get(ing.id)!]}</span>
+                        )}
                         {(ing.barcode || ing.productMeta) && (
                           <span
                             className="inline-flex items-center gap-0.5 ml-1.5 text-[var(--color-text-secondary)] align-text-bottom"

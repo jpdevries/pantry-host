@@ -10,6 +10,7 @@ import { isTrustedNetwork } from '@/lib/isTrustedNetwork';
 import { useKitchen } from '@/lib/kitchen-context';
 import { readFavorites } from '@pantry-host/shared/favorites';
 import { pageQuery } from '@pantry-host/shared/page-data';
+import { reviewPantry } from '@pantry-host/shared/pantry-review';
 
 interface HomeRecipe {
   id: string;
@@ -25,7 +26,7 @@ interface HomeRecipe {
 }
 
 export interface HomeData {
-  ingredients: { id: string; category: string | null }[];
+  ingredients: { id: string; name: string; aliases: string[]; category: string | null; quantity: number | null; alwaysOnHand: boolean; tags: string[]; barcode: string | null; productMeta: string | null; expiresAt: string | null; stockedAt: string; updatedAt: string; createdAt: string }[];
   cookware: { id: string; name: string; tags: string[]; notes: string | null }[];
   recipes: HomeRecipe[];
   kitchens: { id: string; slug: string; name: string }[];
@@ -59,6 +60,11 @@ export default function HomePage({ initialData }: { initialData?: HomeData }) {
   useEffect(() => { setFavoriteIds(readFavorites()); }, []);
 
   const ingredientCount = data?.ingredients.length ?? 0;
+  // After mount only: findings depend on "now" and the page is server-seeded.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const reviewCount = mounted && data ? reviewPantry(data.ingredients).flaggedIds.length : 0;
+  const showReview = isSecure && reviewCount > 0;
   const cookwareList = data?.cookware ?? [];
   const allRecipes = data?.recipes ?? [];
   const recentRecipes = allRecipes.slice(0, recipeLimit);
@@ -168,7 +174,10 @@ export default function HomePage({ initialData }: { initialData?: HomeData }) {
         <section aria-label="Pantry summary" className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
           <StatCard label="Ingredients" value={ingredientCount} href={`${base}/ingredients#stage`} icon={<Carrot size={20} aria-hidden />} />
           <StatCard label="Recipes" value={data?.recipes.length ?? 0} href={`${base}/recipes#stage`} icon={<BookOpen size={20} aria-hidden />} />
-          {categoryCounts.slice(0, 2).map((c) => (
+          {showReview && (
+            <StatCard label="Needs review" value={reviewCount} href={`${base}/ingredients/review#stage`} icon={<Carrot size={20} aria-hidden />} />
+          )}
+          {categoryCounts.slice(0, showReview ? 1 : 2).map((c) => (
             <StatCard key={c.category} label={categoryLabel(c.category)} value={c.count} href={`${base}/ingredients#cat-${c.category}`} icon={categoryIcon(c.category)} />
           ))}
         </section>

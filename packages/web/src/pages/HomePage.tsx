@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { reviewPantry } from '@pantry-host/shared/pantry-review';
 import { Link, useParams } from 'react-router-dom';
 import { gql } from '@/lib/gql';
 import { BookOpen, Wine, ForkKnife, CookingPot, Leaf, Flask, Heart } from '@phosphor-icons/react';
@@ -32,7 +33,7 @@ interface HomeRecipe {
 
 interface Stats {
   recipes: HomeRecipe[];
-  ingredients: { id: string }[];
+  ingredients: { id: string; name: string; aliases: string[]; category: string | null; quantity: number | null; alwaysOnHand: boolean; tags: string[]; barcode: string | null; productMeta: string | null; expiresAt: string | null; stockedAt: string; updatedAt: string; createdAt: string }[];
   cookware: { id: string }[];
   kitchens: Kitchen[];
 }
@@ -40,7 +41,7 @@ interface Stats {
 const STATS_QUERY = `
   query Home($kitchenSlug: String) {
     recipes(kitchenSlug: $kitchenSlug) { id slug title tags photoUrl prepTime cookTime }
-    ingredients(kitchenSlug: $kitchenSlug) { id }
+    ingredients(kitchenSlug: $kitchenSlug) { id name aliases category quantity alwaysOnHand tags barcode productMeta expiresAt stockedAt updatedAt createdAt }
     cookware(kitchenSlug: $kitchenSlug) { id }
     kitchens { id slug name }
   }
@@ -109,10 +110,12 @@ export default function HomePage() {
   const base = `/kitchens/${kitchen}`;
   const kitchenName = stats?.kitchens.find((k) => k.slug === kitchen)?.name ?? kitchen;
 
+  const reviewCount = stats ? reviewPantry(stats.ingredients).flaggedIds.length : 0;
   const cards = [
     { label: 'Recipes', count: stats?.recipes.length ?? 0, to: `${base}/recipes` },
     { label: 'Ingredients', count: stats?.ingredients.length ?? 0, to: `${base}/ingredients` },
     { label: 'Cookware', count: stats?.cookware.length ?? 0, to: `${base}/cookware` },
+    ...(reviewCount > 0 ? [{ label: 'Needs review', count: reviewCount, to: `${base}/ingredients/review` }] : []),
   ];
 
   // Favorites: intersect localStorage IDs with the actual recipe list
@@ -130,7 +133,7 @@ export default function HomePage() {
         {kitchenName}
       </h1>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className={`grid grid-cols-1 ${cards.length === 4 ? 'sm:grid-cols-2 md:grid-cols-4' : 'sm:grid-cols-3'} gap-4 mb-8`}>
         {cards.map(({ label, count, to }) => (
           <Link
             key={to}

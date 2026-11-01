@@ -13,7 +13,7 @@ const features = [
   },
   {
     title: 'Pantry Review',
-    description: 'Flags pantry rows that look expired, expiring, stale, duplicated, or out of stock. Dates are estimated from category and stock-in date unless you set one, and yours always wins. Fix it in bulk; \u201cI Made This\u201d previews pantry changes before writing them.',
+    description: 'Flags pantry rows that look expired, expiring, stale, duplicated, or out of stock. Dates are estimated from category and stock-in date unless you set one, and yours always wins.',
     icon: ListChecks,
   },
   {

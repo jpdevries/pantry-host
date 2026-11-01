@@ -137,6 +137,18 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, co
   const headingRef = useRef<HTMLHeadingElement>(null);
   const barRefs = useRef<Record<'top' | 'bottom', HTMLDivElement | null>>({ top: null, bottom: null });
   const rootRef = useRef<HTMLDivElement>(null);
+  // "Is this person navigating by keyboard?" — drives the <kbd> hint fade on
+  // touch devices (see .pantry-review kbd in each package's globals.css).
+  const [keyboard, setKeyboard] = useState(false);
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Tab' || e.key.startsWith('Arrow') || e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') setKeyboard(true);
+    };
+    const onPointer = () => setKeyboard(false);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onPointer);
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('pointerdown', onPointer); };
+  }, []);
 
   // The top bar is sticky, so anything the browser scrolls into view (the
   // duplicates jump link, focus moving to a row after an action) would land
@@ -568,7 +580,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, co
   };
 
   return (
-    <div ref={rootRef} data-requires-js onKeyDown={onKeyDown}>
+    <div ref={rootRef} className="pantry-review" data-requires-js data-keyboard={keyboard ? 'true' : undefined} onKeyDown={onKeyDown}>
       <div className="flex flex-wrap items-start justify-between gap-4 mb-2">
         <div>
           <h1 ref={headingRef} tabIndex={-1} className="text-4xl font-bold outline-none">Pantry Review</h1>

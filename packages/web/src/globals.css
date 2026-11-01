@@ -1465,3 +1465,29 @@ body:has(#stage:target) header {
    would defeat the rule's purpose. The fade is a single opacity property
    (no transform / parallax / scroll-linked motion) so it's appropriate
    to keep for reduced-motion. */
+
+/* ── Pantry Review keyboard hints ──
+   The <kbd> shortcut hints on the review's CTAs are for keyboard users. On
+   touch devices (no hover, coarse pointer: the only media-query proxy for
+   "probably no keyboard") they fade to a whisper; they don't need to meet
+   contrast there because they aren't actionable information for that
+   input. The review sets data-keyboard="true" on its root the moment a key
+   is used for navigation and clears it on pointer use, so a tablet user
+   who starts tabbing sees the hints ease in. Unlayered on purpose so the
+   Kindle's lite path (which drops @layer) applies it too. */
+.pantry-review kbd {
+  transition: opacity 300ms ease;
+}
+@media (hover: none) and (pointer: coarse) {
+  .pantry-review kbd {
+    opacity: 0.35;
+  }
+  .pantry-review[data-keyboard="true"] kbd {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pantry-review kbd {
+    transition: none;
+  }
+}

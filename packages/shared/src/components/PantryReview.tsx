@@ -632,7 +632,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, co
           this points keyboard users there first: every merge removes a row
           from the per-item groups above it. */}
       {grouped.duplicate.length > 0 && (
-        <aside aria-label="Likely duplicates" className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm border-l-4 border-[var(--color-accent)] pl-3 py-1">
+        <aside aria-label="Likely duplicates" className="mt-6 mb-8 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm border-l-4 border-[var(--color-accent)] pl-3 py-1">
           <span>
             <span className="font-medium">{plural(grouped.duplicate.length, 'likely duplicate group')}</span>
             {canEdit ? ' near the end of the page. Merging first shrinks the list below.' : ' near the end of the page.'}

@@ -716,6 +716,19 @@
     margin-left: 0.25rem;
   }
 
+  /* ── Pantry review: "jump to duplicates" aside ──
+        Spacing and the accent rule are utilities in the full design. ── */
+  aside[aria-label="Likely duplicates"] {
+    display: block;
+    margin: 1rem 0 1.5rem;
+    padding: 0.25rem 0 0.25rem 0.75rem;
+    border-left: 4px solid var(--color-accent);
+  }
+
+  aside[aria-label="Likely duplicates"] a {
+    margin-left: 0.75rem;
+  }
+
   /* ── Pantry category nav ──
         Rendered before <main> (it's the sticky pill strip), so main's frame
         doesn't reach it: with the utilities gone it had no gutter. Give it

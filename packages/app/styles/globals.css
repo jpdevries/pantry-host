@@ -1561,22 +1561,24 @@ body:has(#stage:target) header {
 
 /* ── Pantry Review keyboard hints ──
    The <kbd> shortcut hints on the review's CTAs are for keyboard users, so
-   they are invisible until something on the page has focus: a pointer tap
+   they are invisible until something on the page has focus. Scoped to kbd
+   inside buttons: the keyboard legend's keys are words in a sentence and
+   stay visible. Hidden until focus: a pointer tap
    on a touch device focuses nothing, while Tab (or a click on a control in
    browsers that focus buttons) does. Pure CSS via body:focus-within, so it
    holds before hydration too. Opacity 0 rather than display none so the
    buttons keep their width and the hints fade in without a layout shift.
    Unlayered on purpose so the Kindle's lite path (which drops @layer)
    applies it too. */
-.pantry-review kbd {
+.pantry-review button kbd {
   opacity: 0;
   transition: opacity 300ms ease;
 }
-body:focus-within .pantry-review kbd {
+body:focus-within .pantry-review button kbd {
   opacity: 1;
 }
 @media (prefers-reduced-motion: reduce) {
-  .pantry-review kbd {
+  .pantry-review button kbd {
     transition: none;
   }
 }

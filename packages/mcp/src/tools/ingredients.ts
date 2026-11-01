@@ -166,14 +166,14 @@ export function registerIngredientTools(server: McpServer) {
 
   server.tool(
     'update_ingredients',
-    'Patch many pantry rows in one transaction. Each input is an id plus any fields to change; omitted fields are KEPT (unlike update_ingredient, which replaces quantity and unit). Use it for review follow-ups: `{ id, quantity: 0 }` for "used up", `{ id, expiresAt: "2026-11-20" }` to record a best-by date, `{ id, expiresAt: null }` to clear one. Fails as a whole if any id is unknown.',
+    'Patch many pantry rows in one transaction. Each input is an id plus any fields to change; omitted fields are KEPT (unlike update_ingredient, which replaces quantity and unit), and an explicit null clears quantity, unit or expiresAt. Use it for review follow-ups: `{ id, quantity: 0, expiresAt: null }` for "out of stock" (the metadata-preserving delete), `{ id, expiresAt: "2026-11-20" }` to record a best-by date, `{ id, quantity: null }` to stop tracking a quantity. Fails as a whole if any id is unknown.',
     {
       inputs: z.array(z.object({
         id: z.string(),
         name: z.string().optional(),
         category: z.string().optional(),
-        quantity: z.number().optional(),
-        unit: z.string().optional(),
+        quantity: z.number().nullable().optional().describe('Omit to keep; null clears (untracked); 0 = out of stock.'),
+        unit: z.string().nullable().optional().describe('Omit to keep; null clears.'),
         itemSize: z.number().optional(),
         itemSizeUnit: z.string().optional(),
         alwaysOnHand: z.boolean().optional(),

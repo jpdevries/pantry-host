@@ -21,9 +21,9 @@ import {
 const REVIEW_FIELDS = `id name aliases category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta expiresAt stockedAt updatedAt createdAt`;
 
 const NEXT_STEP: Record<ReviewSignal, string> = {
-  expired: 'Ask whether each is still good. Still good → touch_ingredients (restarts the estimate from today). Gone → update_ingredients with quantity 0, or remove_ingredients if the user says to toss it. Knows the real date → update_ingredients with expiresAt.',
+  expired: 'Ask whether each is still good. Still good → touch_ingredients (restarts the estimate from today). Gone → update_ingredients with { quantity: 0, expiresAt: null } (keeps tags, aliases and barcode data; the date belonged to the finished carton), or remove_ingredients only if the user says to toss the row for good. Knows the real date → update_ingredients with expiresAt.',
   expiring: 'Suggest recipes that use them (search_recipes), or touch_ingredients if the user says they are fine for longer.',
-  stale: 'Ask whether each is still here. Yes → touch_ingredients. No → update_ingredients quantity 0 or remove_ingredients.',
+  stale: 'Ask whether each is still here. Yes → touch_ingredients. No → update_ingredients with { quantity: 0, expiresAt: null }; remove_ingredients only if the user says to drop the row.',
   duplicate: 'Confirm the survivor with the user (default: survivorId), then merge_ingredients(survivorId, the other ids).',
   outOfStock: 'Ask whether to restock (add to a list / update_ingredients quantity) or remove_ingredients.',
 };

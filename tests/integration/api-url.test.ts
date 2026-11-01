@@ -1,10 +1,8 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-// packages/app compiles as CommonJS (no "type": "module"), so take the
-// export off the default import.
-import apiUrlModule from '../../packages/app/lib/apiUrl.ts';
-
-const { pickApiOrigin } = apiUrlModule;
+// apiUrl.ts uses `export function`, so Node's module detection loads it as an
+// ES module: named exports only, no default to destructure.
+import { pickApiOrigin } from '../../packages/app/lib/apiUrl.ts';
 
 // PUBLIC_API_ORIGIN → the API origin a page on a given hostname uses
 // (packages/app/lib/apiUrl.ts). null means "fall through to the heuristics":

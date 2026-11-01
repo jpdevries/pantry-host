@@ -201,6 +201,18 @@ describe('bulk pantry mutations', () => {
     assert.equal(rows[1].quantity, 3);
   });
 
+  it('updateIngredients clears quantity and unit on explicit null but keeps them when omitted', async () => {
+    const { addIngredient: a } = await gql<{ addIngredient: Row }>(ADD_FULL, { name: 'Garlic', quantity: 3, unit: 'whole', expiresAt: '2026-12-01' });
+    const [kept] = (await gql<{ updateIngredients: Row[] }>(UPDATE_MANY, { inputs: [{ id: a.id, tags: ['x'] }] })).updateIngredients;
+    assert.equal(kept.quantity, 3);
+    assert.equal(kept.unit, 'whole');
+    // The review's Undo restores a row that never had a quantity this way.
+    const [cleared] = (await gql<{ updateIngredients: Row[] }>(UPDATE_MANY, { inputs: [{ id: a.id, quantity: null, unit: null }] })).updateIngredients;
+    assert.equal(cleared.quantity, null);
+    assert.equal(cleared.unit, null);
+    assert.equal(cleared.expiresAt, '2026-12-01', 'other fields untouched');
+  });
+
   it('updateIngredients fails as a whole on an unknown id', async () => {
     const { addIngredient: a } = await gql<{ addIngredient: Row }>(ADD_FULL, { name: 'Garlic', quantity: 3, unit: 'whole' });
     await assert.rejects(

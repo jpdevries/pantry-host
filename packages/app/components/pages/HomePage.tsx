@@ -64,7 +64,8 @@ export default function HomePage({ initialData }: { initialData?: HomeData }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
   const reviewCount = mounted && data ? reviewPantry(data.ingredients).flaggedIds.length : 0;
-  const showReview = isSecure && reviewCount > 0;
+  // Read-only for guests, so not owner-gated.
+  const showReview = reviewCount > 0;
   const cookwareList = data?.cookware ?? [];
   const allRecipes = data?.recipes ?? [];
   const recentRecipes = allRecipes.slice(0, recipeLimit);

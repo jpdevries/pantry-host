@@ -247,7 +247,9 @@ export default function IngredientsPage({ initialData }: { initialData?: Ingredi
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
           <h1 className="text-4xl font-bold">What's in Your Pantry?</h1>
           <div className="flex gap-3 flex-wrap">
-            {isSecure && reviewCount > 0 && (
+            {/* Guests get the read-only review (findings, no actions), so the
+                link isn't owner-gated like Add and Batch Scan. */}
+            {reviewCount > 0 && (
               <a href={`/kitchens/${kitchen}/ingredients/review#stage`} className="btn-secondary" data-requires-js>
                 Review <span className="tabular-nums">({reviewCount})</span>
               </a>

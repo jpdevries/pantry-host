@@ -62,7 +62,7 @@ const SIGNAL_BLURB: Record<ReviewSignal, string> = {
   expiring: 'Best-by within three days. Worth cooking with first.',
   stale: 'No best-by date and no estimate for its category, and untouched for six months. Still here? Mark it in stock; gone? Mark it out of stock.',
   duplicate: 'Rows that look like the same item. Merging sums quantities, keeps every tag, and makes the other names aliases of the one you keep.',
-  outOfStock: 'At zero for two weeks or more. Delete them, or restock from the pantry page.',
+  outOfStock: 'At zero for two weeks or more and never restocked. This is where Delete belongs; restock from the pantry page instead if it is coming back.',
 };
 
 function fmtQty(r: PantryRowForReview): string {
@@ -126,7 +126,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
   const [expiryValue, setExpiryValue] = useState('');
   const [survivors, setSurvivors] = useState<Record<string, string>>({});
   const [confirmMerge, setConfirmMerge] = useState<string | null>(null);
-  const [undo, setUndo] = useState<{ label: string; inputs: { id: string; quantity: number | null }[] } | null>(null);
+  const [undo, setUndo] = useState<{ label: string; inputs: { id: string; quantity: number | null; expiresAt?: string | null }[] } | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   // (After every useState above: these effects list showExpiry and
@@ -192,7 +192,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
     });
   };
 
-  async function run(label: string, fn: () => Promise<void>, undoable?: { inputs: { id: string; quantity: number | null }[] }) {
+  async function run(label: string, fn: () => Promise<void>, undoable?: { inputs: { id: string; quantity: number | null; expiresAt?: string | null }[] }) {
     setBusy(true);
     setStatus('');
     try {
@@ -216,10 +216,14 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
   const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
   const markInStock = () => run(`Marked ${plural(n, 'item')} in stock.`, async () => { await gql(TOUCH, { ids }); });
+  // Out of stock is the metadata-preserving "delete": quantity 0 keeps
+  // tags, aliases, barcode data and history. The stated best-by belonged to
+  // the carton just finished, so it is cleared too; restocking restarts the
+  // estimate. Undo restores both.
   const markOutOfStock = () => {
-    const previous = ids.map((id) => ({ id, quantity: byId.get(id)?.quantity ?? null }));
+    const previous = ids.map((id) => ({ id, quantity: byId.get(id)?.quantity ?? null, expiresAt: byId.get(id)?.expiresAt ?? null }));
     return run(`Marked ${plural(n, 'item')} out of stock.`, async () => {
-      await gql(UPDATE_MANY, { inputs: ids.map((id) => ({ id, quantity: 0 })) });
+      await gql(UPDATE_MANY, { inputs: ids.map((id) => ({ id, quantity: 0, expiresAt: null })) });
     }, { inputs: previous });
   };
   const setExpiry = () => run(
@@ -296,10 +300,11 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
       setConfirmDelete(what === 'delete');
     };
     return (
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium mr-2 tabular-nums" aria-live={pos === 'top' ? 'polite' : undefined} aria-atomic={pos === 'top' ? true : undefined}>
+      <div>
+        <p className="text-sm font-medium tabular-nums mb-2" aria-live={pos === 'top' ? 'polite' : undefined} aria-atomic={pos === 'top' ? true : undefined}>
           {plural(n, 'item')} selected
-        </span>
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
         <button type="button" onClick={toggleAll} disabled={busy} aria-keyshortcuts="a" className="btn-secondary text-sm">
           {n === selectableIds.length ? 'Select none' : 'Select all'}{kbd('A')}
         </button>
@@ -322,9 +327,12 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
           </button>
         )}
         {confirmDelete && mine ? (
-          <span className="inline-flex items-center gap-2 ml-auto">
-            <span className="text-xs text-[var(--color-text-secondary)]">Delete {plural(n, 'item')}?</span>
-            <button type="button" autoFocus onClick={remove} disabled={busy} className="btn-danger text-sm">Yes, delete</button>
+          <span className="inline-flex flex-wrap items-center gap-2 ml-auto" role="group" aria-label="Confirm delete">
+            <span className="text-xs text-[var(--color-text-secondary)]">
+              Delete {plural(n, 'item')}? That drops their tags, aliases and barcode data. Out of stock keeps them.
+            </span>
+            <button type="button" autoFocus onClick={markOutOfStock} disabled={busy} className="btn-primary text-sm">Mark out of stock instead</button>
+            <button type="button" onClick={remove} disabled={busy} className="btn-danger text-sm">Yes, delete</button>
             <button type="button" onClick={() => setConfirmDelete(false)} className="btn-secondary text-sm">No</button>
           </span>
         ) : (
@@ -332,6 +340,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
             Delete{kbd('D')}
           </button>
         )}
+        </div>
       </div>
     );
   }
@@ -358,7 +367,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
         <p className="mt-4 mb-2 text-sm flex flex-wrap items-center gap-3" aria-hidden="true">
           <span>{status}</span>
           {undo && (
-            <button type="button" onClick={undoLast} disabled={busy} className="underline hover:text-accent">Undo</button>
+            <button type="button" onClick={undoLast} disabled={busy} className="ml-3 underline hover:text-accent">Undo</button>
           )}
         </p>
       )}
@@ -377,7 +386,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
         >
           {renderActions('top')}
           <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-            Keyboard: with focus in this review, <kbd>A</kbd> selects all or none, <kbd>I</kbd> marks in stock, <kbd>O</kbd> marks out of stock, <kbd>B</kbd> sets a best-by date, <kbd>D</kbd> deletes (then <kbd>Enter</kbd> to confirm), <kbd>Esc</kbd> closes a confirmation or clears the selection. Each group also has its own select-all checkbox.
+            Keyboard: with focus in this review, <kbd>A</kbd> selects all or none, <kbd>I</kbd> marks in stock, <kbd>O</kbd> marks out of stock, <kbd>B</kbd> sets a best-by date, <kbd>D</kbd> asks to delete (the confirmation offers Mark out of stock instead first), <kbd>Esc</kbd> closes a confirmation or clears the selection. Each group also has its own select-all checkbox.
           </p>
         </div>
       )}
@@ -405,7 +414,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
             <fieldset key={signal} className="border border-[var(--color-border-card)] p-4 md:p-5">
               <legend className="px-2 text-lg font-bold flex items-center gap-2">
                 {REVIEW_SIGNAL_LABELS[signal]}
-                <span className="tag tabular-nums">{findings.length}</span>
+                <span className="tag tabular-nums ml-2">{findings.length}</span>
               </legend>
               <p className="text-sm text-[var(--color-text-secondary)] mb-4 pretty">{SIGNAL_BLURB[signal]}</p>
 

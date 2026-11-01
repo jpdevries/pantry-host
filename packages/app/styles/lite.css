@@ -690,6 +690,10 @@
     display: block;
   }
 
+  .ml-3 {
+    margin-left: 0.75rem;
+  }
+
   /* ── Pantry review action bar ──
         Sits at the top of the review (sticky in the full design; static
         here, which suits e-ink). Its padding, border and button gaps are

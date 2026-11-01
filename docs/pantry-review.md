@@ -287,9 +287,16 @@ schema change, so it ships first and alone.
    date, D delete, Esc clear) are bound on the review's root so they only fire while focus
    is inside it (WCAG 2.1.4), exposed with `aria-keyshortcuts` and visible
    `<kbd>` hints plus a one-line legend. The bar's CTAs are Select all,
-   Mark in stock, Mark out of stock, Set best-by date and Delete (with an
-   inline confirmation); Merge stays on each duplicate group. Closing a
-   confirmation or the date field returns focus to its button.
+   Mark in stock, Mark out of stock, Set best-by date and Delete; Merge
+   stays on each duplicate group. Closing a confirmation or the date field
+   returns focus to its button. **What Delete means:** Mark out of stock
+   is the metadata-preserving delete (quantity 0; tags, aliases, barcode
+   data and history survive; the stated best-by is cleared because it
+   belonged to the carton just finished, and restocking restarts the
+   estimate). Delete drops the row. The Delete confirmation says what is
+   lost and offers "Mark out of stock instead" as its first, focused
+   button; the Out of stock group (zero for 14+ days, never restocked) is
+   where hard delete belongs.
 4. **MCP.** The tools above, `pantry://review`, updated tool descriptions.
    Tool count moves from 34 to 39.
 

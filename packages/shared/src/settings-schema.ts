@@ -19,6 +19,7 @@ export type SettingKey =
   | 'PIXABAY_FALLBACK_ENABLED'
   | 'HARVEST_LOCATIONS'
   | 'STORE_BARCODE_META'
+  | 'REVIEW_CONFIRM_DESTRUCTIVE'
   | 'PREFER_BROWSER_CHROME';
 
 export type SettingKind = 'text' | 'secret' | 'boolean' | 'enum';
@@ -115,6 +116,15 @@ export const SETTINGS_SCHEMA: SettingDef[] = [
     label: 'Store barcode + product metadata',
     description:
       "Power user: when on, the batch scanner persists each item's barcode plus a allowlisted subset of Open Food Facts data (nutrition per 100g, ingredients text, allergens, Nutri-Score, NOVA group). Lets MCP agents and nutrition-aware tools reason about your pantry. Off by default; turning this on only affects new scans. Also toggleable from the scan modal header.",
+    kind: 'boolean',
+    packages: ['app', 'web'],
+    defaultValue: 'false',
+  },
+  {
+    key: 'REVIEW_CONFIRM_DESTRUCTIVE',
+    label: 'Confirm before deleting or merging in Pantry Review',
+    description:
+      'When on, Delete and Merge on the review page ask first (Delete also offers "Mark out of stock instead", which keeps tags and barcode data). Off by default: the review is built for quick bulk passes, and Mark out of stock is the safe way to clear a row.',
     kind: 'boolean',
     packages: ['app', 'web'],
     defaultValue: 'false',

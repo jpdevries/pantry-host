@@ -296,7 +296,14 @@ schema change, so it ships first and alone.
    estimate). Delete drops the row. The Delete confirmation says what is
    lost and offers "Mark out of stock instead" as its first, focused
    button; the Out of stock group (zero for 14+ days, never restocked) is
-   where hard delete belongs.
+   where hard delete belongs. Confirmations are opt-in: the
+   `REVIEW_CONFIRM_DESTRUCTIVE` setting (off by default, both tiers) gates
+   the Delete and Merge confirmations, since the review is built for quick
+   bulk passes. **Focus after an action** follows the WAI-ARIA Authoring
+   Practices for a removed element: the first still-listed row after the
+   last affected one, else the row before it, else the pressed control if
+   still usable, else the bar that was used, else the heading; a row Undo
+   brings back gets focus itself. Nobody is sent to the top of the page.
 4. **MCP.** The tools above, `pantry://review`, updated tool descriptions.
    Tool count moves from 34 to 39.
 

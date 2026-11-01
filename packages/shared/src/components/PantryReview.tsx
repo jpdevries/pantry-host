@@ -54,6 +54,9 @@ interface Props {
   pantryHref: string;
   /** False for read-only guests: findings show, actions don't. */
   canEdit: boolean;
+  /** Ask before Delete and Merge (the REVIEW_CONFIRM_DESTRUCTIVE setting).
+   *  Off by default: the review is built for quick bulk passes. */
+  confirmDestructive?: boolean;
   renderLink?: LinkRenderer;
 }
 
@@ -114,7 +117,7 @@ function Reason({ f, row, now }: { f: ReviewFinding; row: PantryRowForReview; no
   }
 }
 
-export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, renderLink = defaultLink }: Props) {
+export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, confirmDestructive = false, renderLink = defaultLink }: Props) {
   const [rows, setRows] = useState<PantryRowForReview[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -128,6 +131,8 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
   const [confirmMerge, setConfirmMerge] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ label: string; inputs: { id: string; quantity: number | null; expiresAt?: string | null }[] } | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const barRefs = useRef<Record<'top' | 'bottom', HTMLDivElement | null>>({ top: null, bottom: null });
+  const rootRef = useRef<HTMLDivElement>(null);
 
   // (After every useState above: these effects list showExpiry and
   // confirmDelete as dependencies, so they must come after both.)
@@ -192,7 +197,28 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
     });
   };
 
-  async function run(label: string, fn: () => Promise<void>, undoable?: { inputs: { id: string; quantity: number | null; expiresAt?: string | null }[] }) {
+  type UndoInputs = { id: string; quantity: number | null; expiresAt?: string | null }[];
+
+  /**
+   * Perform an action over `affected` rows, refetch, and put keyboard focus
+   * somewhere sensible. Per the WAI-ARIA Authoring Practices (keyboard
+   * interface: when the focused element is removed, move focus to the item
+   * that follows it, else the one before it, else a logical container):
+   *   1. a row that is back (Undo) → its control;
+   *   2. the first row after the last affected one that is still listed;
+   *   3. else the nearest row before it;
+   *   4. else the control that was pressed, if it is still usable;
+   *   5. else the first enabled button of the bar that was used;
+   *   6. else the heading.
+   * The live region announces the result either way, so nobody is thrown
+   * to the top of the page to hear it.
+   */
+  async function run(label: string, fn: () => Promise<void>, opts: { affected: string[]; undoable?: { inputs: UndoInputs }; restoring?: boolean }) {
+    const trigger = document.activeElement as HTMLElement | null;
+    const bar = activeBar;
+    const rowEls = () => [...(rootRef.current?.querySelectorAll<HTMLElement>('[data-review-row]') ?? [])];
+    const orderBefore = [...new Set(rowEls().map((el) => el.dataset.reviewRow!))];
+    const affected = new Set(opts.affected);
     setBusy(true);
     setStatus('');
     try {
@@ -200,10 +226,35 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
       await load();
       setSelected(new Set());
       setConfirmDelete(false);
+      setConfirmMerge(null);
       setShowExpiry(false);
       setStatus(label);
-      setUndo(undoable ? { label, inputs: undoable.inputs } : null);
-      headingRef.current?.focus();
+      setUndo(opts.undoable ? { label, inputs: opts.undoable.inputs } : null);
+      requestAnimationFrame(() => {
+        // First control per row id, in DOM order (a row can appear in a
+        // freshness group and again in a duplicate card).
+        const present = new Map<string, HTMLElement>();
+        for (const el of rowEls()) if (!present.has(el.dataset.reviewRow!)) present.set(el.dataset.reviewRow!, el);
+        if (opts.restoring) {
+          const back = [...affected].find((id) => present.has(id));
+          if (back) { present.get(back)!.focus(); return; }
+        }
+        const lastIdx = Math.max(-1, ...orderBefore.map((id, i) => (affected.has(id) ? i : -1)));
+        for (let i = lastIdx + 1; i < orderBefore.length; i++) {
+          const el = present.get(orderBefore[i]);
+          if (el) { el.focus(); return; }
+        }
+        for (let i = lastIdx - 1; i >= 0; i--) {
+          const el = present.get(orderBefore[i]);
+          if (el) { el.focus(); return; }
+        }
+        const usable = (el: HTMLElement | null): el is HTMLElement =>
+          !!el && document.contains(el) && !(el as HTMLButtonElement).disabled && el.offsetParent !== null;
+        if (usable(trigger)) { trigger.focus(); return; }
+        const barButton = [...(barRefs.current[bar]?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find((b) => !b.disabled) ?? null;
+        if (usable(barButton)) { barButton.focus(); return; }
+        headingRef.current?.focus();
+      });
     } catch (err) {
       setStatus(`Something went wrong: ${(err as Error).message}`);
     } finally {
@@ -215,7 +266,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
   const n = ids.length;
   const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
-  const markInStock = () => run(`Marked ${plural(n, 'item')} in stock.`, async () => { await gql(TOUCH, { ids }); });
+  const markInStock = () => run(`Marked ${plural(n, 'item')} in stock.`, async () => { await gql(TOUCH, { ids }); }, { affected: ids });
   // Out of stock is the metadata-preserving "delete": quantity 0 keeps
   // tags, aliases, barcode data and history. The stated best-by belonged to
   // the carton just finished, so it is cleared too; restocking restarts the
@@ -224,29 +275,29 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
     const previous = ids.map((id) => ({ id, quantity: byId.get(id)?.quantity ?? null, expiresAt: byId.get(id)?.expiresAt ?? null }));
     return run(`Marked ${plural(n, 'item')} out of stock.`, async () => {
       await gql(UPDATE_MANY, { inputs: ids.map((id) => ({ id, quantity: 0, expiresAt: null })) });
-    }, { inputs: previous });
+    }, { affected: ids, undoable: { inputs: previous } });
   };
   const setExpiry = () => run(
     expiryValue ? `Set best-by ${expiryValue} on ${plural(n, 'item')}.` : `Cleared the best-by date on ${plural(n, 'item')}.`,
     async () => { await gql(UPDATE_MANY, { inputs: ids.map((id) => ({ id, expiresAt: expiryValue || null })) }); },
+    { affected: ids },
   );
-  const remove = () => run(`Deleted ${plural(n, 'item')}.`, async () => { await gql(DELETE_MANY, { ids }); });
+  const remove = () => run(`Deleted ${plural(n, 'item')}.`, async () => { await gql(DELETE_MANY, { ids }); }, { affected: ids });
   const undoLast = () => {
     if (!undo) return;
     const inputs = undo.inputs;
     setUndo(null);
     return run(`Restored ${plural(inputs.length, 'quantity').replace('quantitys', 'quantities')}.`, async () => {
       await gql(UPDATE_MANY, { inputs });
-    });
+    }, { affected: inputs.map((i) => i.id), restoring: true });
   };
   const merge = (f: ReviewFinding) => {
     const survivorId = survivors[f.ids.join('|')] ?? f.survivorId!;
     const others = f.ids.filter((id) => id !== survivorId);
     const name = byId.get(survivorId)?.name ?? 'the survivor';
     return run(`Merged ${plural(others.length, 'row')} into ${name}.`, async () => {
-      setConfirmMerge(null);
       await gql(MERGE, { survivorId, mergeIds: others });
-    });
+    }, { affected: f.ids });
   };
 
   const total = review?.findings.length ?? 0;
@@ -279,7 +330,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
       case 'i': if (n > 0) markInStock(); break;
       case 'o': if (n > 0) markOutOfStock(); break;
       case 'b': if (n > 0) { setActiveBar('top'); setShowExpiry(true); setConfirmDelete(false); } break;
-      case 'd': if (n > 0) { setActiveBar('top'); setConfirmDelete(true); setShowExpiry(false); } break;
+      case 'd': if (n > 0) { if (confirmDestructive) { setActiveBar('top'); setConfirmDelete(true); setShowExpiry(false); } else remove(); } break;
       default: return;
     }
     e.preventDefault();
@@ -336,7 +387,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
             <button type="button" onClick={() => setConfirmDelete(false)} className="btn-secondary text-sm">No</button>
           </span>
         ) : (
-          <button type="button" ref={(el) => { deleteBtnRef.current[pos] = el; }} onClick={() => open('delete')} disabled={busy || n === 0} aria-keyshortcuts="d" className="btn-danger text-sm ml-auto">
+          <button type="button" ref={(el) => { deleteBtnRef.current[pos] = el; }} onClick={() => (confirmDestructive ? open('delete') : remove())} disabled={busy || n === 0} aria-keyshortcuts="d" className="btn-danger text-sm ml-auto">
             Delete{kbd('D')}
           </button>
         )}
@@ -346,7 +397,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
   }
 
   return (
-    <div data-requires-js onKeyDown={onKeyDown}>
+    <div ref={rootRef} data-requires-js onKeyDown={onKeyDown}>
       <div className="flex flex-wrap items-start justify-between gap-4 mb-2">
         <div>
           <h1 ref={headingRef} tabIndex={-1} className="text-4xl font-bold outline-none">Pantry Review</h1>
@@ -380,13 +431,14 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
           while focus is anywhere inside this review, per WCAG 2.1.4. */}
       {showBars && (
         <div
+          ref={(el) => { barRefs.current.top = el; }}
           role="region"
           aria-label="Actions for selected items"
           className="sticky top-0 z-20 -mx-4 px-4 md:-mx-8 md:px-8 py-3 mt-6 border-b border-[var(--color-border-card)] bg-body-translucent backdrop-blur"
         >
           {renderActions('top')}
           <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-            Keyboard: with focus in this review, <kbd>A</kbd> selects all or none, <kbd>I</kbd> marks in stock, <kbd>O</kbd> marks out of stock, <kbd>B</kbd> sets a best-by date, <kbd>D</kbd> asks to delete (the confirmation offers Mark out of stock instead first), <kbd>Esc</kbd> closes a confirmation or clears the selection. Each group also has its own select-all checkbox.
+            Keyboard: with focus in this review, <kbd>A</kbd> selects all or none, <kbd>I</kbd> marks in stock, <kbd>O</kbd> marks out of stock, <kbd>B</kbd> sets a best-by date, <kbd>D</kbd> deletes{confirmDestructive ? ' after a confirmation that offers Mark out of stock instead' : ''}, <kbd>Esc</kbd> {confirmDestructive ? 'closes a confirmation or ' : ''}clears the selection. Each group also has its own select-all checkbox.
           </p>
         </div>
       )}
@@ -443,6 +495,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
                           {canEdit && (
                             <input
                               type="checkbox"
+                              data-review-row={row.id}
                               checked={checked}
                               onChange={() => toggle(row.id)}
                               aria-describedby={`review-reason-${row.id}`}
@@ -486,6 +539,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
                                   <label key={id} className="flex items-start gap-2 text-sm cursor-pointer">
                                     <input
                                       type="radio"
+                                      data-review-row={id}
                                       name={groupName}
                                       value={id}
                                       checked={survivorId === id}
@@ -530,7 +584,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
                                 <button type="button" onClick={() => setConfirmMerge(null)} className="btn-secondary text-xs px-3 py-1.5">No</button>
                               </>
                             ) : (
-                              <button type="button" onClick={() => setConfirmMerge(key)} disabled={busy} className="btn-secondary text-sm" aria-describedby={`dup-reason-${key}`}>
+                              <button type="button" onClick={() => (confirmDestructive ? setConfirmMerge(key) : merge(f))} disabled={busy} className="btn-secondary text-sm" aria-describedby={`dup-reason-${key}`}>
                                 Merge {others.length} into {survivor?.name ?? 'survivor'}
                               </button>
                             )}
@@ -550,6 +604,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
           down, so they don't have to travel back up. Static, not sticky. */}
       {showBars && (
         <div
+          ref={(el) => { barRefs.current.bottom = el; }}
           role="region"
           aria-label="Actions for selected items (end of list)"
           className="mt-10 pt-4 border-t border-[var(--color-border-card)]"

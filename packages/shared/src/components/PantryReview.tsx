@@ -138,6 +138,21 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, co
   const barRefs = useRef<Record<'top' | 'bottom', HTMLDivElement | null>>({ top: null, bottom: null });
   const rootRef = useRef<HTMLDivElement>(null);
 
+  // The top bar is sticky, so anything the browser scrolls into view (the
+  // duplicates jump link, focus moving to a row after an action) would land
+  // underneath it. Keep the document's scroll padding equal to the bar's
+  // measured height while the bar exists; it changes with wrapping.
+  useEffect(() => {
+    const bar = barRefs.current.top;
+    const root = document.documentElement;
+    if (!bar || typeof ResizeObserver === 'undefined') return;
+    const apply = () => { root.style.scrollPaddingTop = `${Math.ceil(bar.getBoundingClientRect().height) + 8}px`; };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(bar);
+    return () => { ro.disconnect(); root.style.scrollPaddingTop = ''; };
+  });
+
   // (After every useState above: these effects list showExpiry and
   // confirmDelete as dependencies, so they must come after both.)
   // When an inline confirmation or date field closes, its controls unmount

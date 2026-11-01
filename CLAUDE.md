@@ -234,14 +234,15 @@ Exposes the PantryHost GraphQL API as MCP (Model Context Protocol) tools so exte
 - **Dual transport**: stdio (Claude Desktop) via default, HTTP on port 5001 via `--http` flag
 - **Optional auth**: Set `MCP_API_KEY` env var to require `Authorization: Bearer` for HTTP transport
 
-### Tools (34 total)
-- **Read (11):** search_pantry, search_recipes, get_recipe, recipe_nutrition, recipe_allergens, list_cookware, get_cookware, list_kitchens, get_kitchen, list_menus, get_menu
-- **Write (21):** add_ingredient, add_ingredients, add_pantry_alias, update_ingredient, remove_ingredient, create_recipe, update_recipe, set_recipe_photo, delete_recipe, mark_recipe_cooked, queue_recipe, add_cookware, update_cookware, delete_cookware, create_menu, update_menu, delete_menu, toggle_recipe_in_menu, create_kitchen, update_kitchen, delete_kitchen
+### Tools (39 total)
+- **Read (12):** search_pantry, review_pantry, search_recipes, get_recipe, recipe_nutrition, recipe_allergens, list_cookware, get_cookware, list_kitchens, get_kitchen, list_menus, get_menu
+- **Write (25):** add_ingredient, add_ingredients, add_pantry_alias, update_ingredient, update_ingredients (bulk patch, omitted fields kept), touch_ingredients ("still have it"), merge_ingredients, remove_ingredient, remove_ingredients, create_recipe, update_recipe, set_recipe_photo, delete_recipe, mark_recipe_cooked (now `servings`, `decrementPantry`, `dryRun`; returns per-line pantry changes), queue_recipe, add_cookware, update_cookware, delete_cookware, create_menu, update_menu, delete_menu, toggle_recipe_in_menu, create_kitchen, update_kitchen, delete_kitchen
+- **Pantry Review (`tools/review.ts`):** `review_pantry` runs `@pantry-host/shared/pantry-review` over the kitchen's rows and returns findings per signal (expired, expiring, stale, duplicate, outOfStock) with names, reasons, provenance (stated vs estimated), a suggested `survivorId` for duplicates, and `nextSteps` naming the tool that answers each signal. Same engine as the review page, so agent and UI never disagree.
 - **AI (1):** generate_recipes (requires `AI_API_KEY` on the GraphQL server)
 - **Books (1):** publish_kitchen_book: kitchens as EPUBs, built on the MCP host with `@pantry-host/shared/publish-book` (needs pandoc 3+ and ImageMagick there). Each book comes back as a `pantry://books/<file>` resource link and is saved in `packages/app/public/books/` (gitignored), so Rex serves it at a home-network download link (`BOOKS_URL`, else the IP in `public/network-info.json`, on APP_URL's port). `sendToKindle: true` also emails it via `SMTP_URL` to `KINDLE_EMAIL`, only when the user asks, since it puts the book on Amazon's servers.
 
 ### Resources
-`pantry://ingredients`, `pantry://recipes`, `pantry://cookware`, `pantry://menus`, `pantry://kitchens`, `pantry://books/{file}` (EPUBs from publish_kitchen_book)
+`pantry://ingredients`, `pantry://review` (current review findings, home kitchen), `pantry://recipes`, `pantry://cookware`, `pantry://menus`, `pantry://kitchens`, `pantry://books/{file}` (EPUBs from publish_kitchen_book)
 
 ### File structure
 ```
@@ -257,6 +258,7 @@ packages/mcp/
 │   │   ├── menus.ts          # Menu CRUD
 │   │   ├── kitchens.ts       # Kitchen CRUD
 │   │   ├── books.ts          # publish_kitchen_book + pantry://books/ resources
+│   │   ├── review.ts         # review_pantry + fetchReview (pantry://review)
 │   │   └── generate.ts       # AI recipe generation
 │   └── resources/
 │       └── pantry.ts         # pantry:// read-only resources

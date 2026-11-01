@@ -1,5 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { gql } from '../graphql-client.js';
+import { fetchReview } from '../tools/review.js';
 
 export function registerResources(server: McpServer) {
   server.resource(
@@ -8,7 +9,7 @@ export function registerResources(server: McpServer) {
     { description: 'Current pantry inventory — all ingredients across all kitchens' },
     async () => {
       const data = await gql<{ ingredients: unknown[] }>(
-        `{ ingredients { id name category quantity unit alwaysOnHand tags } }`,
+        `{ ingredients { id name category quantity unit alwaysOnHand tags expiresAt stockedAt updatedAt } }`,
       );
       return {
         contents: [{
@@ -18,6 +19,19 @@ export function registerResources(server: McpServer) {
         }],
       };
     },
+  );
+
+  server.resource(
+    'pantry-review',
+    'pantry://review',
+    { description: 'Pantry review findings for the home kitchen: expired, expiring, stale, duplicate and out-of-stock rows with reasons and next steps (same engine as review_pantry)' },
+    async () => ({
+      contents: [{
+        uri: 'pantry://review',
+        mimeType: 'application/json',
+        text: JSON.stringify(await fetchReview({}), null, 2),
+      }],
+    }),
   );
 
   server.resource(

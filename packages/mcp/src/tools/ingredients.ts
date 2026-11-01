@@ -2,12 +2,14 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { gql } from '../graphql-client.js';
 
-const INGREDIENT_FIELDS = `id name aliases category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta createdAt`;
+const INGREDIENT_FIELDS = `id name aliases category quantity unit itemSize itemSizeUnit alwaysOnHand tags barcode productMeta expiresAt stockedAt updatedAt createdAt`;
+
+const EXPIRES_AT_DOC = 'Stated best-by date (YYYY-MM-DD or ISO 8601). Leave unset when the user did not state one: the review estimates expiry from the category and stock-in date, and stated dates always win over estimates, so never invent one.';
 
 export function registerIngredientTools(server: McpServer) {
   server.tool(
     'search_pantry',
-    'Search pantry ingredients. Returns rows including `aliases` (alternative names that participate in recipe matching), `barcode`, and `productMeta` (a JSON-encoded blob of allowlisted metadata). IMPORTANT: the `barcode` field is **overloaded** — it stores any printed product identifier, which may be a UPC/EAN (8/12/13-digit, packaged goods, backed by Open Food Facts) OR a PLU (4-digit for conventional produce, 5-digit starting with 9 for organic; backed by the IFPS dataset). Detect the type from length. `productMeta` has `plu_source: "ifps"` set on PLU-sourced rows and different fields (`commodity`, `variety`, `size`, `organic`, `category`) than OFF-sourced rows (`nutriments`, `nutriscore_grade`, etc.). The barcode + productMeta fields are populated only for rows scanned with STORE_BARCODE_META on (off by default).',
+    'Search pantry ingredients. Returns rows including `aliases` (alternative names that participate in recipe matching), `barcode`, `productMeta` (a JSON-encoded blob of allowlisted metadata), `expiresAt` (a stated best-by date or null; estimates are not stored — use review_pantry for them), `stockedAt` (when stock last came in) and `updatedAt`. IMPORTANT: the `barcode` field is **overloaded** — it stores any printed product identifier, which may be a UPC/EAN (8/12/13-digit, packaged goods, backed by Open Food Facts) OR a PLU (4-digit for conventional produce, 5-digit starting with 9 for organic; backed by the IFPS dataset). Detect the type from length. `productMeta` has `plu_source: "ifps"` set on PLU-sourced rows and different fields (`commodity`, `variety`, `size`, `organic`, `category`) than OFF-sourced rows (`nutriments`, `nutriscore_grade`, etc.). The barcode + productMeta fields are populated only for rows scanned with STORE_BARCODE_META on (off by default).',
     {
       name: z.string().optional().describe('Search by ingredient name (partial match, case-insensitive)'),
       tags: z.array(z.string()).optional().describe('Filter by ingredient tags (AND match)'),
@@ -39,12 +41,13 @@ export function registerIngredientTools(server: McpServer) {
       aliases: z.array(z.string()).optional().describe('Alternative names for matching. Recipe ingredient names that match any alias resolve to this pantry row. Useful when a canonical pantry name (e.g. "Dark Roasted Peanut Butter") differs from how recipes refer to the ingredient (e.g. "peanut butter").'),
       barcode: z.string().optional().describe('Printed product identifier. Length discriminates type: 8/12/13 digits = UPC-A/EAN-8/EAN-13 (packaged goods); 4 digits in 3000–4999 = PLU (conventional produce); 5 digits starting with 9 = PLU (organic produce). Typically written by the scanner; agents can pass one when sourcing data from elsewhere.'),
       productMeta: z.string().optional().describe('JSON-encoded allowlisted metadata. Two provenance shapes: OFF-sourced (nutriments, nutriscore_grade, nova_group, labels_tags, allergens_tags, ingredients_text, etc.) and IFPS-sourced (plu_source: "ifps", commodity, variety, size, organic, category). Persisted as JSONB.'),
+      expiresAt: z.string().optional().describe(EXPIRES_AT_DOC),
       kitchenSlug: z.string().optional().describe('Kitchen slug (default: home)'),
     },
     async (args) => {
       const data = await gql<{ addIngredient: unknown }>(
-        `mutation($name: String!, $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!], $aliases: [String!], $barcode: String, $productMeta: String, $kitchenSlug: String) {
-          addIngredient(name: $name, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags, aliases: $aliases, barcode: $barcode, productMeta: $productMeta, kitchenSlug: $kitchenSlug) { ${INGREDIENT_FIELDS} }
+        `mutation($name: String!, $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!], $aliases: [String!], $barcode: String, $productMeta: String, $expiresAt: String, $kitchenSlug: String) {
+          addIngredient(name: $name, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags, aliases: $aliases, barcode: $barcode, productMeta: $productMeta, expiresAt: $expiresAt, kitchenSlug: $kitchenSlug) { ${INGREDIENT_FIELDS} }
         }`,
         args,
       );
@@ -68,6 +71,7 @@ export function registerIngredientTools(server: McpServer) {
         aliases: z.array(z.string()).optional(),
         barcode: z.string().optional(),
         productMeta: z.string().optional(),
+        expiresAt: z.string().optional().describe(EXPIRES_AT_DOC),
       })).describe('Array of ingredients to add'),
       kitchenSlug: z.string().optional().describe('Kitchen slug (default: home)'),
     },
@@ -98,13 +102,18 @@ export function registerIngredientTools(server: McpServer) {
       aliases: z.array(z.string()).optional().describe('New aliases — alternative names for matching against recipe ingredients. Replaces the existing list.'),
       barcode: z.string().optional().describe('Printed product identifier. UPC/EAN (8/12/13 digits) or PLU (4 digits for conventional produce, 5-digit 9XXXX for organic). Overloaded by design — one column, discriminated by length.'),
       productMeta: z.string().optional().describe('JSON-encoded allowlisted OFF metadata.'),
+      expiresAt: z.string().nullable().optional().describe(`${EXPIRES_AT_DOC} Omit to keep the current date; pass null to clear it.`),
     },
     async (args) => {
+      // Only send expiresAt when the caller gave it (null included): an
+      // omitted variable keeps the stored date, an explicit null clears it.
+      const { expiresAt, ...rest } = args;
+      const variables = expiresAt === undefined ? rest : { ...rest, expiresAt };
       const data = await gql<{ updateIngredient: unknown }>(
-        `mutation($id: String!, $name: String, $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!], $aliases: [String!], $barcode: String, $productMeta: String) {
-          updateIngredient(id: $id, name: $name, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags, aliases: $aliases, barcode: $barcode, productMeta: $productMeta) { ${INGREDIENT_FIELDS} }
+        `mutation($id: String!, $name: String, $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!], $aliases: [String!], $barcode: String, $productMeta: String, $expiresAt: String) {
+          updateIngredient(id: $id, name: $name, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags, aliases: $aliases, barcode: $barcode, productMeta: $productMeta, expiresAt: $expiresAt) { ${INGREDIENT_FIELDS} }
         }`,
-        args,
+        variables,
       );
       return { content: [{ type: 'text' as const, text: JSON.stringify(data.updateIngredient, null, 2) }] };
     },
@@ -152,6 +161,79 @@ export function registerIngredientTools(server: McpServer) {
         { id },
       );
       return { content: [{ type: 'text' as const, text: `Deleted ingredient ${id}` }] };
+    },
+  );
+
+  server.tool(
+    'update_ingredients',
+    'Patch many pantry rows in one transaction. Each input is an id plus any fields to change; omitted fields are KEPT (unlike update_ingredient, which replaces quantity and unit). Use it for review follow-ups: `{ id, quantity: 0 }` for "used up", `{ id, expiresAt: "2026-11-20" }` to record a best-by date, `{ id, expiresAt: null }` to clear one. Fails as a whole if any id is unknown.',
+    {
+      inputs: z.array(z.object({
+        id: z.string(),
+        name: z.string().optional(),
+        category: z.string().optional(),
+        quantity: z.number().optional(),
+        unit: z.string().optional(),
+        itemSize: z.number().optional(),
+        itemSizeUnit: z.string().optional(),
+        alwaysOnHand: z.boolean().optional(),
+        tags: z.array(z.string()).optional(),
+        aliases: z.array(z.string()).optional(),
+        barcode: z.string().optional(),
+        productMeta: z.string().optional(),
+        expiresAt: z.string().nullable().optional().describe(`${EXPIRES_AT_DOC} Omit to keep; null clears.`),
+      })).min(1).describe('Patches, one per row'),
+    },
+    async ({ inputs }) => {
+      const data = await gql<{ updateIngredients: unknown[] }>(
+        `mutation($inputs: [IngredientPatchInput!]!) { updateIngredients(inputs: $inputs) { ${INGREDIENT_FIELDS} } }`,
+        { inputs },
+      );
+      return { content: [{ type: 'text' as const, text: JSON.stringify(data.updateIngredients, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'touch_ingredients',
+    '"Still have it": mark pantry rows as freshly stocked (stockedAt and updatedAt = now) without changing quantities. The right answer when review_pantry flags something as expired, expiring or stale and the user says it is still fine — the estimate restarts from today.',
+    { ids: z.array(z.string()).min(1).describe('Pantry row IDs') },
+    async ({ ids }) => {
+      const data = await gql<{ touchIngredients: { id: string; name: string; stockedAt: string }[] }>(
+        `mutation($ids: [String!]!) { touchIngredients(ids: $ids) { id name stockedAt } }`,
+        { ids },
+      );
+      return { content: [{ type: 'text' as const, text: `Marked ${data.touchIngredients.length} row(s) as still in stock: ${data.touchIngredients.map((r) => r.name).join(', ')}` }] };
+    },
+  );
+
+  server.tool(
+    'remove_ingredients',
+    'Permanently delete many pantry rows at once, with all their metadata. Only when the user asked to delete or toss: to mark things as used up or out of stock, use update_ingredients with quantity 0, which keeps tags and barcode data. Returns how many were deleted.',
+    { ids: z.array(z.string()).min(1).describe('Pantry row IDs to delete') },
+    async ({ ids }) => {
+      const data = await gql<{ deleteIngredients: number }>(
+        `mutation($ids: [String!]!) { deleteIngredients(ids: $ids) }`,
+        { ids },
+      );
+      return { content: [{ type: 'text' as const, text: `Deleted ${data.deleteIngredients} ingredient(s)` }] };
+    },
+  );
+
+  server.tool(
+    'merge_ingredients',
+    'Merge duplicate pantry rows into one survivor (review_pantry suggests a survivorId per duplicate group, and the user can pick another). Quantities are summed when units and item sizes are compatible, tags and aliases are unioned, the merged rows\' names become aliases of the survivor so recipes keep matching, the earliest best-by and latest stockedAt win, and the merged rows are deleted. `unmergedQuantities` lists rows whose quantity could not be added (units that don\'t convert); tell the user.',
+    {
+      survivorId: z.string().describe('The row to keep'),
+      mergeIds: z.array(z.string()).min(1).describe('Rows to merge into it and delete'),
+    },
+    async ({ survivorId, mergeIds }) => {
+      const data = await gql<{ mergeIngredients: { ingredient: { name: string; quantity: number | null; unit: string | null; aliases: string[] }; mergedIds: string[]; unmergedQuantities: string[] } }>(
+        `mutation($survivorId: String!, $mergeIds: [String!]!) {
+          mergeIngredients(survivorId: $survivorId, mergeIds: $mergeIds) { ingredient { ${INGREDIENT_FIELDS} } mergedIds unmergedQuantities }
+        }`,
+        { survivorId, mergeIds },
+      );
+      return { content: [{ type: 'text' as const, text: JSON.stringify(data.mergeIngredients, null, 2) }] };
     },
   );
 }

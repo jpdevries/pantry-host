@@ -368,7 +368,16 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, co
   }
 
   const showBars = canEdit && total > 0 && selectableIds.length > 0;
-  const kbd = (k: string) => <kbd className="ml-1 text-xs font-normal">{k}</kbd>;
+  // The visible hint is decoration for the accessible name: without
+  // aria-hidden a screen reader would announce "Delete D". The shortcut is
+  // conveyed by aria-keyshortcuts and, for readers that don't voice that
+  // attribute, by a hidden description each button points at.
+  const kbd = (k: string) => <kbd aria-hidden="true" className="ml-1 text-xs font-normal">{k}</kbd>;
+  const SHORTCUTS: Record<string, string> = { a: 'A', i: 'I', o: 'O', b: 'B', d: 'D' };
+  const shortcut = (pos: 'top' | 'bottom', k: keyof typeof SHORTCUTS) => ({
+    'aria-keyshortcuts': k,
+    'aria-describedby': `review-shortcut-${pos}-${k}`,
+  });
 
   /** The action buttons, shared by the top (sticky) and bottom (end of
    *  list) bars. The selection count is a live region in the top bar only,
@@ -383,17 +392,20 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, co
     };
     return (
       <div>
+        {Object.entries(SHORTCUTS).map(([k, label]) => (
+          <span key={k} id={`review-shortcut-${pos}-${k}`} hidden>Keyboard shortcut: {label}</span>
+        ))}
         <p className="text-sm font-medium tabular-nums mb-2" aria-live={pos === 'top' ? 'polite' : undefined} aria-atomic={pos === 'top' ? true : undefined}>
           {plural(n, 'item')} selected
         </p>
         <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={toggleAll} disabled={busy} aria-keyshortcuts="a" className="btn-secondary text-sm">
+        <button type="button" onClick={toggleAll} disabled={busy} {...shortcut(pos, 'a')} className="btn-secondary text-sm">
           {n === selectableIds.length ? 'Select none' : 'Select all'}{kbd('A')}
         </button>
-        <button type="button" onClick={markInStock} disabled={busy || n === 0} aria-keyshortcuts="i" className="btn-secondary text-sm">
+        <button type="button" onClick={markInStock} disabled={busy || n === 0} {...shortcut(pos, 'i')} className="btn-secondary text-sm">
           Mark in stock{kbd('I')}
         </button>
-        <button type="button" onClick={markOutOfStock} disabled={busy || n === 0} aria-keyshortcuts="o" className="btn-secondary text-sm">
+        <button type="button" onClick={markOutOfStock} disabled={busy || n === 0} {...shortcut(pos, 'o')} className="btn-secondary text-sm">
           Mark out of stock{kbd('O')}
         </button>
         {showExpiry && mine ? (
@@ -404,7 +416,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, co
             <button type="button" onClick={() => setShowExpiry(false)} className="btn-secondary text-sm">Cancel</button>
           </span>
         ) : (
-          <button type="button" ref={(el) => { expiryBtnRef.current[pos] = el; }} onClick={() => open('expiry')} disabled={busy || n === 0} aria-keyshortcuts="b" className="btn-secondary text-sm">
+          <button type="button" ref={(el) => { expiryBtnRef.current[pos] = el; }} onClick={() => open('expiry')} disabled={busy || n === 0} {...shortcut(pos, 'b')} className="btn-secondary text-sm">
             Set best-by date{kbd('B')}
           </button>
         )}
@@ -418,7 +430,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, co
             <button type="button" onClick={() => setConfirmDelete(false)} className="btn-secondary text-sm">No</button>
           </span>
         ) : (
-          <button type="button" ref={(el) => { deleteBtnRef.current[pos] = el; }} onClick={() => (confirmDestructive ? open('delete') : remove())} disabled={busy || n === 0} aria-keyshortcuts="d" className="btn-danger text-sm ml-auto">
+          <button type="button" ref={(el) => { deleteBtnRef.current[pos] = el; }} onClick={() => (confirmDestructive ? open('delete') : remove())} disabled={busy || n === 0} {...shortcut(pos, 'd')} className="btn-danger text-sm ml-auto">
             Delete{kbd('D')}
           </button>
         )}

@@ -10,6 +10,7 @@ import { Barcode, CaretRight } from '@phosphor-icons/react';
 import { CATEGORY_GROUPS, UNIT_GROUPS, ALL_CATEGORIES } from '../constants';
 import IngredientTypeahead from './IngredientTypeahead';
 import { estimatedExpiry, type ShelfLifeBasis } from '../pantry-review';
+import RelativeTime from './RelativeTime';
 
 const CATEGORY_DROPDOWN_GROUPS = CATEGORY_GROUPS.map((g) => ({ label: g.label, items: g.categories }));
 import { IngredientMetaPanel } from './IngredientMetaPanel';
@@ -365,7 +366,7 @@ export default function IngredientForm({ ingredient, onSubmit, onCancel, autoFoc
               {expiresAt
                 ? 'Stated dates always win over estimates.'
                 : estimate
-                  ? `Leave blank to estimate: about ${estimate.date.slice(0, 10)} (${describeEstimate(estimate.basis)}).`
+                  ? <>Leave blank to estimate: about <RelativeTime iso={estimate.date} mode="date" /> ({describeEstimate(estimate.basis)}).</>
                   : 'Leave blank if you don\'t know. No estimate is available for this category.'}
             </p>
           </div>

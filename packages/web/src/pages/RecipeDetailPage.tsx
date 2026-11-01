@@ -738,7 +738,7 @@ export default function RecipeDetailPage() {
             </p>
             {recipe.lastMadeAt && (Date.now() - new Date(recipe.lastMadeAt).getTime()) > 7 * 24 * 60 * 60 * 1000 && (
               <p className="mt-2 text-xs italic text-[var(--color-text-secondary)]">
-                Last made on {new Date(recipe.lastMadeAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+                Last made on <time dateTime={recipe.lastMadeAt}>{new Date(recipe.lastMadeAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</time>
               </p>
             )}
           </section>

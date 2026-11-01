@@ -1029,7 +1029,7 @@ export default function RecipeDetailPage({ recipeId, initialRecipe }: Props) {
             <p className="text-sm text-[var(--color-text-secondary)] mt-3">Mark this recipe as made to track when you last cooked it and update your pantry quantities.</p>
             {lastMadeAt && (owner || (Date.now() - new Date(lastMadeAt).getTime()) > 7 * 24 * 60 * 60 * 1000) && (
               <p className="mt-2 text-xs italic text-[var(--color-text-secondary)]">
-                Last made on {formatMadeDate(lastMadeAt, 'long')}
+                Last made on <time dateTime={lastMadeAt}>{formatMadeDate(lastMadeAt, 'long')}</time>
               </p>
             )}
           </section>

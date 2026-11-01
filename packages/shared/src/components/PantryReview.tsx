@@ -13,7 +13,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import RelativeTime from './RelativeTime';
 import {
+  describeBasis,
   estimatedExpiry,
   planMerge,
   reviewPantry,
@@ -70,6 +72,48 @@ function fmtQty(r: PantryRowForReview): string {
   return `${q}${r.unit ? ` ${r.unit}` : ''}${r.itemSize != null ? ` × ${r.itemSize}${r.itemSizeUnit ? ` ${r.itemSizeUnit}` : ''}` : ''}`;
 }
 
+/** The finding's reason as markup: dates become `<time>` elements with the
+ *  relative phrase as text and the absolute date behind them, so assistive
+ *  tech and parsers get the real value. `finding.reason` stays the plain
+ *  text for the MCP tool. */
+function Reason({ f, row, now }: { f: ReviewFinding; row: PantryRowForReview; now: number }) {
+  const stocked = f.since ? <RelativeTime iso={f.since} now={now} /> : null;
+  switch (f.signal) {
+    case 'expired':
+      return (
+        <>
+          {f.provenance === 'explicit' ? 'Best-by passed ' : 'Estimated best-by passed '}
+          {f.date && <RelativeTime iso={f.date} now={now} />}
+          {' ('}
+          {f.provenance === 'explicit' ? 'stated' : f.basis ? describeBasis(f.basis) : 'estimated'}
+          {stocked && <>, stocked {stocked}</>}
+          {')'}
+        </>
+      );
+    case 'expiring':
+      return (
+        <>
+          {f.provenance === 'explicit' ? 'Best by ' : 'Estimated best by '}
+          {f.date && <RelativeTime iso={f.date} now={now} />}
+          {' ('}
+          {f.provenance === 'explicit' ? 'stated' : f.basis ? describeBasis(f.basis) : 'estimated'}
+          {stocked && <>, stocked {stocked}</>}
+          {')'}
+        </>
+      );
+    case 'stale':
+      return (
+        <>
+          Untouched since {stocked ?? '?'}; no shelf-life estimate for {row.category ?? 'uncategorised'} items
+        </>
+      );
+    case 'outOfStock':
+      return <>Out of stock since {stocked ?? '?'}</>;
+    default:
+      return <>{f.reason}</>;
+  }
+}
+
 export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, renderLink = defaultLink }: Props) {
   const [rows, setRows] = useState<PantryRowForReview[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +141,9 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
 
   useEffect(() => { load(); }, [load]);
 
-  const review = useMemo(() => (rows ? reviewPantry(rows) : null), [rows]);
+  // One clock per load so every phrase on the page agrees.
+  const now = useMemo(() => Date.now(), [rows]);
+  const review = useMemo(() => (rows ? reviewPantry(rows, { now }) : null), [rows, now]);
   const byId = useMemo(() => new Map((rows ?? []).map((r) => [r.id, r])), [rows]);
 
   const grouped = useMemo(() => {
@@ -272,7 +318,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
                             {fmtQty(row) && <span className="ml-2 text-sm text-[var(--color-text-secondary)]">{fmtQty(row)}</span>}
                             {row.category && <span className="ml-2 text-xs uppercase tracking-wide text-[var(--color-text-secondary)]">{row.category}</span>}
                             <span id={`review-reason-${row.id}`} className="block text-sm text-[var(--color-text-secondary)] mt-0.5">
-                              {f.provenance === 'estimated' ? 'Estimate: ' : ''}{f.reason}
+                              <Reason f={f} row={row} now={now} />
                             </span>
                           </span>
                         </label>
@@ -314,7 +360,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
                                       <span className="font-medium">{r.name}</span>
                                       {fmtQty(r) && <span className="ml-2 text-[var(--color-text-secondary)]">{fmtQty(r)}</span>}
                                       {r.tags && r.tags.length > 0 && <span className="ml-2">{r.tags.map((t) => <span key={t} className="tag mr-1">{t}</span>)}</span>}
-                                      {exp && <span className="block text-xs text-[var(--color-text-secondary)]">best by {exp.date.slice(0, 10)}{exp.provenance === 'estimated' ? ' (estimated)' : ''}</span>}
+                                      {exp && <span className="block text-xs text-[var(--color-text-secondary)]">best by <RelativeTime iso={exp.date} mode="date" />{exp.provenance === 'estimated' ? ' (estimated)' : ''}</span>}
                                     </span>
                                   </label>
                                 );

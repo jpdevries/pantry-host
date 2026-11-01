@@ -272,7 +272,13 @@ schema change, so it ships first and alone.
    restore). Batch scan does **not** prefill Best-by from the estimate:
    that would turn estimates into stated dates. The first review of an old
    pantry is a wall of "expired" rows stocked months ago; "Select all" +
-   "Still have it" is the designed one-click way through it.
+   "Still have it" is the designed one-click way through it. Every date the
+   UI shows is a `<time datetime>` element via the shared `RelativeTime`
+   component (relative phrase as text, absolute date as tooltip, no
+   `Intl`); findings carry `basis` and `since` so the page composes from
+   fields while `reason` stays plain text for MCP. The production build's
+   Kindle checks (legacy twins, forbidden syntax, missing APIs, lite.css)
+   pass with the new pages included.
 4. **MCP.** The tools above, `pantry://review`, updated tool descriptions.
    Tool count moves from 34 to 39.
 

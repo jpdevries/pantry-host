@@ -10,7 +10,8 @@ use crate::graphql::cookware::Cookware;
 use crate::graphql::sql_helpers::{
     auto_link_sub_recipe_ingredients, json_str_list, resolve_kitchen_id, unique_slug,
 };
-use crate::models::{parse_json_strings, CookwareRow, RecipeIngredientRow, RecipeRow};
+use crate::models::{parse_json_strings, CookwareRow, IngredientRow, RecipeIngredientRow, RecipeRow};
+use crate::pantry_decrement::{plan_pantry_decrement, PantryChange, PantryRow, RecipeLine};
 
 /// Schedule the post-insert/update `{slug}.jpg` copy on a background blocking
 /// thread. The helper itself sleeps in a retry loop because variant
@@ -509,6 +510,15 @@ fn insert_recipe(
     stmt.query_row(params![recipe_id], RecipeRow::from_row)
 }
 
+/// Result of `cookRecipe`: the recipe plus what happened to the pantry.
+#[derive(SimpleObject)]
+pub struct CookRecipeResult {
+    pub recipe: Recipe,
+    pub pantry_changes: Vec<PantryChange>,
+    /// False on a dry run: nothing was written.
+    pub applied: bool,
+}
+
 #[derive(Default)]
 pub struct RecipeMutation;
 
@@ -732,9 +742,8 @@ impl RecipeMutation {
         .await
     }
 
-    /// Marks a recipe as having been made now. The `servings` arg is accepted
-    /// for client convenience but not currently persisted (parity with the TS
-    /// resolver).
+    /// Sets lastMadeAt only; the pantry is untouched. Use cookRecipe to also
+    /// decrement the pantry.
     async fn complete_recipe(
         &self,
         ctx: &Context<'_>,
@@ -754,6 +763,116 @@ impl RecipeMutation {
             let mut stmt = conn.prepare("SELECT * FROM recipes WHERE id = ?1")?;
             let row = stmt.query_row(params![id], RecipeRow::from_row)?;
             Ok(Recipe::from(row))
+        })
+        .await
+        .map_err(|e| {
+            if e.message.contains("Query returned no rows") {
+                async_graphql::Error::new("Recipe not found")
+            } else {
+                e
+            }
+        })
+    }
+
+    /// Record that a recipe was cooked and decrement the matching pantry rows.
+    /// `servings` scales the recipe (default: as written). `dryRun: true`
+    /// returns the plan without writing anything, so clients can preview.
+    /// `decrementPantry: false` only sets lastMadeAt.
+    async fn cook_recipe(
+        &self,
+        ctx: &Context<'_>,
+        id: String,
+        servings: Option<i32>,
+        // Nullable on purpose: clients declare `$dryRun: Boolean` in a fixed
+        // operation and leave it out of the variables, which reaches us as
+        // null. graphql-js applies the default there; we do the same in code.
+        #[graphql(default_with = "Some(true)")] decrement_pantry: Option<bool>,
+        #[graphql(default_with = "Some(false)")] dry_run: Option<bool>,
+    ) -> async_graphql::Result<CookRecipeResult> {
+        let decrement_pantry = decrement_pantry.unwrap_or(true);
+        let dry_run = dry_run.unwrap_or(false);
+        let pool = ctx.data::<Pool>()?;
+        db::with_conn(pool, move |conn| {
+            let (recipe_servings, kitchen_id): (Option<i64>, String) = conn
+                .query_row(
+                    "SELECT servings, kitchen_id FROM recipes WHERE id = ?1",
+                    params![id],
+                    |r| Ok((r.get("servings").ok(), r.get("kitchen_id")?)),
+                )?;
+
+            let mut pantry_changes: Vec<PantryChange> = Vec::new();
+            if decrement_pantry {
+                let lines: Vec<RecipeLine> = {
+                    let mut stmt = conn.prepare(
+                        "SELECT * FROM recipe_ingredients WHERE recipe_id = ?1 ORDER BY sort_order, id",
+                    )?;
+                    let rows = stmt
+                        .query_map(params![id], RecipeIngredientRow::from_row)?
+                        .collect::<rusqlite::Result<Vec<_>>>()?;
+                    rows.into_iter()
+                        .map(|r| RecipeLine {
+                            ingredient_name: r.ingredient_name,
+                            quantity: r.quantity,
+                            unit: r.unit,
+                            item_size: r.item_size,
+                            item_size_unit: r.item_size_unit,
+                        })
+                        .collect()
+                };
+                let pantry: Vec<PantryRow> = {
+                    let mut stmt = conn.prepare("SELECT * FROM ingredients WHERE kitchen_id = ?1")?;
+                    let rows = stmt
+                        .query_map(params![kitchen_id], IngredientRow::from_row)?
+                        .collect::<rusqlite::Result<Vec<_>>>()?;
+                    rows.into_iter()
+                        .map(|r| PantryRow {
+                            id: r.id,
+                            name: r.name,
+                            aliases: parse_json_strings(r.aliases_json.as_deref()),
+                            quantity: r.quantity,
+                            unit: r.unit,
+                            item_size: r.item_size,
+                            item_size_unit: r.item_size_unit,
+                            always_on_hand: r.always_on_hand,
+                        })
+                        .collect()
+                };
+                pantry_changes = plan_pantry_decrement(
+                    recipe_servings,
+                    servings.map(|s| s as i64),
+                    &lines,
+                    &pantry,
+                );
+            }
+
+            if !dry_run {
+                let now = now_iso();
+                let tx = conn.transaction()?;
+                tx.execute(
+                    "UPDATE recipes SET last_made_at = ?1 WHERE id = ?2",
+                    params![now, id],
+                )?;
+                for c in &pantry_changes {
+                    if c.status != "decremented" {
+                        continue;
+                    }
+                    if let Some(ingredient_id) = &c.ingredient_id {
+                        tx.execute(
+                            "UPDATE ingredients SET quantity = ?1, updated_at = ?2 WHERE id = ?3",
+                            params![c.after, now, ingredient_id],
+                        )?;
+                    }
+                }
+                tx.commit()?;
+            }
+
+            let mut stmt = conn.prepare("SELECT * FROM recipes WHERE id = ?1")?;
+            let row = stmt.query_row(params![id], RecipeRow::from_row)?;
+            Ok(CookRecipeResult {
+                recipe: Recipe::from(row),
+                pantry_changes,
+                applied: !dry_run,
+            })
         })
         .await
         .map_err(|e| {

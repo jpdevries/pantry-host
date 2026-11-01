@@ -1,0 +1,12 @@
+[
+  {
+    "table": "ingredients",
+    "column": "expires_at",
+    "ddl": "ALTER TABLE ingredients ADD COLUMN expires_at TEXT"
+  },
+  {
+    "table": "ingredients",
+    "column": "stocked_at",
+    "ddl": "ALTER TABLE ingredients ADD COLUMN stocked_at TEXT"
+  }
+]

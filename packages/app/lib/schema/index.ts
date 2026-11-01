@@ -2,6 +2,8 @@ import SchemaBuilder from '@pothos/core';
 import { join } from 'path';
 import { randomUUID } from 'node:crypto';
 import sql, { bulkInsert } from '@/lib/db';
+import { planPantryDecrement, type PantryChange } from '@pantry-host/shared/pantry-decrement';
+import { convert, normalizeUnit } from '@pantry-host/shared/units';
 import { generateRecipes as aiGenerateRecipes } from '@/lib/claude';
 import { copyFriendlyPhoto } from '@/lib/image-server';
 
@@ -26,6 +28,19 @@ function parseJsonArr(v: unknown): string[] {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+/** Run `fn` inside one SQLite transaction; rolls back on throw. */
+async function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
+  await sql`BEGIN`;
+  try {
+    const result = await fn();
+    await sql`COMMIT`;
+    return result;
+  } catch (err) {
+    try { await sql`ROLLBACK`; } catch { /* already rolled back */ }
+    throw err;
+  }
 }
 
 // ── Kitchen ───────────────────────────────────────────────────────────────────
@@ -82,6 +97,12 @@ const IngredientType = builder.objectType('Ingredient', {
       nullable: true,
       resolve: (r) => (r.product_meta == null ? null : String(r.product_meta)),
     }),
+    /** Explicit best-by date (ISO 8601), set by the user or an agent. Null = estimate from category. */
+    expiresAt: t.string({ nullable: true, resolve: (r) => r.expires_at ?? null }),
+    /** When this stock last came in: set on add, on a quantity increase, on touch and on merge.
+     *  Falls back to createdAt for rows written before the column existed. */
+    stockedAt: t.string({ resolve: (r) => r.stocked_at ?? r.created_at ?? '' }),
+    updatedAt: t.string({ resolve: (r) => r.updated_at ?? r.created_at ?? '' }),
     createdAt: t.string({ resolve: (r) => r.created_at ?? '' }),
   }),
 });
@@ -99,6 +120,27 @@ const IngredientInputType = builder.inputType('IngredientInput', {
     aliases: t.stringList(),
     barcode: t.string(),
     productMeta: t.string(),
+    expiresAt: t.string(),
+  }),
+});
+
+/** One row's patch for `updateIngredients`. Omitted fields are kept;
+ *  `expiresAt: null` clears the date. */
+const IngredientPatchInputType = builder.inputType('IngredientPatchInput', {
+  fields: (t) => ({
+    id: t.string({ required: true }),
+    name: t.string(),
+    category: t.string(),
+    quantity: t.float(),
+    unit: t.string(),
+    itemSize: t.float(),
+    itemSizeUnit: t.string(),
+    alwaysOnHand: t.boolean(),
+    tags: t.stringList(),
+    aliases: t.stringList(),
+    barcode: t.string(),
+    productMeta: t.string(),
+    expiresAt: t.string(),
   }),
 });
 
@@ -520,13 +562,14 @@ builder.mutationField('addIngredient', (t) =>
       aliases: t.arg.stringList(),
       barcode: t.arg.string(),
       productMeta: t.arg.string(),
+      expiresAt: t.arg.string(),
       kitchenSlug: t.arg.string(),
     },
     resolve: async (_, args) => {
       const kitchenId = await resolveKitchenId(args.kitchenSlug);
       const productMetaJson = normalizeProductMeta(args.productMeta);
       const [row] = await sql`
-        INSERT INTO ingredients (id, name, category, quantity, unit, item_size, item_size_unit, always_on_hand, tags, aliases, barcode, product_meta, kitchen_id)
+        INSERT INTO ingredients (id, name, category, quantity, unit, item_size, item_size_unit, always_on_hand, tags, aliases, barcode, product_meta, expires_at, stocked_at, kitchen_id)
         VALUES (
           ${randomUUID()},
           ${args.name},
@@ -540,6 +583,8 @@ builder.mutationField('addIngredient', (t) =>
           ${args.aliases ? JSON.stringify(args.aliases) : null},
           ${args.barcode ?? null},
           ${productMetaJson},
+          ${args.expiresAt ?? null},
+          ${nowIso()},
           ${kitchenId}
         )
         RETURNING *
@@ -571,14 +616,73 @@ builder.mutationField('addIngredients', (t) =>
           aliases: i.aliases ? JSON.stringify(i.aliases) : null,
           barcode: i.barcode ?? null,
           product_meta: normalizeProductMeta(i.productMeta),
+          expires_at: i.expiresAt ?? null,
+          stocked_at: nowIso(),
           kitchen_id: kitchenId,
         })),
-        ['id', 'name', 'category', 'quantity', 'unit', 'item_size', 'item_size_unit', 'always_on_hand', 'tags', 'aliases', 'barcode', 'product_meta', 'kitchen_id'],
+        ['id', 'name', 'category', 'quantity', 'unit', 'item_size', 'item_size_unit', 'always_on_hand', 'tags', 'aliases', 'barcode', 'product_meta', 'expires_at', 'stocked_at', 'kitchen_id'],
       );
       return rows;
     },
   }),
 );
+
+type IngredientPatch = {
+  name?: string | null;
+  category?: string | null;
+  quantity?: number | null;
+  unit?: string | null;
+  itemSize?: number | null;
+  itemSizeUnit?: string | null;
+  alwaysOnHand?: boolean | null;
+  tags?: string[] | null;
+  aliases?: string[] | null;
+  barcode?: string | null;
+  productMeta?: string | null;
+  expiresAt?: string | null;
+};
+
+/**
+ * One UPDATE behind both update mutations.
+ *
+ * `quantityMode`:
+ *   - 'replace' (updateIngredient): quantity and unit are written as given,
+ *     so omitting them clears them. The edit form always sends both.
+ *   - 'keep' (updateIngredients): omitted fields are left alone, so a bulk
+ *     patch that only sets expiresAt can't wipe quantities.
+ *
+ * `expiresAt`: omitted keeps, null clears, a string sets. `stocked_at` moves
+ * to now only when the quantity goes up; `updated_at` always moves.
+ */
+async function patchIngredient(id: string, p: IngredientPatch, quantityMode: 'replace' | 'keep') {
+  const now = nowIso();
+  const productMetaJson = p.productMeta === undefined ? undefined : normalizeProductMeta(p.productMeta);
+  const aohTrue = p.alwaysOnHand === true ? 1 : 0;
+  const keep = quantityMode === 'keep' ? 1 : 0;
+  const keepExpires = p.expiresAt === undefined ? 1 : 0;
+  const qty = p.quantity ?? null;
+  const unit = p.unit ?? null;
+  const [row] = await sql`
+    UPDATE ingredients SET
+      name = COALESCE(${p.name ?? null}, name),
+      category = COALESCE(${p.category ?? null}, category),
+      always_on_hand = COALESCE(${p.alwaysOnHand == null ? null : (p.alwaysOnHand ? 1 : 0)}, always_on_hand),
+      quantity = CASE WHEN ${aohTrue} = 1 THEN NULL WHEN ${keep} = 1 THEN COALESCE(${qty}, quantity) ELSE ${qty} END,
+      unit = CASE WHEN ${aohTrue} = 1 THEN NULL WHEN ${keep} = 1 THEN COALESCE(${unit}, unit) ELSE ${unit} END,
+      item_size = COALESCE(${p.itemSize ?? null}, item_size),
+      item_size_unit = COALESCE(${p.itemSizeUnit ?? null}, item_size_unit),
+      tags = COALESCE(${p.tags ? JSON.stringify(p.tags) : null}, tags),
+      aliases = COALESCE(${p.aliases ? JSON.stringify(p.aliases) : null}, aliases),
+      barcode = COALESCE(${p.barcode ?? null}, barcode),
+      product_meta = COALESCE(${productMetaJson ?? null}, product_meta),
+      expires_at = CASE WHEN ${keepExpires} = 1 THEN expires_at ELSE ${p.expiresAt ?? null} END,
+      stocked_at = CASE WHEN ${qty} IS NOT NULL AND ${qty} > COALESCE(quantity, 0) THEN ${now} ELSE stocked_at END,
+      updated_at = ${now}
+    WHERE id = ${id}
+    RETURNING *
+  `;
+  return row;
+}
 
 builder.mutationField('updateIngredient', (t) =>
   t.field({
@@ -596,28 +700,145 @@ builder.mutationField('updateIngredient', (t) =>
       aliases: t.arg.stringList(),
       barcode: t.arg.string(),
       productMeta: t.arg.string(),
+      expiresAt: t.arg.string({ description: 'Omit to keep, pass null to clear, or an ISO 8601 date to set.' }),
     },
-    resolve: async (_, args) => {
-      const productMetaJson = args.productMeta === undefined ? undefined : normalizeProductMeta(args.productMeta);
-      const isAlwaysOnHand = args.alwaysOnHand ?? null;
-      const [row] = await sql`
-        UPDATE ingredients SET
-          name = COALESCE(${args.name ?? null}, name),
-          category = COALESCE(${args.category ?? null}, category),
-          always_on_hand = COALESCE(${args.alwaysOnHand == null ? null : (args.alwaysOnHand ? 1 : 0)}, always_on_hand),
-          quantity = CASE WHEN ${isAlwaysOnHand === true ? 1 : 0} = 1 THEN NULL ELSE ${args.quantity ?? null} END,
-          unit = CASE WHEN ${isAlwaysOnHand === true ? 1 : 0} = 1 THEN NULL ELSE ${args.unit ?? null} END,
-          item_size = COALESCE(${args.itemSize ?? null}, item_size),
-          item_size_unit = COALESCE(${args.itemSizeUnit ?? null}, item_size_unit),
-          tags = COALESCE(${args.tags ? JSON.stringify(args.tags) : null}, tags),
-          aliases = COALESCE(${args.aliases ? JSON.stringify(args.aliases) : null}, aliases),
-          barcode = COALESCE(${args.barcode ?? null}, barcode),
-          product_meta = COALESCE(${productMetaJson ?? null}, product_meta),
-          updated_at = ${nowIso()}
-        WHERE id = ${args.id}
-        RETURNING *
-      `;
-      return row;
+    resolve: async (_, { id, ...patch }) => patchIngredient(id, patch, 'replace'),
+  }),
+);
+
+builder.mutationField('updateIngredients', (t) =>
+  t.field({
+    type: [IngredientType],
+    description: 'Patch many pantry rows in one transaction. Omitted fields are kept; `expiresAt: null` clears the date. Returns rows in input order.',
+    args: { inputs: t.arg({ type: [IngredientPatchInputType], required: true }) },
+    resolve: async (_, { inputs }) => {
+      if (inputs.length === 0) return [];
+      return withTransaction(async () => {
+        const rows = [];
+        for (const { id, ...patch } of inputs) {
+          const row = await patchIngredient(id, patch, 'keep');
+          if (!row) throw new Error(`Ingredient not found: ${id}`);
+          rows.push(row);
+        }
+        return rows;
+      });
+    },
+  }),
+);
+
+builder.mutationField('deleteIngredients', (t) =>
+  t.field({
+    type: 'Int',
+    description: 'Delete many pantry rows at once. Returns how many were deleted.',
+    args: { ids: t.arg.stringList({ required: true }) },
+    resolve: async (_, { ids }) => {
+      if (ids.length === 0) return 0;
+      const rows = await sql`DELETE FROM ingredients WHERE id IN (${ids}) RETURNING id`;
+      return rows.length;
+    },
+  }),
+);
+
+builder.mutationField('touchIngredients', (t) =>
+  t.field({
+    type: [IngredientType],
+    description: '"Still have it": marks rows as freshly stocked (stockedAt and updatedAt = now) without changing quantities.',
+    args: { ids: t.arg.stringList({ required: true }) },
+    resolve: async (_, { ids }) => {
+      if (ids.length === 0) return [];
+      const now = nowIso();
+      return sql`UPDATE ingredients SET stocked_at = ${now}, updated_at = ${now} WHERE id IN (${ids}) RETURNING *`;
+    },
+  }),
+);
+
+const MergeIngredientsResultType = builder.objectType('MergeIngredientsResult', {
+  fields: (t) => ({
+    ingredient: t.field({ type: IngredientType, resolve: (r) => r.ingredient }),
+    mergedIds: t.stringList({ resolve: (r) => r.mergedIds }),
+    /** Names of merged rows whose quantity could not be added to the survivor (incompatible units or item sizes). */
+    unmergedQuantities: t.stringList({ resolve: (r) => r.unmergedQuantities }),
+  }),
+});
+
+type IngredientRow = {
+  id: string; name: string; category: string | null; quantity: number | null; unit: string | null;
+  item_size: number | null; item_size_unit: string | null; always_on_hand: number; tags: string | null;
+  aliases: string | null; barcode: string | null; product_meta: string | null; expires_at: string | null;
+  stocked_at: string | null; created_at: string; kitchen_id: string;
+};
+
+builder.mutationField('mergeIngredients', (t) =>
+  t.field({
+    type: MergeIngredientsResultType,
+    description:
+      'Merge duplicate pantry rows into a survivor. Quantities are summed when units and item sizes are compatible, tags and aliases are unioned, the merged names become aliases of the survivor, the earliest expiry and the latest stockedAt win, and the merged rows are deleted.',
+    args: {
+      survivorId: t.arg.string({ required: true }),
+      mergeIds: t.arg.stringList({ required: true }),
+    },
+    resolve: async (_, { survivorId, mergeIds }) => {
+      const [survivor] = await sql<IngredientRow>`SELECT * FROM ingredients WHERE id = ${survivorId}`;
+      if (!survivor) throw new Error('Ingredient not found');
+      const ids = [...new Set(mergeIds)].filter((x) => x !== survivorId);
+      const others = ids.length
+        ? await sql<IngredientRow>`SELECT * FROM ingredients WHERE id IN (${ids}) AND kitchen_id = ${survivor.kitchen_id}`
+        : [];
+      if (others.length === 0) return { ingredient: survivor, mergedIds: [], unmergedQuantities: [] };
+
+      const lower = (x: string) => x.toLowerCase();
+      let quantity = survivor.quantity;
+      const unmerged: string[] = [];
+      const tags = parseJsonArr(survivor.tags);
+      const aliases = parseJsonArr(survivor.aliases);
+      const seenTags = new Set(tags.map(lower));
+      const seenAliases = new Set([lower(survivor.name), ...aliases.map(lower)]);
+      let { barcode, product_meta: productMeta, category, expires_at: expiresAt } = survivor;
+      let stockedAt = survivor.stocked_at ?? survivor.created_at;
+
+      for (const o of others) {
+        if (!survivor.always_on_hand && o.quantity != null) {
+          const sameSize =
+            (survivor.item_size ?? null) === (o.item_size ?? null) &&
+            normalizeUnit(survivor.item_size_unit) === normalizeUnit(o.item_size_unit);
+          const add = !survivor.unit && !o.unit ? o.quantity : convert(o.quantity, o.unit, survivor.unit);
+          if (sameSize && add != null) quantity = (quantity ?? 0) + add;
+          else unmerged.push(o.name);
+        }
+        for (const tag of parseJsonArr(o.tags)) {
+          if (!seenTags.has(lower(tag))) { seenTags.add(lower(tag)); tags.push(tag); }
+        }
+        for (const alias of [o.name, ...parseJsonArr(o.aliases)]) {
+          if (!seenAliases.has(lower(alias))) { seenAliases.add(lower(alias)); aliases.push(alias); }
+        }
+        barcode ??= o.barcode;
+        productMeta ??= o.product_meta;
+        category ??= o.category;
+        if (o.expires_at && (!expiresAt || o.expires_at < expiresAt)) expiresAt = o.expires_at;
+        const oStocked = o.stocked_at ?? o.created_at;
+        if (oStocked > stockedAt) stockedAt = oStocked;
+      }
+
+      const now = nowIso();
+      const ingredient = await withTransaction(async () => {
+        const [row] = await sql`
+          UPDATE ingredients SET
+            quantity = ${quantity},
+            category = ${category},
+            tags = ${JSON.stringify(tags)},
+            aliases = ${JSON.stringify(aliases)},
+            barcode = ${barcode},
+            product_meta = ${productMeta},
+            expires_at = ${expiresAt},
+            stocked_at = ${stockedAt},
+            updated_at = ${now}
+          WHERE id = ${survivorId}
+          RETURNING *
+        `;
+        await sql`DELETE FROM ingredients WHERE id IN (${others.map((o) => o.id)})`;
+        return row;
+      });
+      return { ingredient, mergedIds: others.map((o) => o.id), unmergedQuantities: unmerged };
     },
   }),
 );
@@ -879,6 +1100,7 @@ builder.mutationField('deleteRecipe', (t) =>
 builder.mutationField('completeRecipe', (t) =>
   t.field({
     type: RecipeType,
+    description: 'Sets lastMadeAt only; the pantry is untouched. Use cookRecipe to also decrement the pantry.',
     args: {
       id: t.arg.string({ required: true }),
       servings: t.arg.int(),
@@ -887,6 +1109,70 @@ builder.mutationField('completeRecipe', (t) =>
       const [updated] = await sql`UPDATE recipes SET last_made_at = ${nowIso()} WHERE id = ${id} RETURNING *`;
       if (!updated) throw new Error('Recipe not found');
       return updated;
+    },
+  }),
+);
+
+const PantryChangeType = builder.objectType('PantryChange', {
+  description:
+    'What cooking a recipe did (or would do) to one pantry row. `status`: decremented | unmatched | always_on_hand | untracked | no_quantity | unconvertible. `before` and `after` are in the pantry row\'s own unit.',
+  fields: (t) => ({
+    recipeIngredient: t.string({ resolve: (r) => r.recipeIngredient }),
+    ingredientId: t.string({ nullable: true, resolve: (r) => r.ingredientId }),
+    pantryName: t.string({ nullable: true, resolve: (r) => r.pantryName }),
+    before: t.float({ nullable: true, resolve: (r) => r.before }),
+    after: t.float({ nullable: true, resolve: (r) => r.after }),
+    unit: t.string({ nullable: true, resolve: (r) => r.unit }),
+    status: t.string({ resolve: (r) => r.status }),
+  }),
+});
+
+const CookRecipeResultType = builder.objectType('CookRecipeResult', {
+  fields: (t) => ({
+    recipe: t.field({ type: RecipeType, resolve: (r) => r.recipe }),
+    pantryChanges: t.field({ type: [PantryChangeType], resolve: (r) => r.pantryChanges }),
+    /** False on a dry run: nothing was written. */
+    applied: t.boolean({ resolve: (r) => r.applied }),
+  }),
+});
+
+builder.mutationField('cookRecipe', (t) =>
+  t.field({
+    type: CookRecipeResultType,
+    description:
+      'Record that a recipe was cooked and decrement the matching pantry rows. `servings` scales the recipe (default: as written). `dryRun: true` returns the plan without writing anything, so clients can preview. `decrementPantry: false` only sets lastMadeAt.',
+    args: {
+      id: t.arg.string({ required: true }),
+      servings: t.arg.int(),
+      decrementPantry: t.arg.boolean({ defaultValue: true }),
+      dryRun: t.arg.boolean({ defaultValue: false }),
+    },
+    resolve: async (_, { id, servings, decrementPantry, dryRun }) => {
+      const [recipe] = await sql<{ id: string; servings: number | null; kitchen_id: string }>`SELECT * FROM recipes WHERE id = ${id}`;
+      if (!recipe) throw new Error('Recipe not found');
+      let pantryChanges: PantryChange[] = [];
+      if (decrementPantry !== false) {
+        const lines = await sql<{ ingredient_name: string; quantity: number | null; unit: string | null; item_size: number | null; item_size_unit: string | null }>`
+          SELECT * FROM recipe_ingredients WHERE recipe_id = ${id} ORDER BY sort_order, id`;
+        const pantry = await sql<IngredientRow>`SELECT * FROM ingredients WHERE kitchen_id = ${recipe.kitchen_id}`;
+        pantryChanges = planPantryDecrement({
+          recipeServings: recipe.servings,
+          servings,
+          lines: lines.map((l) => ({ ingredientName: l.ingredient_name, quantity: l.quantity, unit: l.unit, itemSize: l.item_size, itemSizeUnit: l.item_size_unit })),
+          pantry: pantry.map((p) => ({ id: p.id, name: p.name, aliases: parseJsonArr(p.aliases), quantity: p.quantity, unit: p.unit, itemSize: p.item_size, itemSizeUnit: p.item_size_unit, alwaysOnHand: Boolean(p.always_on_hand) })),
+        });
+      }
+      if (dryRun) return { recipe, pantryChanges, applied: false };
+      const now = nowIso();
+      const updated = await withTransaction(async () => {
+        const [r] = await sql`UPDATE recipes SET last_made_at = ${now} WHERE id = ${id} RETURNING *`;
+        for (const c of pantryChanges) {
+          if (c.status !== 'decremented' || !c.ingredientId) continue;
+          await sql`UPDATE ingredients SET quantity = ${c.after}, updated_at = ${now} WHERE id = ${c.ingredientId}`;
+        }
+        return r;
+      });
+      return { recipe: updated, pantryChanges, applied: true };
     },
   }),
 );

@@ -19,6 +19,7 @@
 
 import sqlite3InitModule, { type Database, type Sqlite3Static } from '@sqlite.org/sqlite-wasm';
 import { SCHEMA_SQL } from '@pantry-host/shared/sql/schema';
+import { pendingMigrations } from '@pantry-host/shared/sql/migrations';
 
 export type DbOp = 'init' | 'query' | 'exec';
 export type DbReq = { id: number; op: DbOp; sql?: string; bind?: unknown[] };
@@ -71,6 +72,12 @@ async function openDB(): Promise<Database> {
     db.exec('PRAGMA foreign_keys = ON');
     db.exec('PRAGMA busy_timeout = 5000');
     db.exec(SCHEMA_SQL);
+    // Columns added after their table first shipped. OPFS databases from
+    // earlier builds already have the table, so CREATE TABLE IF NOT EXISTS
+    // above leaves them alone.
+    const columnsOf = (table: string) =>
+      ((db as any).selectObjects('SELECT name FROM pragma_table_info(?)', [table]) as { name: string }[]).map((r) => r.name);
+    for (const ddl of pendingMigrations(columnsOf)) db.exec(ddl);
 
     _db = db;
     return db;

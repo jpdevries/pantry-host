@@ -298,7 +298,11 @@ mod tests {
             aliases_json: None,
             barcode: None,
             product_meta: None,
+            expires_at: None,
+            stocked_at: None,
+            updated_at: None,
             created_at: String::new(),
+            kitchen_id: String::new(),
         };
         assert_eq!(
             format_ingredient_for_prompt(&i),
@@ -321,7 +325,11 @@ mod tests {
             aliases_json: None,
             barcode: None,
             product_meta: None,
+            expires_at: None,
+            stocked_at: None,
+            updated_at: None,
             created_at: String::new(),
+            kitchen_id: String::new(),
         };
         assert_eq!(format_ingredient_for_prompt(&i), "Salt");
     }

@@ -12,7 +12,7 @@
  * Owner-only in the app: the caller passes `canEdit`.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import RelativeTime from './RelativeTime';
 import {
   describeBasis,
@@ -121,6 +121,23 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [activeBar, setActiveBar] = useState<'top' | 'bottom'>('top');
+  // When an inline confirmation or date field closes, its buttons unmount
+  // and focus would drop to <body>, outside the shortcut scope. Put it back
+  // on the button that opened it (a no-op when that button is disabled
+  // because the selection was just cleared; run() has focused the heading).
+  const deleteBtnRef = useRef<Record<'top' | 'bottom', HTMLButtonElement | null>>({ top: null, bottom: null });
+  const expiryBtnRef = useRef<Record<'top' | 'bottom', HTMLButtonElement | null>>({ top: null, bottom: null });
+  const prevConfirm = useRef(false);
+  const prevExpiry = useRef(false);
+  useEffect(() => {
+    if (prevConfirm.current && !confirmDelete) deleteBtnRef.current[activeBar]?.focus();
+    prevConfirm.current = confirmDelete;
+  }, [confirmDelete, activeBar]);
+  useEffect(() => {
+    if (prevExpiry.current && !showExpiry) expiryBtnRef.current[activeBar]?.focus();
+    prevExpiry.current = showExpiry;
+  }, [showExpiry, activeBar]);
   const [showExpiry, setShowExpiry] = useState(false);
   const [expiryValue, setExpiryValue] = useState('');
   const [survivors, setSurvivors] = useState<Record<string, string>>({});
@@ -227,8 +244,97 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
 
   const total = review?.findings.length ?? 0;
 
+  const toggleAll = () =>
+    setSelected((prev) => (prev.size === selectableIds.length ? new Set() : new Set(selectableIds)));
+
+  // Single-key shortcuts. Bound on the component root, so they only fire
+  // while focus is inside the review (WCAG 2.1.4: character-key shortcuts
+  // must be scoped to a focused component or remappable). Text fields and
+  // modifier combos pass through untouched.
+  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (!canEdit || busy) return;
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const t = e.target as HTMLElement;
+    const tag = t.tagName;
+    if (tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable) return;
+    if (tag === 'INPUT' && (t as HTMLInputElement).type !== 'checkbox' && (t as HTMLInputElement).type !== 'radio') return;
+    const key = e.key.toLowerCase();
+    if (key === 'escape') {
+      if (confirmDelete || showExpiry) { setConfirmDelete(false); setShowExpiry(false); }
+      else if (n > 0) setSelected(new Set());
+      else return;
+      e.preventDefault();
+      return;
+    }
+    if (selectableIds.length === 0) return;
+    switch (key) {
+      case 'a': toggleAll(); break;
+      case 's': if (n > 0) stillHaveIt(); break;
+      case 'u': if (n > 0) usedUp(); break;
+      case 'b': if (n > 0) { setActiveBar('top'); setShowExpiry(true); setConfirmDelete(false); } break;
+      case 'd': if (n > 0) { setActiveBar('top'); setConfirmDelete(true); setShowExpiry(false); } break;
+      default: return;
+    }
+    e.preventDefault();
+  }
+
+  const showBars = canEdit && total > 0 && selectableIds.length > 0;
+  const kbd = (k: string) => <kbd className="ml-1 text-xs font-normal">{k}</kbd>;
+
+  /** The action buttons, shared by the top (sticky) and bottom (end of
+   *  list) bars. The selection count is a live region in the top bar only,
+   *  so it is announced once; the inline best-by field and delete
+   *  confirmation open in whichever bar asked for them. */
+  function renderActions(pos: 'top' | 'bottom') {
+    const mine = activeBar === pos;
+    const open = (what: 'expiry' | 'delete') => {
+      setActiveBar(pos);
+      setShowExpiry(what === 'expiry');
+      setConfirmDelete(what === 'delete');
+    };
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium mr-2 tabular-nums" aria-live={pos === 'top' ? 'polite' : undefined} aria-atomic={pos === 'top' ? true : undefined}>
+          {plural(n, 'item')} selected
+        </span>
+        <button type="button" onClick={toggleAll} disabled={busy} aria-keyshortcuts="a" className="btn-secondary text-sm">
+          {n === selectableIds.length ? 'Select none' : 'Select all'}{kbd('A')}
+        </button>
+        <button type="button" onClick={stillHaveIt} disabled={busy || n === 0} aria-keyshortcuts="s" className="btn-secondary text-sm">
+          Still have it{kbd('S')}
+        </button>
+        <button type="button" onClick={usedUp} disabled={busy || n === 0} aria-keyshortcuts="u" className="btn-secondary text-sm">
+          Used up{kbd('U')}
+        </button>
+        {showExpiry && mine ? (
+          <span className="inline-flex items-center gap-2">
+            <label htmlFor={`review-expiry-${pos}`} className="sr-only">Best-by date</label>
+            <input id={`review-expiry-${pos}`} type="date" value={expiryValue} onChange={(e) => setExpiryValue(e.target.value)} className="field-input text-sm" autoFocus />
+            <button type="button" onClick={setExpiry} disabled={busy} className="btn-primary text-sm">{expiryValue ? 'Apply' : 'Clear date'}</button>
+            <button type="button" onClick={() => setShowExpiry(false)} className="btn-secondary text-sm">Cancel</button>
+          </span>
+        ) : (
+          <button type="button" ref={(el) => { expiryBtnRef.current[pos] = el; }} onClick={() => open('expiry')} disabled={busy || n === 0} aria-keyshortcuts="b" className="btn-secondary text-sm">
+            Set best-by…{kbd('B')}
+          </button>
+        )}
+        {confirmDelete && mine ? (
+          <span className="inline-flex items-center gap-2 ml-auto">
+            <span className="text-xs text-[var(--color-text-secondary)]">Delete {plural(n, 'item')}?</span>
+            <button type="button" autoFocus onClick={remove} disabled={busy} className="btn-danger text-sm">Yes, delete</button>
+            <button type="button" onClick={() => setConfirmDelete(false)} className="btn-secondary text-sm">No</button>
+          </span>
+        ) : (
+          <button type="button" ref={(el) => { deleteBtnRef.current[pos] = el; }} onClick={() => open('delete')} disabled={busy || n === 0} aria-keyshortcuts="d" className="btn-danger text-sm ml-auto">
+            Delete{kbd('D')}
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div data-requires-js>
+    <div data-requires-js onKeyDown={onKeyDown}>
       <div className="flex flex-wrap items-start justify-between gap-4 mb-2">
         <div>
           <h1 ref={headingRef} tabIndex={-1} className="text-4xl font-bold outline-none">Pantry Review</h1>
@@ -255,6 +361,24 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
       )}
       {error && <p role="alert" className="mt-4 text-sm text-red-500">{error}</p>}
 
+      {/* The action bar comes first in DOM order and sticks to the top, so a
+          keyboard user reaches the actions before the rows instead of after
+          all of them. The same actions repeat after the last group for
+          anyone who has read to the end. Single-key shortcuts (below) work
+          while focus is anywhere inside this review, per WCAG 2.1.4. */}
+      {showBars && (
+        <div
+          role="region"
+          aria-label="Actions for selected items"
+          className="sticky top-0 z-20 -mx-4 px-4 md:-mx-8 md:px-8 py-3 mt-6 border-b border-[var(--color-border-card)] bg-body-translucent backdrop-blur"
+        >
+          {renderActions('top')}
+          <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
+            Keyboard: with focus in this review, <kbd>A</kbd> selects all or none, <kbd>S</kbd> still have it, <kbd>U</kbd> used up, <kbd>B</kbd> best-by, <kbd>D</kbd> delete (then <kbd>Enter</kbd> to confirm), <kbd>Esc</kbd> clears the selection. Each group also has its own select-all checkbox.
+          </p>
+        </div>
+      )}
+
       {rows == null && (
         <div className="space-y-4 mt-8" aria-hidden="true">
           {[1, 2, 3].map((i) => <div key={i} className="h-16 bg-[var(--color-bg-card)] animate-pulse" />)}
@@ -268,7 +392,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
         </div>
       )}
 
-      <div className={`mt-8 space-y-10 ${n > 0 ? 'pb-32' : ''}`}>
+      <div className="mt-8 space-y-10">
         {REVIEW_SIGNALS.filter((s) => grouped[s].length > 0).map((signal) => {
           const findings = grouped[signal];
           const groupIds = findings.flatMap((f) => f.ids);
@@ -410,43 +534,16 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, re
         })}
       </div>
 
-      {/* One sticky action bar for the whole selection. */}
-      {canEdit && n > 0 && (
+      {/* End-of-list bar: the same actions for anyone who read all the way
+          down, so they don't have to travel back up. Static, not sticky. */}
+      {showBars && (
         <div
           role="region"
-          aria-label="Actions for selected items"
-          className="fixed bottom-0 inset-x-0 z-20 border-t border-[var(--color-border-card)] bg-body-translucent backdrop-blur px-4 py-3"
+          aria-label="Actions for selected items (end of list)"
+          className="mt-10 pt-4 border-t border-[var(--color-border-card)]"
         >
-          <div className="max-w-4xl mx-auto flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium mr-2 tabular-nums">{plural(n, 'item')} selected</span>
-            <button type="button" onClick={stillHaveIt} disabled={busy} className="btn-secondary text-sm">Still have it</button>
-            <button type="button" onClick={usedUp} disabled={busy} className="btn-secondary text-sm">Used up</button>
-            {showExpiry ? (
-              <span className="inline-flex items-center gap-2">
-                <label htmlFor="review-expiry" className="sr-only">Best-by date</label>
-                <input id="review-expiry" type="date" value={expiryValue} onChange={(e) => setExpiryValue(e.target.value)} className="field-input text-sm" autoFocus />
-                <button type="button" onClick={setExpiry} disabled={busy} className="btn-primary text-sm">{expiryValue ? 'Apply' : 'Clear date'}</button>
-                <button type="button" onClick={() => setShowExpiry(false)} className="btn-secondary text-sm">Cancel</button>
-              </span>
-            ) : (
-              <button type="button" onClick={() => { setShowExpiry(true); setConfirmDelete(false); }} disabled={busy} className="btn-secondary text-sm">Set best-by…</button>
-            )}
-            {confirmDelete ? (
-              <span className="inline-flex items-center gap-2 ml-auto">
-                <span className="text-xs text-[var(--color-text-secondary)]">Delete {plural(n, 'item')}?</span>
-                <button type="button" autoFocus onClick={remove} disabled={busy} className="btn-danger text-sm">Yes, delete</button>
-                <button type="button" onClick={() => setConfirmDelete(false)} className="btn-secondary text-sm">No</button>
-              </span>
-            ) : (
-              <button type="button" onClick={() => { setConfirmDelete(true); setShowExpiry(false); }} disabled={busy} className="btn-danger text-sm ml-auto">Delete</button>
-            )}
-            <button type="button" onClick={() => setSelected(new Set())} disabled={busy} className="text-sm underline hover:text-accent ml-2">Clear selection</button>
-          </div>
+          {renderActions('bottom')}
         </div>
-      )}
-      {/* Keyboard users can select everything selectable in one go. */}
-      {canEdit && selectableIds.length > 0 && n === 0 && (
-        <p className="sr-only">Use the checkbox at the top of each group to select every item in it.</p>
       )}
     </div>
   );

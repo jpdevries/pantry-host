@@ -278,7 +278,16 @@ schema change, so it ships first and alone.
    `Intl`); findings carry `basis` and `since` so the page composes from
    fields while `reason` stays plain text for MCP. The production build's
    Kindle checks (legacy twins, forbidden syntax, missing APIs, lite.css)
-   pass with the new pages included.
+   pass with the new pages included. Tab fatigue: the action bar is first
+   in DOM order and sticky at the top, and the same actions repeat as a
+   static bar after the last group for anyone who reads to the end; with
+   nothing selected the action buttons are disabled, so a keyboard user
+   meets one live Select-all button before the rows. Single-key shortcuts
+   (A select all/none, S still have it, U used up, B best-by, D delete,
+   Esc clear) are bound on the review's root so they only fire while focus
+   is inside it (WCAG 2.1.4), exposed with `aria-keyshortcuts` and visible
+   `<kbd>` hints plus a one-line legend. Inline confirmations return focus
+   to the button that opened them.
 4. **MCP.** The tools above, `pantry://review`, updated tool descriptions.
    Tool count moves from 34 to 39.
 

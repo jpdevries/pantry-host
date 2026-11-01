@@ -73,8 +73,10 @@ export const CATEGORY_SHELF_LIFE_DAYS: Record<string, number | null> = {
   snacks: 90,
   'nuts & seeds': 180,
   'condiments & sauces': 180,
-  beverages: 180,
   frozen: 180,
+  // Wine, spirits, coffee beans and sodas all outlast a season; fresh juice is
+  // caught by the OFF `juice` rule when scanned.
+  beverages: 365,
   'oils & vinegars': 365,
   'herbs & spices': 365,
   baking: 365,
@@ -206,6 +208,15 @@ export type ReviewSignal = 'expired' | 'expiring' | 'stale' | 'duplicate' | 'out
 
 export const REVIEW_SIGNALS: readonly ReviewSignal[] = ['expired', 'expiring', 'stale', 'duplicate', 'outOfStock'];
 
+/** Short labels for badges and section headings, in review order. */
+export const REVIEW_SIGNAL_LABELS: Record<ReviewSignal, string> = {
+  expired: 'Expired',
+  expiring: 'Expiring soon',
+  stale: 'Possibly stale',
+  duplicate: 'Likely duplicates',
+  outOfStock: 'Out of stock',
+};
+
 export interface ReviewFinding {
   signal: ReviewSignal;
   /** One row for every signal except `duplicate`, which groups rows. */
@@ -221,6 +232,14 @@ export interface ReviewFinding {
   survivorId?: string;
   /** For duplicate: what tied the rows together. */
   matchedOn?: Array<'name' | 'alias' | 'barcode'>;
+  /** For expired / expiring: how the shelf life was arrived at, so a UI can
+   *  compose its own sentence from the structured fields instead of
+   *  `reason`. */
+  basis?: ShelfLifeBasis;
+  /** For expired / expiring / stale / outOfStock: the ISO date the finding
+   *  is anchored on — stocked-in for freshness signals, the last update
+   *  for out-of-stock. */
+  since?: string;
 }
 
 export interface ReviewOptions {
@@ -248,7 +267,8 @@ function daysAgo(ms: number, now: number): number {
   return Math.floor((now - ms) / DAY_MS);
 }
 
-function describeBasis(basis: ShelfLifeBasis): string {
+/** "estimated from dairy", "estimated for frozen food", … */
+export function describeBasis(basis: ShelfLifeBasis): string {
   switch (basis.source) {
     case 'off':
       return `estimated from its product category (${basis.tag.replace(/^en:/, '')})`;
@@ -297,6 +317,7 @@ export function reviewPantry(rows: PantryRowForReview[], options: ReviewOptions 
           signal: 'outOfStock',
           ids: [row.id],
           reason: `out of stock for ${fmtDays(daysAgo(since, now))}`,
+          since: new Date(since).toISOString(),
         });
       }
       continue;
@@ -314,6 +335,8 @@ export function reviewPantry(rows: PantryRowForReview[], options: ReviewOptions 
             reason: `${expiry.provenance === 'explicit' ? 'best-by' : 'estimated best-by'} passed ${fmtDays(daysAgo(t, now))} ago (${how}${stockedPhrase(row, now)})`,
             provenance: expiry.provenance,
             date: expiry.date,
+            basis: expiry.basis,
+            since: row.stockedAt,
           });
         }
         continue;
@@ -327,6 +350,8 @@ export function reviewPantry(rows: PantryRowForReview[], options: ReviewOptions 
             reason: `${left <= 0 ? 'best-by is today' : `${fmtDays(left)} left`} (${how}${stockedPhrase(row, now)})`,
             provenance: expiry.provenance,
             date: expiry.date,
+            basis: expiry.basis,
+            since: row.stockedAt,
           });
         }
         continue;
@@ -346,6 +371,7 @@ export function reviewPantry(rows: PantryRowForReview[], options: ReviewOptions 
         signal: 'stale',
         ids: [row.id],
         reason: `untouched for ${fmtDays(daysAgo(anchor, now))} and no shelf-life estimate for ${row.category ?? 'uncategorised'} items`,
+        since: new Date(anchor).toISOString(),
       });
     }
   }

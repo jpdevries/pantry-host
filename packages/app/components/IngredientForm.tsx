@@ -10,14 +10,14 @@ import { enqueue } from '@/lib/offlineQueue';
 export type { IngredientData, IngredientFormVariables };
 
 const ADD_INGREDIENT = `
-  mutation AddIngredient($name: String!, $aliases: [String!], $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!], $kitchenSlug: String) {
-    addIngredient(name: $name, aliases: $aliases, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags, kitchenSlug: $kitchenSlug) { id }
+  mutation AddIngredient($name: String!, $aliases: [String!], $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!], $expiresAt: String, $kitchenSlug: String) {
+    addIngredient(name: $name, aliases: $aliases, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags, expiresAt: $expiresAt, kitchenSlug: $kitchenSlug) { id }
   }
 `;
 
 const UPDATE_INGREDIENT = `
-  mutation UpdateIngredient($id: String!, $name: String, $aliases: [String!], $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!]) {
-    updateIngredient(id: $id, name: $name, aliases: $aliases, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags) { id }
+  mutation UpdateIngredient($id: String!, $name: String, $aliases: [String!], $category: String, $quantity: Float, $unit: String, $itemSize: Float, $itemSizeUnit: String, $alwaysOnHand: Boolean, $tags: [String!], $expiresAt: String) {
+    updateIngredient(id: $id, name: $name, aliases: $aliases, category: $category, quantity: $quantity, unit: $unit, itemSize: $itemSize, itemSizeUnit: $itemSizeUnit, alwaysOnHand: $alwaysOnHand, tags: $tags, expiresAt: $expiresAt) { id }
   }
 `;
 

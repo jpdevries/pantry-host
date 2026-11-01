@@ -9,6 +9,8 @@ import { useState } from 'react';
 import { Barcode, CaretRight } from '@phosphor-icons/react';
 import { CATEGORY_GROUPS, UNIT_GROUPS, ALL_CATEGORIES } from '../constants';
 import IngredientTypeahead from './IngredientTypeahead';
+import { estimatedExpiry, type ShelfLifeBasis } from '../pantry-review';
+import RelativeTime from './RelativeTime';
 
 const CATEGORY_DROPDOWN_GROUPS = CATEGORY_GROUPS.map((g) => ({ label: g.label, items: g.categories }));
 import { IngredientMetaPanel } from './IngredientMetaPanel';
@@ -37,6 +39,12 @@ export interface IngredientData {
    *  resolver. Optional because form-only callers (which feed this type
    *  to <IngredientForm>) don't query the field. */
   createdAt?: string | null;
+  /** Stated best-by date (ISO 8601) or null; null means "estimate it". */
+  expiresAt?: string | null;
+  /** When stock last came in (ISO 8601). Anchors the estimate shown under
+   *  the Best by field. */
+  stockedAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface IngredientFormVariables {
@@ -50,6 +58,8 @@ export interface IngredientFormVariables {
   itemSizeUnit: string | null;
   alwaysOnHand: boolean;
   tags: string[];
+  /** YYYY-MM-DD, or null to clear / leave estimated. */
+  expiresAt: string | null;
 }
 
 interface Props {
@@ -75,6 +85,15 @@ function joinNameAndAliases(name: string, aliases: string[] | null | undefined):
   return [name, ...(aliases ?? [])].filter((s) => s && s.trim()).join(', ');
 }
 
+function describeEstimate(basis: ShelfLifeBasis): string {
+  switch (basis.source) {
+    case 'off': return `from its product category, ${basis.tag.replace(/^en:/, '')}`;
+    case 'frozen-tag': return 'frozen';
+    case 'category': return `from ${basis.category}`;
+    default: return 'no basis';
+  }
+}
+
 export default function IngredientForm({ ingredient, onSubmit, onCancel, autoFocus }: Props) {
   const editing = Boolean(ingredient);
   const [name, setName] = useState(joinNameAndAliases(ingredient?.name ?? '', ingredient?.aliases));
@@ -85,6 +104,7 @@ export default function IngredientForm({ ingredient, onSubmit, onCancel, autoFoc
   const [itemSize, setItemSize] = useState<string>(ingredient?.itemSize?.toString() ?? '');
   const [itemSizeUnit, setItemSizeUnit] = useState<string>(ingredient?.itemSizeUnit ?? '');
   const [tagInput, setTagInput] = useState(ingredient?.tags?.join(', ') ?? '');
+  const [expiresAt, setExpiresAt] = useState<string>(ingredient?.expiresAt ? ingredient.expiresAt.slice(0, 10) : '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -123,6 +143,7 @@ export default function IngredientForm({ ingredient, onSubmit, onCancel, autoFoc
         itemSizeUnit: resolvedItemSizeUnit,
         alwaysOnHand,
         tags,
+        expiresAt: alwaysOnHand ? null : (expiresAt || null),
       });
     } catch {
       setError('Failed to save. Please try again.');
@@ -310,6 +331,47 @@ export default function IngredientForm({ ingredient, onSubmit, onCancel, autoFoc
           className="field-input w-full"
         />
       </div>
+
+      {/* Best-by date. Stated dates win; blank means the review estimates one
+          from the category (or barcode metadata) and stock-in date, so the
+          hint shows what that estimate would be. Not offered for
+          always-on-hand rows, which are exempt from expiry altogether. */}
+      {qtyMode !== 'always' && (() => {
+        const estimate = expiresAt
+          ? null
+          : estimatedExpiry({
+              id: ingredient?.id ?? 'new',
+              name: name || 'new',
+              category: category || null,
+              tags: tagInput.split(',').map((t) => t.trim()).filter(Boolean),
+              alwaysOnHand: false,
+              productMeta: ingredient?.productMeta ?? null,
+              expiresAt: null,
+              stockedAt: ingredient?.stockedAt ?? new Date().toISOString(),
+            });
+        return (
+          <div className="mb-5">
+            <label htmlFor="ing-expires" className="field-label">
+              Best by <span className="font-normal text-[var(--color-text-secondary)]">(optional)</span>
+            </label>
+            <input
+              id="ing-expires"
+              type="date"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+              aria-describedby="ing-expires-hint"
+              className="field-input"
+            />
+            <p id="ing-expires-hint" className="text-xs text-[var(--color-text-secondary)] mt-1 pretty">
+              {expiresAt
+                ? 'Stated dates always win over estimates.'
+                : estimate
+                  ? <>Leave blank to estimate: about <RelativeTime iso={estimate.date} mode="date" /> ({describeEstimate(estimate.basis)}).</>
+                  : 'Leave blank if you don\'t know. No estimate is available for this category.'}
+            </p>
+          </div>
+        );
+      })()}
 
       {/* Display-only Meta info from barcode scan. Hidden when no
           metadata is attached. Edits to this panel are out of scope —

@@ -1,6 +1,6 @@
 # Pantry Review — bulk update and purge
 
-Design proposal. Status: Phase 1 in PR #67; Phase 2 built on `feat/pantry-review-phase2` (stacked on Phase 1); Phases 3–4 not started.
+Design proposal. Status: Phase 1 in PR #67, Phase 2 in PR #68 (stacked), Phase 3 built on `feat/pantry-review-phase3` (stacked on Phase 2); Phase 4 not started.
 
 ## Problem
 
@@ -106,7 +106,7 @@ refinement for scanned rows (see above). Rough first cut by pantry category:
 | deli & charcuterie | 5 | | snacks | 90 |
 | vegetables | 7 | | nuts & seeds | 180 |
 | fruit | 7 | | condiments & sauces | 180 |
-| dairy | 14 | | beverages | 180 |
+| dairy | 14 | | beverages | 365 |
 | frozen (category or tag) | 180 | | oils & vinegars | 365 |
 | dry goods & grains | 365 | | herbs & spices | 365 |
 | legumes & pulses | 365 | | baking | 365 |
@@ -213,9 +213,10 @@ component state until the next action.
   shared function. "Needs review (N)" link next to Batch Scan when findings
   exist.
 - Dashboard: a "Needs review" stat card beside Ingredients.
-- `IngredientForm`: optional Expires date input. Batch scan rows get the same
-  field, prefilled from the category estimate so the user only edits outliers.
-- Recipe detail, both tiers: "I Made This" calls `completeRecipe(dryRun: true)`,
+- `IngredientForm`: optional Best-by date input, with a hint showing the
+  estimate the review would otherwise make. Batch scan rows are not prefilled:
+  a prefilled estimate would be saved as a stated date.
+- Recipe detail, both tiers: "I Made This" calls `cookRecipe(dryRun: true)`,
   shows the planned changes with per-line checkboxes, then commits. Replaces
   the retype-the-numbers modal in the app and adds the flow to the web tier.
 
@@ -257,8 +258,56 @@ schema change, so it ships first and alone.
    yogurt, a restocked jar that must not flag, a frozen steak, UHT milk from a
    barcode, always-on-hand salt. One freshness signal per row by priority
    (out of stock, expired, expiring, stale); duplicates overlap freely.
-3. **UI.** Review page, badges, dashboard card, expiry field, new "I Made
-   This" preview, both tiers. Verified on :5174 and :3000.
+3. **UI.** Done, both tiers. `/ingredients/review` (shared
+   `components/PantryReview`, wrapped per tier), review badges and a
+   "Review (N)" link on the pantry list, a "Needs review" dashboard card,
+   a Best-by field in `IngredientForm` whose hint shows the estimate the
+   review would make, and `components/CookPreviewModal` replacing the
+   retype-the-numbers modal: `cookRecipe(dryRun)` → checkboxes → only
+   confirmed rows are written (`applyCookPlan`). Verified in the browser on
+   :3000 and :5174, including merge, bulk delete, partial cook, and the
+   dialog's focus trap / `aria-hidden` / focus return (the last was a
+   shared-Modal bug, fixed there). Scope notes: Undo covers "Used up" only
+   (delete and merge confirm instead; touch has no previous state to
+   restore). Batch scan does **not** prefill Best-by from the estimate:
+   that would turn estimates into stated dates. The first review of an old
+   pantry is a wall of "expired" rows stocked months ago; "Select all" +
+   "Still have it" is the designed one-click way through it. Every date the
+   UI shows is a `<time datetime>` element via the shared `RelativeTime`
+   component (relative phrase as text, absolute date as tooltip, no
+   `Intl`); findings carry `basis` and `since` so the page composes from
+   fields while `reason` stays plain text for MCP. The production build's
+   Kindle checks (legacy twins, forbidden syntax, missing APIs, lite.css)
+   pass with the new pages included. Tab fatigue: the action bar is first
+   in DOM order and sticky at the top, and the same actions repeat as a
+   static bar after the last group for anyone who reads to the end; with
+   nothing selected the action buttons are disabled, so a keyboard user
+   meets one live Select-all button before the rows. Single-key shortcuts
+   (A select all/none, I mark in stock, O mark out of stock, B set best-by
+   date, D delete, Esc clear) are bound on the review's root so they only fire while focus
+   is inside it (WCAG 2.1.4), exposed with `aria-keyshortcuts` and visible
+   `<kbd>` hints plus a one-line legend. The bar's CTAs are Select all,
+   Mark in stock, Mark out of stock, Set best-by date and Delete; Merge
+   stays on each duplicate group. Closing a confirmation or the date field
+   returns focus to its button. **What Delete means:** Mark out of stock
+   is the metadata-preserving delete (quantity 0; tags, aliases, barcode
+   data and history survive; the stated best-by is cleared because it
+   belonged to the carton just finished, and restocking restarts the
+   estimate). Delete drops the row. The Delete confirmation says what is
+   lost and offers "Mark out of stock instead" as its first, focused
+   button; the Out of stock group (zero for 14+ days, never restocked) is
+   where hard delete belongs. Confirmations are opt-in: the
+   `REVIEW_CONFIRM_DESTRUCTIVE` setting (off by default, both tiers) gates
+   the Delete and Merge confirmations, since the review is built for quick
+   bulk passes. **Focus after an action** follows the WAI-ARIA Authoring
+   Practices for a removed element: the first still-listed row after the
+   last affected one, else the row before it, else the pressed control if
+   still usable, else the bar that was used, else the heading; a row Undo
+   brings back gets focus itself. Nobody is sent to the top of the page.
+   Likely duplicates render last, after the end-of-list bar, with an aside
+   under the top bar that jumps to them (and a link back): merging first
+   removes rows from the per-item groups, so a keyboard user has fewer
+   checkboxes to pass.
 4. **MCP.** The tools above, `pantry://review`, updated tool descriptions.
    Tool count moves from 34 to 39.
 

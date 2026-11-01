@@ -681,6 +681,66 @@
     margin-top: 1.5rem;
   }
 
+  /* ── `.block` shim ──
+        The review page puts each row's reason on its own line with
+        `block` (`.ml-2`, which spaces name / quantity / category, is
+        already shimmed above). Without it the Scribe ran the reason
+        straight on after the quantity. ── */
+  .block {
+    display: block;
+  }
+
+  .ml-3 {
+    margin-left: 0.75rem;
+  }
+
+  /* ── Pantry review action bar ──
+        Sits at the top of the review (sticky in the full design; static
+        here, which suits e-ink). Its padding, border and button gaps are
+        utilities, so give it a frame and space the buttons by hand. ── */
+  [aria-label^="Actions for selected items"] {
+    display: block;
+    margin: 1rem 0 1.5rem;
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--color-border-card);
+    border-bottom: 1px solid var(--color-border-card);
+  }
+
+  [aria-label^="Actions for selected items"] button,
+  [aria-label^="Actions for selected items"] input {
+    margin: 0 0.5rem 0.5rem 0;
+  }
+
+  [aria-label^="Actions for selected items"] kbd {
+    font-size: 0.75em;
+    margin-left: 0.25rem;
+  }
+
+  /* ── Pantry review: "jump to duplicates" aside ──
+        Spacing and the accent rule are utilities in the full design. ── */
+  aside[aria-label="Likely duplicates"] {
+    display: block;
+    margin: 1rem 0 1.5rem;
+    padding: 0.25rem 0 0.25rem 0.75rem;
+    border-left: 4px solid var(--color-accent);
+  }
+
+  aside[aria-label="Likely duplicates"] a {
+    margin-left: 0.75rem;
+  }
+
+  /* ── Pantry category nav ──
+        Rendered before <main> (it's the sticky pill strip), so main's frame
+        doesn't reach it: with the utilities gone it had no gutter. Give it
+        main's column and inset. The pills stack one per line here, which
+        reads as an index on e-ink, so leave them stacked. ── */
+  nav[aria-label="Pantry categories"] {
+    display: block;
+    max-width: 64rem;
+    margin: 0 auto;
+    padding: 1rem 1rem 0;
+  }
+
   /* ── Wrapping lists ──
         `flex flex-wrap` chip and card lists (home cookware and kitchens,
         the grocery list's queued recipes) flow inline instead of one item

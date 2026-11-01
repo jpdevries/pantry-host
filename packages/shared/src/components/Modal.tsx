@@ -3,7 +3,14 @@
  *
  * Provides: focus trapping, Escape key dismiss, body scroll lock,
  * portal rendering, click-outside-to-close, and full ARIA support.
+ *
+ * Focus return: Radix sends closing focus to a `Dialog.Trigger`, which this
+ * component doesn't use, so without help focus would land on <body>. We
+ * remember whatever was focused when the dialog opened (the button that
+ * opened it) and put focus back there on close; `returnFocusTo` overrides
+ * that when the opener isn't the right place to land.
  */
+import { useEffect, useRef, type RefObject } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 
 interface ModalProps {
@@ -14,6 +21,9 @@ interface ModalProps {
   children: React.ReactNode;
   /** Full-screen takeover (e.g. Batch Scan) vs centered panel (default). */
   fullScreen?: boolean;
+  /** Where focus goes on close. Defaults to the element focused when the
+   *  dialog opened. */
+  returnFocusTo?: RefObject<HTMLElement | null>;
 }
 
 export default function Modal({
@@ -22,7 +32,13 @@ export default function Modal({
   title,
   children,
   fullScreen = false,
+  returnFocusTo,
 }: ModalProps) {
+  const openerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (open) openerRef.current = document.activeElement as HTMLElement | null;
+  }, [open]);
+
   return (
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <Dialog.Portal>
@@ -36,6 +52,14 @@ export default function Modal({
               : 'fixed inset-0 z-50 flex items-center justify-center pointer-events-none'
           }
           aria-label={title}
+          aria-modal="true"
+          onCloseAutoFocus={(event) => {
+            const target = returnFocusTo?.current ?? openerRef.current;
+            if (target && target !== document.body && document.contains(target)) {
+              event.preventDefault();
+              target.focus();
+            }
+          }}
         >
           <Dialog.Title className="sr-only">{title}</Dialog.Title>
           {fullScreen ? (

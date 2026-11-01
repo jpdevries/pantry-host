@@ -19,6 +19,7 @@ import RecipeImportPage from './pages/RecipeImportPage';
 import KitchensPage from './pages/KitchensPage';
 import AccessibilityPage from './pages/AccessibilityPage';
 import SettingsPage from './pages/SettingsPage';
+import PantryReviewPage from './pages/PantryReviewPage';
 import AtImportPage from './pages/AtImportPage';
 import UrlImportPage from './pages/UrlImportPage';
 import MealdbImportPage from './pages/MealdbImportPage';
@@ -56,6 +57,7 @@ const KITCHEN_ROUTES = [
   { path: 'recipes/:slug', element: <RecipeDetailPage /> },
   { path: 'recipes/:slug/edit', element: <RecipeEditPage /> },
   { path: 'ingredients', element: <IngredientsPage /> },
+  { path: 'ingredients/review', element: <PantryReviewPage /> },
   { path: 'list', element: <GroceryListPage /> },
   { path: 'cookware', element: <CookwarePage /> },
   { path: 'cookware/:id', element: <CookwareDetailPage /> },

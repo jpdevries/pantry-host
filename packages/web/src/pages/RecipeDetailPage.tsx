@@ -14,6 +14,8 @@ import { AllergensLine } from '@pantry-host/shared/components/AllergensLine';
 import { getAllergenIcon } from '@pantry-host/shared/components/allergen-icons';
 import { groupIngredients } from '@pantry-host/shared/ingredient-groups';
 import { resolveGroceryStatus, pantryIndex, findPantryItem } from '@pantry-host/shared/grocery-status';
+import CookPreviewModal, { planCook, applyCookPlan } from '@pantry-host/shared/components/CookPreviewModal';
+import type { PantryChange } from '@pantry-host/shared/pantry-decrement';
 import { getFileURL } from '@/lib/storage-opfs';
 import { PencilSimple, Trash, Printer, CalendarPlus, Export, Code, ShareNetwork, Rows, Columns, GridNine, ArrowsOut, ArrowsIn, Heart, CheckCircle, Circle, Sun, Snowflake } from '@phosphor-icons/react';
 
@@ -221,6 +223,8 @@ export default function RecipeDetailPage() {
   const [copiedUri, setCopiedUri] = useState(false);
   // "I Made This" / "Add to Favorites" state — mirrors the app detail page.
   const [completing, setCompleting] = useState(false);
+  const [cookPlan, setCookPlan] = useState<PantryChange[] | null>(null);
+  const [savingCook, setSavingCook] = useState(false);
   const [favorited, setFavorited] = useState(false);
   useEffect(() => {
     if (!recipe) return;
@@ -231,15 +235,32 @@ export default function RecipeDetailPage() {
     if (!recipe || completing) return;
     setCompleting(true);
     try {
-      const data = await gql<{ completeRecipe: { lastMadeAt: string } }>(
-        `mutation($id: String!, $servings: Int) { completeRecipe(id: $id, servings: $servings) { id lastMadeAt } }`,
-        { id: recipe.id, servings },
-      );
-      setRecipe({ ...recipe, lastMadeAt: data.completeRecipe.lastMadeAt });
+      // The server plans the pantry decrement; the modal shows it and only
+      // confirmed lines are written. Nothing to subtract → record it now.
+      const plan = await planCook(gql, recipe.id, servings);
+      if (plan.some((c) => c.status === 'decremented')) setCookPlan(plan);
+      else await finishCook(plan, []);
     } catch (err) {
       console.error(err);
     }
     setCompleting(false);
+  }
+
+  async function finishCook(plan: PantryChange[], selectedIds: string[]) {
+    if (!recipe) return;
+    setSavingCook(true);
+    try {
+      const made = await applyCookPlan(gql, { recipeId: recipe.id, servings, plan, selectedIds });
+      setRecipe((r) => (r ? { ...r, lastMadeAt: made ?? r.lastMadeAt } : r));
+      setCookPlan(null);
+      // Quantities changed; refresh the pantry that drives the ingredient auto-check.
+      gql<{ ingredients: PantryItemForCheck[] }>(
+        `{ ingredients { name aliases quantity unit itemSize itemSizeUnit alwaysOnHand barcode productMeta } }`,
+      ).then((d) => setPantry(d.ingredients)).catch(() => {});
+    } catch (err) {
+      console.error(err);
+    }
+    setSavingCook(false);
   }
 
   function handleToggleFavorite() {
@@ -687,6 +708,15 @@ export default function RecipeDetailPage() {
           Mirrors the app detail page. Each action is independent; their
           state comes from different sources (lastMadeAt mutation, queued
           mutation, localStorage). */}
+      <CookPreviewModal
+        open={cookPlan != null}
+        plan={cookPlan ?? []}
+        saving={savingCook}
+        onClose={() => setCookPlan(null)}
+        onSkip={() => { if (cookPlan) finishCook(cookPlan, []); }}
+        onConfirm={(ids) => { if (cookPlan) finishCook(cookPlan, ids); }}
+      />
+
       <aside className="no-print pt-10 mt-10 border-t border-[var(--color-border-card)]">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:text-center">
           <section aria-labelledby="made-this-heading">
@@ -694,7 +724,6 @@ export default function RecipeDetailPage() {
             <button
               type="button"
               onClick={handleComplete}
-              disabled={completing}
               aria-busy={completing}
               aria-pressed={!!recipe.lastMadeAt}
               className="inline-flex items-center gap-2 btn-secondary text-sm transition-colors"
@@ -705,11 +734,11 @@ export default function RecipeDetailPage() {
               {recipe.lastMadeAt ? 'I Made This Again' : 'I Made This'}
             </button>
             <p className="text-sm text-[var(--color-text-secondary)] mt-3">
-              Mark this recipe as made to track when you last cooked it.
+              Mark this recipe as made to track when you last cooked it and update your pantry quantities.
             </p>
             {recipe.lastMadeAt && (Date.now() - new Date(recipe.lastMadeAt).getTime()) > 7 * 24 * 60 * 60 * 1000 && (
               <p className="mt-2 text-xs italic text-[var(--color-text-secondary)]">
-                Last made on {new Date(recipe.lastMadeAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+                Last made on <time dateTime={recipe.lastMadeAt}>{new Date(recipe.lastMadeAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</time>
               </p>
             )}
           </section>

@@ -283,11 +283,13 @@ schema change, so it ships first and alone.
    static bar after the last group for anyone who reads to the end; with
    nothing selected the action buttons are disabled, so a keyboard user
    meets one live Select-all button before the rows. Single-key shortcuts
-   (A select all/none, S still have it, U used up, B best-by, D delete,
-   Esc clear) are bound on the review's root so they only fire while focus
+   (A select all/none, I mark in stock, O mark out of stock, B set best-by
+   date, D delete, Esc clear) are bound on the review's root so they only fire while focus
    is inside it (WCAG 2.1.4), exposed with `aria-keyshortcuts` and visible
-   `<kbd>` hints plus a one-line legend. Inline confirmations return focus
-   to the button that opened them.
+   `<kbd>` hints plus a one-line legend. The bar's CTAs are Select all,
+   Mark in stock, Mark out of stock, Set best-by date and Delete (with an
+   inline confirmation); Merge stays on each duplicate group. Closing a
+   confirmation or the date field returns focus to its button.
 4. **MCP.** Done. `review_pantry` (read; `tools/review.ts`, same engine as
    the UI, returns findings with names, provenance, `survivorId` and
    `nextSteps` naming the tool for each signal), `update_ingredients`,

@@ -60,6 +60,10 @@ interface Props {
   renderLink?: LinkRenderer;
 }
 
+/** Freshness signals render as checkbox groups; duplicates render last, after the
+ *  end-of-list bar, so merging first shrinks the per-item list. */
+const FRESHNESS_SIGNALS: ReviewSignal[] = ['expired', 'expiring', 'stale', 'outOfStock'];
+
 const SIGNAL_BLURB: Record<ReviewSignal, string> = {
   expired: 'Past a stated best-by date, or past the estimate for its category. Still good? Mark it in stock and the estimate restarts from today.',
   expiring: 'Best-by within three days. Worth cooking with first.',
@@ -396,79 +400,28 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, co
     );
   }
 
-  return (
-    <div ref={rootRef} data-requires-js onKeyDown={onKeyDown}>
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-2">
-        <div>
-          <h1 ref={headingRef} tabIndex={-1} className="text-4xl font-bold outline-none">Pantry Review</h1>
-          <p className="text-[var(--color-text-secondary)] mt-2 pretty">
-            {rows == null
-              ? 'Looking through your pantry…'
-              : total === 0
-                ? 'Nothing needs attention right now.'
-                : `${plural(total, 'thing')} worth a look. Estimates come from each item's category and when it was stocked; stated best-by dates always win.`}
-          </p>
-        </div>
-        {renderLink({ href: pantryHref, className: 'btn-secondary', children: '← Back to pantry' })}
-      </div>
-
-      {/* Pre-mounted empty so announcements are heard. */}
-      <p role="status" aria-live="polite" className="sr-only">{status}</p>
-      {status && (
-        <p className="mt-4 mb-2 text-sm flex flex-wrap items-center gap-3" aria-hidden="true">
-          <span>{status}</span>
-          {undo && (
-            <button type="button" onClick={undoLast} disabled={busy} className="ml-3 underline hover:text-accent">Undo</button>
-          )}
-        </p>
-      )}
-      {error && <p role="alert" className="mt-4 text-sm text-red-500">{error}</p>}
-
-      {/* The action bar comes first in DOM order and sticks to the top, so a
-          keyboard user reaches the actions before the rows instead of after
-          all of them. The same actions repeat after the last group for
-          anyone who has read to the end. Single-key shortcuts (below) work
-          while focus is anywhere inside this review, per WCAG 2.1.4. */}
-      {showBars && (
-        <div
-          ref={(el) => { barRefs.current.top = el; }}
-          role="region"
-          aria-label="Actions for selected items"
-          className="sticky top-0 z-20 -mx-4 px-4 md:-mx-8 md:px-8 py-3 mt-6 border-b border-[var(--color-border-card)] bg-body-translucent backdrop-blur"
-        >
-          {renderActions('top')}
-          <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-            Keyboard: with focus in this review, <kbd>A</kbd> selects all or none, <kbd>I</kbd> marks in stock, <kbd>O</kbd> marks out of stock, <kbd>B</kbd> sets a best-by date, <kbd>D</kbd> deletes{confirmDestructive ? ' after a confirmation that offers Mark out of stock instead' : ''}, <kbd>Esc</kbd> {confirmDestructive ? 'closes a confirmation or ' : ''}clears the selection. Each group also has its own select-all checkbox.
-          </p>
-        </div>
-      )}
-
-      {rows == null && (
-        <div className="space-y-4 mt-8" aria-hidden="true">
-          {[1, 2, 3].map((i) => <div key={i} className="h-16 bg-[var(--color-bg-card)] animate-pulse" />)}
-        </div>
-      )}
-
-      {rows != null && total === 0 && (
-        <div className="text-center py-16 text-[var(--color-text-secondary)]">
-          <p className="text-lg mb-2">Your pantry looks current.</p>
-          <p className="text-sm">Come back after a big shop or a week of cooking.</p>
-        </div>
-      )}
-
-      <div className="mt-8 space-y-10">
-        {REVIEW_SIGNALS.filter((s) => grouped[s].length > 0).map((signal) => {
+  const renderGroup = (signal: ReviewSignal) => {
           const findings = grouped[signal];
           const groupIds = findings.flatMap((f) => f.ids);
           const allSelected = signal !== 'duplicate' && groupIds.every((id) => selected.has(id));
           const someSelected = signal !== 'duplicate' && groupIds.some((id) => selected.has(id));
           return (
-            <fieldset key={signal} className="border border-[var(--color-border-card)] p-4 md:p-5">
+            <fieldset
+              key={signal}
+              id={signal === 'duplicate' ? 'review-duplicates' : undefined}
+              tabIndex={signal === 'duplicate' ? -1 : undefined}
+              className="border border-[var(--color-border-card)] p-4 md:p-5 outline-none"
+            >
               <legend className="px-2 text-lg font-bold flex items-center gap-2">
                 {REVIEW_SIGNAL_LABELS[signal]}
                 <span className="tag tabular-nums ml-2">{findings.length}</span>
               </legend>
-              <p className="text-sm text-[var(--color-text-secondary)] mb-4 pretty">{SIGNAL_BLURB[signal]}</p>
+              <p className="text-sm text-[var(--color-text-secondary)] mb-4 pretty">
+                {SIGNAL_BLURB[signal]}
+                {signal === 'duplicate' && showBars && (
+                  <> <a href="#review-actions" onClick={(e) => { e.preventDefault(); barRefs.current.top?.querySelector<HTMLElement>('button')?.focus(); barRefs.current.top?.scrollIntoView({ block: 'start' }); }} className="underline hover:text-accent">Back to the action bar</a></>
+                )}
+              </p>
 
               {signal !== 'duplicate' && canEdit && (
                 <label className="flex items-center gap-2 text-sm mb-3 cursor-pointer">
@@ -597,7 +550,90 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, co
               )}
             </fieldset>
           );
-        })}
+  };
+
+  return (
+    <div ref={rootRef} data-requires-js onKeyDown={onKeyDown}>
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-2">
+        <div>
+          <h1 ref={headingRef} tabIndex={-1} className="text-4xl font-bold outline-none">Pantry Review</h1>
+          <p className="text-[var(--color-text-secondary)] mt-2 pretty">
+            {rows == null
+              ? 'Looking through your pantry…'
+              : total === 0
+                ? 'Nothing needs attention right now.'
+                : `${plural(total, 'thing')} worth a look. Estimates come from each item's category and when it was stocked; stated best-by dates always win.`}
+          </p>
+        </div>
+        {renderLink({ href: pantryHref, className: 'btn-secondary', children: '← Back to pantry' })}
+      </div>
+
+      {/* Pre-mounted empty so announcements are heard. */}
+      <p role="status" aria-live="polite" className="sr-only">{status}</p>
+      {status && (
+        <p className="mt-4 mb-2 text-sm flex flex-wrap items-center gap-3" aria-hidden="true">
+          <span>{status}</span>
+          {undo && (
+            <button type="button" onClick={undoLast} disabled={busy} className="ml-3 underline hover:text-accent">Undo</button>
+          )}
+        </p>
+      )}
+      {error && <p role="alert" className="mt-4 text-sm text-red-500">{error}</p>}
+
+      {/* The action bar comes first in DOM order and sticks to the top, so a
+          keyboard user reaches the actions before the rows instead of after
+          all of them. The same actions repeat after the last group for
+          anyone who has read to the end. Single-key shortcuts (below) work
+          while focus is anywhere inside this review, per WCAG 2.1.4. */}
+      {showBars && (
+        <div
+          ref={(el) => { barRefs.current.top = el; }}
+          id="review-actions"
+          role="region"
+          aria-label="Actions for selected items"
+          className="sticky top-0 z-20 -mx-4 px-4 md:-mx-8 md:px-8 py-3 mt-6 border-b border-[var(--color-border-card)] bg-body-translucent backdrop-blur"
+        >
+          {renderActions('top')}
+          <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
+            Keyboard: with focus in this review, <kbd>A</kbd> selects all or none, <kbd>I</kbd> marks in stock, <kbd>O</kbd> marks out of stock, <kbd>B</kbd> sets a best-by date, <kbd>D</kbd> deletes{confirmDestructive ? ' after a confirmation that offers Mark out of stock instead' : ''}, <kbd>Esc</kbd> {confirmDestructive ? 'closes a confirmation or ' : ''}clears the selection. Each group also has its own select-all checkbox.
+          </p>
+        </div>
+      )}
+
+      {rows == null && (
+        <div className="space-y-4 mt-8" aria-hidden="true">
+          {[1, 2, 3].map((i) => <div key={i} className="h-16 bg-[var(--color-bg-card)] animate-pulse" />)}
+        </div>
+      )}
+
+      {rows != null && total === 0 && (
+        <div className="text-center py-16 text-[var(--color-text-secondary)]">
+          <p className="text-lg mb-2">Your pantry looks current.</p>
+          <p className="text-sm">Come back after a big shop or a week of cooking.</p>
+        </div>
+      )}
+
+      {/* Duplicates live at the very end (after the end-of-list bar), so
+          this points keyboard users there first: every merge removes a row
+          from the per-item groups above it. */}
+      {grouped.duplicate.length > 0 && (
+        <aside aria-label="Likely duplicates" className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm border-l-4 border-[var(--color-accent)] pl-3 py-1">
+          <span>
+            <span className="font-medium">{plural(grouped.duplicate.length, 'likely duplicate group')}</span>
+            {canEdit ? ' near the end of the page. Merging first shrinks the list below.' : ' near the end of the page.'}
+          </span>
+          <a
+            href="#review-duplicates"
+            onClick={(e) => { e.preventDefault(); const el = document.getElementById('review-duplicates'); el?.scrollIntoView({ block: 'start' }); el?.focus(); }}
+            className="underline hover:text-accent"
+          >
+            Jump to duplicates
+          </a>
+        </aside>
+      )}
+
+      <div className="mt-8 space-y-10">
+        {FRESHNESS_SIGNALS.filter((s) => grouped[s].length > 0).map(renderGroup)}
       </div>
 
       {/* End-of-list bar: the same actions for anyone who read all the way
@@ -612,6 +648,8 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, co
           {renderActions('bottom')}
         </div>
       )}
+
+      {grouped.duplicate.length > 0 && <div className="mt-10">{renderGroup('duplicate')}</div>}
     </div>
   );
 }

@@ -690,6 +690,28 @@
     display: block;
   }
 
+  /* ── Pantry review action bar ──
+        Sits at the top of the review (sticky in the full design; static
+        here, which suits e-ink). Its padding, border and button gaps are
+        utilities, so give it a frame and space the buttons by hand. ── */
+  [aria-label^="Actions for selected items"] {
+    display: block;
+    margin: 1rem 0 1.5rem;
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--color-border-card);
+    border-bottom: 1px solid var(--color-border-card);
+  }
+
+  [aria-label^="Actions for selected items"] button,
+  [aria-label^="Actions for selected items"] input {
+    margin: 0 0.5rem 0.5rem 0;
+  }
+
+  [aria-label^="Actions for selected items"] kbd {
+    font-size: 0.75em;
+    margin-left: 0.25rem;
+  }
+
   /* ── Pantry category nav ──
         Rendered before <main> (it's the sticky pill strip), so main's frame
         doesn't reach it: with the utilities gone it had no gutter. Give it

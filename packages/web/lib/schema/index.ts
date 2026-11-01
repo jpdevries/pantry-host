@@ -647,7 +647,9 @@ type IngredientPatch = {
  *   - 'replace' (updateIngredient): quantity and unit are written as given,
  *     so omitting them clears them. The edit form always sends both.
  *   - 'keep' (updateIngredients): omitted fields are left alone, so a bulk
- *     patch that only sets expiresAt can't wipe quantities.
+ *     patch that only sets expiresAt can't wipe quantities; an explicit
+ *     `quantity: null` / `unit: null` clears them (back to "untracked"),
+ *     which is how the review's Undo restores a row that had no quantity.
  *
  * `expiresAt`: omitted keeps, null clears, a string sets. `stocked_at` moves
  * to now only when the quantity goes up; `updated_at` always moves.
@@ -656,7 +658,10 @@ async function patchIngredient(id: string, p: IngredientPatch, quantityMode: 're
   const now = nowIso();
   const productMetaJson = p.productMeta === undefined ? undefined : normalizeProductMeta(p.productMeta);
   const aohTrue = p.alwaysOnHand === true ? 1 : 0;
-  const keep = quantityMode === 'keep' ? 1 : 0;
+  // In 'keep' mode an omitted field is kept and an explicit null clears it;
+  // in 'replace' mode both write what was given (null included).
+  const keepQty = quantityMode === 'keep' && p.quantity === undefined ? 1 : 0;
+  const keepUnit = quantityMode === 'keep' && p.unit === undefined ? 1 : 0;
   const keepExpires = p.expiresAt === undefined ? 1 : 0;
   const qty = p.quantity ?? null;
   const unit = p.unit ?? null;
@@ -665,8 +670,8 @@ async function patchIngredient(id: string, p: IngredientPatch, quantityMode: 're
       name = COALESCE(${p.name ?? null}, name),
       category = COALESCE(${p.category ?? null}, category),
       always_on_hand = COALESCE(${p.alwaysOnHand == null ? null : (p.alwaysOnHand ? 1 : 0)}, always_on_hand),
-      quantity = CASE WHEN ${aohTrue} = 1 THEN NULL WHEN ${keep} = 1 THEN COALESCE(${qty}, quantity) ELSE ${qty} END,
-      unit = CASE WHEN ${aohTrue} = 1 THEN NULL WHEN ${keep} = 1 THEN COALESCE(${unit}, unit) ELSE ${unit} END,
+      quantity = CASE WHEN ${aohTrue} = 1 THEN NULL WHEN ${keepQty} = 1 THEN quantity ELSE ${qty} END,
+      unit = CASE WHEN ${aohTrue} = 1 THEN NULL WHEN ${keepUnit} = 1 THEN unit ELSE ${unit} END,
       item_size = COALESCE(${p.itemSize ?? null}, item_size),
       item_size_unit = COALESCE(${p.itemSizeUnit ?? null}, item_size_unit),
       tags = COALESCE(${p.tags ? JSON.stringify(p.tags) : null}, tags),
@@ -707,7 +712,7 @@ builder.mutationField('updateIngredient', (t) =>
 builder.mutationField('updateIngredients', (t) =>
   t.field({
     type: [IngredientType],
-    description: 'Patch many pantry rows in one transaction. Omitted fields are kept; `expiresAt: null` clears the date. Returns rows in input order.',
+    description: 'Patch many pantry rows in one transaction. Omitted fields are kept; an explicit null clears `quantity`, `unit` or `expiresAt`. Returns rows in input order.',
     args: { inputs: t.arg({ type: [IngredientPatchInputType], required: true }) },
     resolve: async (_, { inputs }) => {
       if (inputs.length === 0) return [];

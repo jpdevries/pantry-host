@@ -15,7 +15,16 @@ import { isOwner } from '@/lib/isTrustedNetwork';
 export default function PantryReviewPage() {
   const kitchen = useKitchen();
   const [canEdit, setCanEdit] = useState(false);
-  useEffect(() => { setCanEdit(isOwner()); }, []);
+  const [confirmDestructive, setConfirmDestructive] = useState(false);
+  useEffect(() => {
+    setCanEdit(isOwner());
+    // REVIEW_CONFIRM_DESTRUCTIVE lives in .env.local; the owner-gated read
+    // endpoint masks nothing for a boolean. Guests get the default (off).
+    fetch('/api/settings-read')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => setConfirmDestructive(b?.values?.REVIEW_CONFIRM_DESTRUCTIVE === 'true'))
+      .catch(() => {});
+  }, []);
   return (
     <>
       <Head>
@@ -28,6 +37,7 @@ export default function PantryReviewPage() {
           kitchenSlug={kitchen}
           pantryHref={`/kitchens/${kitchen}/ingredients#stage`}
           canEdit={canEdit}
+          confirmDestructive={confirmDestructive}
         />
       </main>
     </>

@@ -287,9 +287,23 @@ schema change, so it ships first and alone.
    date, D delete, Esc clear) are bound on the review's root so they only fire while focus
    is inside it (WCAG 2.1.4), exposed with `aria-keyshortcuts` and visible
    `<kbd>` hints plus a one-line legend. The bar's CTAs are Select all,
-   Mark in stock, Mark out of stock, Set best-by date and Delete (with an
-   inline confirmation); Merge stays on each duplicate group. Closing a
-   confirmation or the date field returns focus to its button.
+   Mark in stock, Mark out of stock, Set best-by date and Delete; Merge
+   stays on each duplicate group. Closing a confirmation or the date field
+   returns focus to its button. **What Delete means:** Mark out of stock
+   is the metadata-preserving delete (quantity 0; tags, aliases, barcode
+   data and history survive; the stated best-by is cleared because it
+   belonged to the carton just finished, and restocking restarts the
+   estimate). Delete drops the row. The Delete confirmation says what is
+   lost and offers "Mark out of stock instead" as its first, focused
+   button; the Out of stock group (zero for 14+ days, never restocked) is
+   where hard delete belongs. Confirmations are opt-in: the
+   `REVIEW_CONFIRM_DESTRUCTIVE` setting (off by default, both tiers) gates
+   the Delete and Merge confirmations, since the review is built for quick
+   bulk passes. **Focus after an action** follows the WAI-ARIA Authoring
+   Practices for a removed element: the first still-listed row after the
+   last affected one, else the row before it, else the pressed control if
+   still usable, else the bar that was used, else the heading; a row Undo
+   brings back gets focus itself. Nobody is sent to the top of the page.
 4. **MCP.** Done. `review_pantry` (read; `tools/review.ts`, same engine as
    the UI, returns findings with names, provenance, `survivorId` and
    `nextSteps` naming the tool for each signal), `update_ingredients`,

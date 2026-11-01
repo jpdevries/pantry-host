@@ -304,6 +304,10 @@ schema change, so it ships first and alone.
    last affected one, else the row before it, else the pressed control if
    still usable, else the bar that was used, else the heading; a row Undo
    brings back gets focus itself. Nobody is sent to the top of the page.
+   Likely duplicates render last, after the end-of-list bar, with an aside
+   under the top bar that jumps to them (and a link back): merging first
+   removes rows from the per-item groups, so a keyboard user has fewer
+   checkboxes to pass.
 4. **MCP.** Done. `review_pantry` (read; `tools/review.ts`, same engine as
    the UI, returns findings with names, provenance, `survivorId` and
    `nextSteps` naming the tool for each signal), `update_ingredients`,

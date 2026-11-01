@@ -1,6 +1,6 @@
 # Pantry Review — bulk update and purge
 
-Design proposal. Status: Phase 1 built on `feat/pantry-review-phase1`; Phases 2–4 not started.
+Design proposal. Status: Phase 1 in PR #67; Phase 2 built on `feat/pantry-review-phase2` (stacked on Phase 1); Phases 3–4 not started.
 
 ## Problem
 
@@ -120,7 +120,7 @@ refinement for scanned rows (see above). Rough first cut by pantry category:
 |---|---|---|
 | `expired` | `estimatedExpiresAt < now` | Toss, or "still good" (bumps `stocked_at`) |
 | `expiring` | within 3 days | Use it: link to recipes that need it |
-| `stale` | `stockedAt ?? createdAt` older than 2× shelf life, or 180 days when the category has none | "Still have it?" yes / used up / toss |
+| `stale` | no stated date and no shelf-life basis (category `other` or unknown), and `stockedAt ?? createdAt` older than 180 days. Rows with a basis are covered by `expired` once past it, so a multiplier on shelf life would never fire. | "Still have it?" yes / used up / toss |
 | `duplicate` | same `normalizeIngredientName`, alias overlap, or same barcode (reuse `pantryIndex` from `grocery-status`) | Merge |
 | `outOfStock` | `quantity = 0` for more than 14 days | Delete, or restock |
 
@@ -248,9 +248,15 @@ schema change, so it ships first and alone.
    `migrations.test.ts` run against the Rust server; the Node resolvers were
    checked with the same mutation script by hand, and the Rust planner and
    migration guard have unit tests.
-2. **Shared review logic.** `pantry-review.ts` with the shelf-life table,
-   `reviewPantry`, `planMerge`. Unit tests on fixtures: a scanned pantry with
-   the garlic triplet, an expired yogurt, a restocked jar that must not flag.
+2. **Shared review logic.** Done. `@pantry-host/shared/pantry-review`:
+   `shelfLife` (OFF tags → `frozen` tag → category table), `estimatedExpiry`
+   with provenance, `reviewPantry` with options (`expiringWithinDays`,
+   `staleDays`, `outOfStockDays`, `signals`), `findDuplicates` (union-find over
+   normalized name, alias and barcode), `pickSurvivor`, `planMerge`. 25 unit
+   tests (`npm test` in `packages/shared`): the garlic triplet, an expired
+   yogurt, a restocked jar that must not flag, a frozen steak, UHT milk from a
+   barcode, always-on-hand salt. One freshness signal per row by priority
+   (out of stock, expired, expiring, stale); duplicates overlap freely.
 3. **UI.** Review page, badges, dashboard card, expiry field, new "I Made
    This" preview, both tiers. Verified on :5174 and :3000.
 4. **MCP.** The tools above, `pantry://review`, updated tool descriptions.

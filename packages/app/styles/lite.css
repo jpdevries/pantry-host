@@ -681,16 +681,13 @@
     margin-top: 1.5rem;
   }
 
-  /* ── Utility shims the review page leans on ──
-        The full design spaces a row's name / quantity / category with
-        `ml-2` and puts the reason on its own line with `block`. Without
-        them the Scribe ran everything together after the quantity. ── */
+  /* ── `.block` shim ──
+        The review page puts each row's reason on its own line with
+        `block` (`.ml-2`, which spaces name / quantity / category, is
+        already shimmed above). Without it the Scribe ran the reason
+        straight on after the quantity. ── */
   .block {
     display: block;
-  }
-
-  .ml-2 {
-    margin-left: 0.5rem;
   }
 
   /* ── Pantry category nav ──

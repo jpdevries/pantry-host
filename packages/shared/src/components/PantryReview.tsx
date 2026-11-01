@@ -476,6 +476,10 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, co
                     checked={allSelected}
                     ref={(el) => { if (el) el.indeterminate = !allSelected && someSelected; }}
                     onChange={() => toggleGroup(signal)}
+                    // The description is the rows it would select, by name, so a
+                    // screen reader user hears "Select all 3 in this group" and
+                    // then, if they wait, "Chicken thighs, Ground beef, Whole milk".
+                    aria-describedby={findings.map((f) => `review-name-${f.ids[0]}`).join(' ')}
                     className="w-4 h-4 accent-accent"
                   />
                   Select all {findings.length} in this group
@@ -502,7 +506,7 @@ export default function PantryReview({ gql, kitchenSlug, pantryHref, canEdit, co
                             />
                           )}
                           <span className="flex-1 min-w-0">
-                            <span className="font-medium">{row.name}</span>
+                            <span id={`review-name-${row.id}`} className="font-medium">{row.name}</span>
                             {fmtQty(row) && <span className="ml-2 text-sm text-[var(--color-text-secondary)]">{fmtQty(row)}</span>}
                             {row.category && <span className="ml-2 text-xs uppercase tracking-wide text-[var(--color-text-secondary)]">{row.category}</span>}
                             {highlightedTags(row).map((t) => <span key={t} className="ml-2"><TagChip tag={t} /></span>)}

@@ -35,10 +35,11 @@ export function isTrustedNetwork(hostname: string): boolean {
  * Opt-in: if the server emits `<meta name="trust-lan" content="true">`
  * in the SPA shell, any hostname that `isTrustedNetwork()` recognizes
  * (`.local` mDNS, `.ts.net` MagicDNS, RFC1918 LAN, Tailscale CGNAT)
- * also counts as owner. The Rust binary emits that meta tag when its
- * `PANTRY_TRUST_LAN=true` env var is set — the single-user-home-server
- * posture for Pi deployments. Default is off so the Rex dev server
- * exposed over LAN stays read-only for guests.
+ * also counts as owner. Both servers emit that meta tag when their
+ * `PANTRY_TRUST_LAN=true` env var is set (the Rust binary in its SPA
+ * shell, Rex in `pages/_document.tsx`) — the single-user-home-server
+ * posture for Pi deployments and for e-reader testing on the home LAN.
+ * Default is off so a server exposed over LAN stays read-only for guests.
  */
 export function isOwner(): boolean {
   if (isServer) return false;

@@ -81,8 +81,21 @@ export default function BarcodeScanner({ onScan, onError, cooldownMs = 2000 }: P
           }
           animFrameId = requestAnimationFrame(scanLoop);
         } else {
-          const { BrowserMultiFormatReader } = await import('@zxing/browser');
-          const reader = new BrowserMultiFormatReader();
+          // Fallback: @zxing/browser (Safari has no BarcodeDetector).
+          // TRY_HARDER adds a 90°-rotated pass so vertical barcodes scan too;
+          // POSSIBLE_FORMATS matches the native path above and keeps that pass cheap.
+          const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([
+            import('@zxing/browser'),
+            import('@zxing/library'),
+          ]);
+          const hints = new Map<DecodeHintType, unknown>([
+            [DecodeHintType.TRY_HARDER, true],
+            [DecodeHintType.POSSIBLE_FORMATS, [
+              BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A,
+              BarcodeFormat.UPC_E, BarcodeFormat.CODE_128, BarcodeFormat.QR_CODE,
+            ]],
+          ]);
+          const reader = new BrowserMultiFormatReader(hints);
           if (videoRef.current) {
             reader.decodeFromVideoElement(videoRef.current, async (result, err) => {
               if (stopped) return;

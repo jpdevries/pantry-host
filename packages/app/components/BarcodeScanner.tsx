@@ -43,7 +43,7 @@ export default function BarcodeScanner({ onScan, onError, onDetect, cooldownMs =
   // Codes whose lookup is running, so a re-read during a slow lookup doesn't
   // start a second one.
   const inFlight = useRef<Set<string>>(new Set());
-  // The code just read: drives the solid frame + "Read …" chip for ~1.2s.
+  // The code just read: drives the green frame + "Read …" chip for ~1.2s.
   const [lastRead, setLastRead] = useState<string | null>(null);
   const readTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 

@@ -8,6 +8,9 @@ services:
     environment:
       # SQLite lives on the dbdata volume so it survives `docker compose down`.
       SQLITE_DB_PATH: /data/pantry.db
+      # Rex's fetch blocks loopback unless this is set; without it every page's
+      # server-side data fetch fails and falls back to fetching in the browser.
+      REX_INTERNAL_ORIGIN: http://127.0.0.1:4001
       AI_API_KEY: ${AI_API_KEY:-}
       MCP_API_KEY: ${MCP_API_KEY:-}
       ENABLE_MCP: ${ENABLE_MCP:-false}

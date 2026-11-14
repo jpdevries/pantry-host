@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Flashlight, SpeakerHigh, SpeakerSlash } from '@phosphor-icons/react';
 
 import type { ProductMeta } from '@pantry-host/shared/product-meta';
 
@@ -20,20 +21,117 @@ export interface ScannedProduct {
 
 interface Props {
   onScan: (product: ScannedProduct) => void;
-  onError?: (message: string) => void;
+  /** `code` is set when the error is about one barcode's lookup. */
+  onError?: (message: string, code?: string) => void;
+  /** Called the moment a barcode is read, before the network lookup, so the
+   *  parent can show it as pending. Return false to skip the lookup (e.g. the
+   *  barcode is already in the list). */
+  onDetect?: (code: string) => boolean | void;
   cooldownMs?: number;
+}
+
+/** localStorage key for the scan-sound preference ('off' mutes it). */
+const SOUND_KEY = 'scan-sound';
+
+/** Short checkout-style beep through Web Audio. Silent if Web Audio is missing,
+ *  still locked (iOS unlocks it on a tap), or the iPhone's ringer is off. */
+function beep(ctxRef: { current: AudioContext | null }) {
+  try {
+    const ctx = getAudioContext(ctxRef);
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 1760;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.2, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.13);
+  } catch { /* feedback is best-effort */ }
+}
+
+function getAudioContext(ctxRef: { current: AudioContext | null }): AudioContext | null {
+  if (typeof window === 'undefined') return null;
+  if (!ctxRef.current) {
+    const Ctx = window.AudioContext
+      ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return null;
+    ctxRef.current = new Ctx();
+  }
+  if (ctxRef.current.state === 'suspended') void ctxRef.current.resume().catch(() => {});
+  return ctxRef.current;
 }
 
 /**
  * BarcodeScanner — uses native BarcodeDetector API where available,
  * falls back to @zxing/browser. Camera stream persists until unmounted.
  */
-export default function BarcodeScanner({ onScan, onError, cooldownMs = 2000 }: Props) {
+export default function BarcodeScanner({ onScan, onError, onDetect, cooldownMs = 2000 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const lastScanned = useRef<Map<string, number>>(new Map());
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [status, setStatus] = useState<'starting' | 'ready' | 'error'>('starting');
+  // Codes whose lookup is running, so a re-read during a slow lookup doesn't
+  // start a second one.
+  const inFlight = useRef<Set<string>>(new Set());
+  // The code just read: drives the solid frame + "Read …" chip for ~1.2s.
+  const [lastRead, setLastRead] = useState<string | null>(null);
+  const readTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
+  const soundOnRef = useRef(true);
+  const audioRef = useRef<AudioContext | null>(null);
+
+  // Read the sound preference after mount (localStorage isn't there during SSR).
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(SOUND_KEY) === 'off') setSoundOn(false);
+    } catch { /* storage blocked: keep the default */ }
+  }, []);
+  useEffect(() => { soundOnRef.current = soundOn; }, [soundOn]);
+
+  // iOS keeps Web Audio locked until a tap. The tap that opened the scanner has
+  // expired by the time the camera is up, so unlock on the next tap anywhere.
+  useEffect(() => {
+    const unlock = () => { getAudioContext(audioRef); };
+    document.addEventListener('pointerdown', unlock, { once: true });
+    return () => {
+      document.removeEventListener('pointerdown', unlock);
+      clearTimeout(readTimer.current);
+      void audioRef.current?.close().catch(() => {});
+    };
+  }, []);
+
+  function signalRead(code: string) {
+    setLastRead(code);
+    clearTimeout(readTimer.current);
+    readTimer.current = setTimeout(() => setLastRead(null), 1200);
+    if (soundOnRef.current) beep(audioRef);
+  }
+
+  function toggleSound() {
+    const next = !soundOn;
+    setSoundOn(next);
+    try { localStorage.setItem(SOUND_KEY, next ? 'on' : 'off'); } catch { /* not persisted */ }
+    if (next) beep(audioRef); // this tap also unlocks iOS audio; the beep confirms it
+  }
+
+  async function toggleTorch() {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    const next = !torchOn;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next } as unknown as MediaTrackConstraintSet] });
+      setTorchOn(next);
+    } catch {
+      setTorchSupported(false); // advertised but refused: hide the button
+    }
+  }
 
   // Pin callbacks + cooldown via refs so the camera-lifecycle effect can
   // depend on []. Without this, parents passing inline onScan/onError (the
@@ -43,10 +141,12 @@ export default function BarcodeScanner({ onScan, onError, cooldownMs = 2000 }: P
   // becomes an infinite loop and crashes React with #185.
   const onScanRef = useRef(onScan);
   const onErrorRef = useRef(onError);
+  const onDetectRef = useRef(onDetect);
   const cooldownRef = useRef(cooldownMs);
   useEffect(() => {
     onScanRef.current = onScan;
     onErrorRef.current = onError;
+    onDetectRef.current = onDetect;
     cooldownRef.current = cooldownMs;
   });
 
@@ -59,18 +159,27 @@ export default function BarcodeScanner({ onScan, onError, cooldownMs = 2000 }: P
       const last = lastScanned.current.get(code);
       if (last && now - last < cooldownRef.current) return; // cooldown
       lastScanned.current.set(code, now);
+      if (inFlight.current.has(code)) return; // its lookup is still running
+      if (onDetectRef.current?.(code) === false) return; // parent: skip it
+
+      // Feedback before the network call: the user can move on as soon as
+      // they see/hear this, because the lookup no longer needs the camera.
+      inFlight.current.add(code);
+      signalRead(code);
 
       try {
         const res = await fetch(`/api/lookup-barcode?code=${encodeURIComponent(code)}`);
         if (!res.ok) {
           const json = await res.json() as { error: string };
-          onErrorRef.current?.(`Product not found for barcode ${code}: ${json.error}`);
+          onErrorRef.current?.(`Product not found for barcode ${code}: ${json.error}`, code);
           return;
         }
         const product = await res.json() as { name: string; brand?: string; category?: string; quantity?: number; unit?: string; itemSize?: number; itemSizeUnit?: string; meta?: ProductMeta };
         onScanRef.current({ barcode: code, ...product });
       } catch {
-        onErrorRef.current?.(`Failed to look up barcode ${code}`);
+        onErrorRef.current?.(`Failed to look up barcode ${code}`, code);
+      } finally {
+        inFlight.current.delete(code);
       }
     }
 
@@ -96,6 +205,11 @@ export default function BarcodeScanner({ onScan, onError, cooldownMs = 2000 }: P
           await videoRef.current.play();
         }
         setStatus('ready');
+
+        // Flashlight: only offered where the camera says it has one.
+        const track = stream.getVideoTracks()[0];
+        const caps = (track?.getCapabilities?.() ?? {}) as MediaTrackCapabilities & { torch?: boolean };
+        if (caps.torch) setTorchSupported(true);
 
         // Try native BarcodeDetector
         if ('BarcodeDetector' in window) {
@@ -187,11 +301,42 @@ export default function BarcodeScanner({ onScan, onError, cooldownMs = 2000 }: P
         muted
         aria-hidden="true"
       />
-      {/* Scan guide overlay */}
+      {/* Scan guide overlay: goes solid and thick the moment a barcode is read */}
       <div
-        className="absolute inset-8 border-2 border-accent opacity-60 pointer-events-none"
+        className={`absolute inset-8 border-accent pointer-events-none motion-safe:transition-all motion-safe:duration-150 ${lastRead ? 'border-4 opacity-100' : 'border-2 opacity-60'}`}
         aria-hidden="true"
       />
+      {lastRead && (
+        <div className="absolute bottom-3 inset-x-0 flex justify-center pointer-events-none" aria-hidden="true">
+          <span className="bg-black/70 text-white text-sm px-3 py-1">✓ Read {lastRead}</span>
+        </div>
+      )}
+      <p className="sr-only" aria-live="polite">{lastRead ? `Barcode read: ${lastRead}` : ''}</p>
+
+      {status === 'ready' && (
+        <div className="absolute top-2 right-2 flex gap-2">
+          {torchSupported && (
+            <button
+              type="button"
+              onClick={toggleTorch}
+              aria-pressed={torchOn}
+              aria-label="Flashlight"
+              className={`p-2 ${torchOn ? 'bg-white text-black' : 'bg-black/60 text-white'} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring-focus)]`}
+            >
+              <Flashlight size={22} weight={torchOn ? 'fill' : 'regular'} aria-hidden />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={toggleSound}
+            aria-pressed={soundOn}
+            aria-label="Scan sound"
+            className="p-2 bg-black/60 text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring-focus)]"
+          >
+            {soundOn ? <SpeakerHigh size={22} aria-hidden /> : <SpeakerSlash size={22} aria-hidden />}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

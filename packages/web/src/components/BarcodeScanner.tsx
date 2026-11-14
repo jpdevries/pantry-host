@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { Flashlight } from '@phosphor-icons/react';
 import { lookupBarcode, type BarcodeResult } from '@/lib/barcode-lookup';
 
 export interface ScannedProduct extends BarcodeResult {
@@ -17,6 +18,20 @@ export default function BarcodeScanner({ onScan, onError, cooldownMs = 2000 }: P
   const lastScanned = useRef<Map<string, number>>(new Map());
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [status, setStatus] = useState<'starting' | 'ready' | 'error'>('starting');
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+
+  async function toggleTorch() {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    const next = !torchOn;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next } as unknown as MediaTrackConstraintSet] });
+      setTorchOn(next);
+    } catch {
+      setTorchSupported(false); // advertised but refused: hide the button
+    }
+  }
 
   const handleBarcode = useCallback(
     async (code: string) => {
@@ -61,6 +76,12 @@ export default function BarcodeScanner({ onScan, onError, cooldownMs = 2000 }: P
           await videoRef.current.play();
         }
         setStatus('ready');
+
+        // Flashlight: only offered where the camera says it has one. The
+        // system flashlight can't be used while a page holds the camera.
+        const track = stream.getVideoTracks()[0];
+        const caps = (track?.getCapabilities?.() ?? {}) as MediaTrackCapabilities & { torch?: boolean };
+        if (caps.torch) setTorchSupported(true);
 
         if ('BarcodeDetector' in window) {
           const detector = new (window as unknown as {
@@ -138,6 +159,17 @@ export default function BarcodeScanner({ onScan, onError, cooldownMs = 2000 }: P
         className="absolute inset-8 border-2 border-[var(--color-accent)] opacity-60 pointer-events-none"
         aria-hidden="true"
       />
+      {status === 'ready' && torchSupported && (
+        <button
+          type="button"
+          onClick={toggleTorch}
+          aria-pressed={torchOn}
+          aria-label="Flashlight"
+          className={`absolute top-2 right-2 p-2 ${torchOn ? 'bg-white text-black' : 'bg-black/60 text-white'} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring-focus)]`}
+        >
+          <Flashlight size={22} weight={torchOn ? 'fill' : 'regular'} aria-hidden />
+        </button>
+      )}
     </div>
   );
 }

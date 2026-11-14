@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { SpeakerHigh, SpeakerSlash } from '@phosphor-icons/react';
 
 import type { ProductMeta } from '@pantry-host/shared/product-meta';
 
@@ -30,40 +29,6 @@ interface Props {
   cooldownMs?: number;
 }
 
-/** localStorage key for the scan-sound preference ('off' mutes it). */
-const SOUND_KEY = 'scan-sound';
-
-/** Short checkout-style beep through Web Audio. Silent if Web Audio is missing,
- *  still locked (iOS unlocks it on a tap), or the iPhone's ringer is off. */
-function beep(ctxRef: { current: AudioContext | null }) {
-  try {
-    const ctx = getAudioContext(ctxRef);
-    if (!ctx) return;
-    const t = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = 1760;
-    gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(0.2, t + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(t);
-    osc.stop(t + 0.13);
-  } catch { /* feedback is best-effort */ }
-}
-
-function getAudioContext(ctxRef: { current: AudioContext | null }): AudioContext | null {
-  if (typeof window === 'undefined') return null;
-  if (!ctxRef.current) {
-    const Ctx = window.AudioContext
-      ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return null;
-    ctxRef.current = new Ctx();
-  }
-  if (ctxRef.current.state === 'suspended') void ctxRef.current.resume().catch(() => {});
-  return ctxRef.current;
-}
 
 /**
  * BarcodeScanner — uses native BarcodeDetector API where available,
@@ -81,48 +46,13 @@ export default function BarcodeScanner({ onScan, onError, onDetect, cooldownMs =
   // The code just read: drives the solid frame + "Read …" chip for ~1.2s.
   const [lastRead, setLastRead] = useState<string | null>(null);
   const readTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const [soundOn, setSoundOn] = useState(true);
-  const soundOnRef = useRef(true);
-  const audioRef = useRef<AudioContext | null>(null);
 
-  // Read the sound preference after mount (localStorage isn't there during SSR).
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(SOUND_KEY) === 'off') setSoundOn(false);
-    } catch { /* storage blocked: keep the default */ }
-  }, []);
-  useEffect(() => { soundOnRef.current = soundOn; }, [soundOn]);
-
-  // iOS keeps Web Audio locked until a user gesture. Try at mount (the tap that
-  // opened the scanner may still count), then again on the next tap or key.
-  // Only touchend/click/keydown qualify on touch devices; pointerdown does not.
-  useEffect(() => {
-    getAudioContext(audioRef);
-    const events = ['touchend', 'click', 'keydown'] as const;
-    const unlock = () => {
-      const ctx = getAudioContext(audioRef);
-      if (ctx?.state === 'running') events.forEach((e) => document.removeEventListener(e, unlock));
-    };
-    events.forEach((e) => document.addEventListener(e, unlock));
-    return () => {
-      events.forEach((e) => document.removeEventListener(e, unlock));
-      clearTimeout(readTimer.current);
-      void audioRef.current?.close().catch(() => {});
-    };
-  }, []);
+  useEffect(() => () => clearTimeout(readTimer.current), []);
 
   function signalRead(code: string) {
     setLastRead(code);
     clearTimeout(readTimer.current);
     readTimer.current = setTimeout(() => setLastRead(null), 1200);
-    if (soundOnRef.current) beep(audioRef);
-  }
-
-  function toggleSound() {
-    const next = !soundOn;
-    setSoundOn(next);
-    try { localStorage.setItem(SOUND_KEY, next ? 'on' : 'off'); } catch { /* not persisted */ }
-    if (next) beep(audioRef); // this tap also unlocks iOS audio; the beep confirms it
   }
 
 
@@ -302,20 +232,6 @@ export default function BarcodeScanner({ onScan, onError, onDetect, cooldownMs =
         </div>
       )}
       <p className="sr-only" aria-live="polite">{lastRead ? `Barcode read: ${lastRead}` : ''}</p>
-
-      {status === 'ready' && (
-        <div className="absolute top-2 left-2 flex gap-2">
-          <button
-            type="button"
-            onClick={toggleSound}
-            aria-pressed={soundOn}
-            aria-label="Scan sound"
-            className="p-2 bg-black/60 text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring-focus)]"
-          >
-            {soundOn ? <SpeakerHigh size={22} aria-hidden /> : <SpeakerSlash size={22} aria-hidden />}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

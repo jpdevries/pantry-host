@@ -1,7 +1,7 @@
 # Stage 1: Build
 FROM node:22-trixie-slim AS build
 
-RUN apt-get update && apt-get install -y libssl3t64 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends libssl3t64 ca-certificates && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -50,7 +50,7 @@ RUN npx @limlabs/rex build --root packages/app && \
 # Stage 2: Runtime
 FROM node:22-trixie-slim
 
-RUN apt-get update && apt-get install -y libssl3t64 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends libssl3t64 ca-certificates && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

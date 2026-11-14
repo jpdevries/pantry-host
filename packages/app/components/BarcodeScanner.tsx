@@ -95,13 +95,19 @@ export default function BarcodeScanner({ onScan, onError, onDetect, cooldownMs =
   }, []);
   useEffect(() => { soundOnRef.current = soundOn; }, [soundOn]);
 
-  // iOS keeps Web Audio locked until a tap. The tap that opened the scanner has
-  // expired by the time the camera is up, so unlock on the next tap anywhere.
+  // iOS keeps Web Audio locked until a user gesture. Try at mount (the tap that
+  // opened the scanner may still count), then again on the next tap or key.
+  // Only touchend/click/keydown qualify on touch devices; pointerdown does not.
   useEffect(() => {
-    const unlock = () => { getAudioContext(audioRef); };
-    document.addEventListener('pointerdown', unlock, { once: true });
+    getAudioContext(audioRef);
+    const events = ['touchend', 'click', 'keydown'] as const;
+    const unlock = () => {
+      const ctx = getAudioContext(audioRef);
+      if (ctx?.state === 'running') events.forEach((e) => document.removeEventListener(e, unlock));
+    };
+    events.forEach((e) => document.addEventListener(e, unlock));
     return () => {
-      document.removeEventListener('pointerdown', unlock);
+      events.forEach((e) => document.removeEventListener(e, unlock));
       clearTimeout(readTimer.current);
       void audioRef.current?.close().catch(() => {});
     };

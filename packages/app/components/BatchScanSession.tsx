@@ -23,6 +23,15 @@ interface Props {
 
 type Phase = 'scanning' | 'review';
 
+/** Same product? Compares barcodes and Open Food Facts' canonical code with
+ *  leading zeros dropped, so one product reached through two barcodes (or
+ *  12- vs 13-digit forms of one barcode) is caught as a duplicate. */
+function sameProduct(item: ScannedProduct, code: string, offCode?: string): boolean {
+  const norm = (c?: string) => (c ?? '').replace(/^0+/, '');
+  const mine = [norm(item.barcode), norm(item.meta?.code)].filter(Boolean);
+  return [norm(code), norm(offCode)].some((c) => c && mine.includes(c));
+}
+
 const ADD_INGREDIENTS = `
   mutation AddIngredients($inputs: [IngredientInput!]!) {
     addIngredients(inputs: $inputs) { id name }
@@ -71,7 +80,7 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
   // Runs the moment a barcode is read. Duplicates are answered here, before
   // any network call; anything new shows as a pending row straight away.
   const handleDetect = useCallback((code: string) => {
-    const existing = itemsRef.current.find((i) => i.barcode === code);
+    const existing = itemsRef.current.find((i) => sameProduct(i, code));
     if (existing) {
       addToast(`Already scanned: ${existing.name}`);
       return false;
@@ -90,8 +99,8 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
   const handleScan = useCallback((product: ScannedProduct) => {
     setPending((prev) => prev.filter((p) => p.code !== product.barcode));
     setItems((prev) => {
-      // Deduplicate by barcode
-      if (prev.some((i) => i.barcode === product.barcode)) {
+      // Deduplicate by product (see sameProduct)
+      if (prev.some((i) => sameProduct(i, product.barcode, product.meta?.code))) {
         addToast(`Already scanned: ${product.name}`);
         return prev;
       }
@@ -199,6 +208,7 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
                     <span className="text-accent">✓</span>
                     {item.name}
                     {item.brand && <span className="text-[var(--color-text-secondary)]">({item.brand})</span>}
+                    <span className="ml-auto font-mono text-xs opacity-70">{item.barcode}</span>
                   </li>
                 ))}
                 {pending.map((p) => (

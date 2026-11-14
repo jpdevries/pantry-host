@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { SpinnerGap } from '@phosphor-icons/react';
 import BarcodeScanner, { ScannedProduct } from './BarcodeScanner';
 import { gql } from '@/lib/gql';
 import { enqueue } from '@/lib/offlineQueue';
@@ -22,6 +23,15 @@ interface Props {
 
 type Phase = 'scanning' | 'review';
 
+/** Same product? Compares barcodes and Open Food Facts' canonical code with
+ *  leading zeros dropped, so one product reached through two barcodes (or
+ *  12- vs 13-digit forms of one barcode) is caught as a duplicate. */
+function sameProduct(item: ScannedProduct, code: string, offCode?: string): boolean {
+  const norm = (c?: string) => (c ?? '').replace(/^0+/, '');
+  const mine = [norm(item.barcode), norm(item.meta?.code)].filter(Boolean);
+  return [norm(code), norm(offCode)].some((c) => c && mine.includes(c));
+}
+
 const ADD_INGREDIENTS = `
   mutation AddIngredients($inputs: [IngredientInput!]!) {
     addIngredients(inputs: $inputs) { id name }
@@ -31,6 +41,12 @@ const ADD_INGREDIENTS = `
 export default function BatchScanSession({ onComplete, onCancel }: Props) {
   const [phase, setPhase] = useState<Phase>('scanning');
   const [items, setItems] = useState<BatchItem[]>([]);
+  // Mirror for handleDetect, which runs outside React's render cycle.
+  const itemsRef = useRef<BatchItem[]>([]);
+  itemsRef.current = items;
+  // Barcodes read but not resolved yet; `failed` once the lookup comes back empty.
+  const [pending, setPending] = useState<{ code: string; failed?: string }[]>([]);
+  const lookingUp = pending.filter((p) => !p.failed).length;
   const [toasts, setToasts] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,10 +77,30 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
     setTimeout(() => setToasts((prev) => prev.slice(1)), 3000);
   };
 
+  // Runs the moment a barcode is read. Duplicates are answered here, before
+  // any network call; anything new shows as a pending row straight away.
+  const handleDetect = useCallback((code: string) => {
+    const existing = itemsRef.current.find((i) => sameProduct(i, code));
+    if (existing) {
+      addToast(`Already scanned: ${existing.name}`);
+      return false;
+    }
+    setPending((prev) => [...prev.filter((p) => p.code !== code), { code }]);
+    return true;
+  }, []);
+
+  const handleScanError = useCallback((msg: string, code?: string) => {
+    addToast(msg);
+    if (!code) return;
+    setPending((prev) => prev.map((p) => (p.code === code ? { ...p, failed: 'not found' } : p)));
+    setTimeout(() => setPending((prev) => prev.filter((p) => !(p.code === code && p.failed))), 6000);
+  }, []);
+
   const handleScan = useCallback((product: ScannedProduct) => {
+    setPending((prev) => prev.filter((p) => p.code !== product.barcode));
     setItems((prev) => {
-      // Deduplicate by barcode
-      if (prev.some((i) => i.barcode === product.barcode)) {
+      // Deduplicate by product (see sameProduct)
+      if (prev.some((i) => sameProduct(i, product.barcode, product.meta?.code))) {
         addToast(`Already scanned: ${product.name}`);
         return prev;
       }
@@ -151,7 +187,7 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
         <div className="flex flex-col flex-1 overflow-hidden">
           {/* Camera */}
           <div className="shrink-0">
-            <BarcodeScanner onScan={handleScan} onError={(msg) => addToast(msg)} />
+            <BarcodeScanner onScan={handleScan} onDetect={handleDetect} onError={handleScanError} />
           </div>
 
           {/* Toast notifications */}
@@ -163,7 +199,7 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
 
           {/* Scanned list preview */}
           <div className="flex-1 overflow-y-auto px-4 py-2">
-            {items.length === 0 ? (
+            {items.length === 0 && pending.length === 0 ? (
               <p className="text-[var(--color-text-secondary)] text-sm mt-2">Scanned items will appear here…</p>
             ) : (
               <ul role="list" className="space-y-1">
@@ -172,6 +208,16 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
                     <span className="text-accent">✓</span>
                     {item.name}
                     {item.brand && <span className="text-[var(--color-text-secondary)]">({item.brand})</span>}
+                    <span className="ml-auto font-mono text-xs opacity-70">{item.barcode}</span>
+                  </li>
+                ))}
+                {pending.map((p) => (
+                  <li key={`pending-${p.code}`} className="text-[var(--color-text-secondary)] text-sm flex items-center gap-2">
+                    {p.failed
+                      ? <span className="text-[var(--color-danger)]" aria-hidden="true">✗</span>
+                      : <SpinnerGap size={14} className="motion-safe:animate-spin" aria-hidden />}
+                    <span className="font-mono">{p.code}</span>
+                    <span>{p.failed ? `— ${p.failed}` : '— looking up…'}</span>
                   </li>
                 ))}
               </ul>
@@ -190,10 +236,10 @@ export default function BatchScanSession({ onComplete, onCancel }: Props) {
             <button
               type="button"
               onClick={() => setPhase('review')}
-              disabled={items.length === 0}
+              disabled={items.length === 0 || lookingUp > 0}
               className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Review {items.length > 0 ? `(${items.length})` : ''}
+              {lookingUp > 0 ? `Looking up ${lookingUp}…` : `Review ${items.length > 0 ? `(${items.length})` : ''}`}
             </button>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Flashlight, SpeakerHigh, SpeakerSlash } from '@phosphor-icons/react';
+import { SpeakerHigh, SpeakerSlash } from '@phosphor-icons/react';
 
 import type { ProductMeta } from '@pantry-host/shared/product-meta';
 
@@ -81,8 +81,6 @@ export default function BarcodeScanner({ onScan, onError, onDetect, cooldownMs =
   // The code just read: drives the solid frame + "Read …" chip for ~1.2s.
   const [lastRead, setLastRead] = useState<string | null>(null);
   const readTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const [torchSupported, setTorchSupported] = useState(false);
-  const [torchOn, setTorchOn] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const soundOnRef = useRef(true);
   const audioRef = useRef<AudioContext | null>(null);
@@ -127,17 +125,6 @@ export default function BarcodeScanner({ onScan, onError, onDetect, cooldownMs =
     if (next) beep(audioRef); // this tap also unlocks iOS audio; the beep confirms it
   }
 
-  async function toggleTorch() {
-    const track = streamRef.current?.getVideoTracks()[0];
-    if (!track) return;
-    const next = !torchOn;
-    try {
-      await track.applyConstraints({ advanced: [{ torch: next } as unknown as MediaTrackConstraintSet] });
-      setTorchOn(next);
-    } catch {
-      setTorchSupported(false); // advertised but refused: hide the button
-    }
-  }
 
   // Pin callbacks + cooldown via refs so the camera-lifecycle effect can
   // depend on []. Without this, parents passing inline onScan/onError (the
@@ -211,11 +198,6 @@ export default function BarcodeScanner({ onScan, onError, onDetect, cooldownMs =
           await videoRef.current.play();
         }
         setStatus('ready');
-
-        // Flashlight: only offered where the camera says it has one.
-        const track = stream.getVideoTracks()[0];
-        const caps = (track?.getCapabilities?.() ?? {}) as MediaTrackCapabilities & { torch?: boolean };
-        if (caps.torch) setTorchSupported(true);
 
         // Try native BarcodeDetector
         if ('BarcodeDetector' in window) {
@@ -307,9 +289,11 @@ export default function BarcodeScanner({ onScan, onError, onDetect, cooldownMs =
         muted
         aria-hidden="true"
       />
-      {/* Scan guide overlay: goes solid and thick the moment a barcode is read */}
+      {/* Scan guide overlay: turns green the moment a barcode is read. Green
+          rather than the accent token, which is near-white in dark mode and
+          doesn't read as a change against the camera feed. */}
       <div
-        className={`absolute inset-8 border-accent pointer-events-none motion-safe:transition-all motion-safe:duration-150 ${lastRead ? 'border-4 opacity-100' : 'border-2 opacity-60'}`}
+        className={`absolute inset-8 pointer-events-none motion-safe:transition-all motion-safe:duration-150 ${lastRead ? 'border-4 border-green-400 bg-green-400/15 opacity-100' : 'border-2 border-accent opacity-60'}`}
         aria-hidden="true"
       />
       {lastRead && (
@@ -320,18 +304,7 @@ export default function BarcodeScanner({ onScan, onError, onDetect, cooldownMs =
       <p className="sr-only" aria-live="polite">{lastRead ? `Barcode read: ${lastRead}` : ''}</p>
 
       {status === 'ready' && (
-        <div className="absolute top-2 right-2 flex gap-2">
-          {torchSupported && (
-            <button
-              type="button"
-              onClick={toggleTorch}
-              aria-pressed={torchOn}
-              aria-label="Flashlight"
-              className={`p-2 ${torchOn ? 'bg-white text-black' : 'bg-black/60 text-white'} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring-focus)]`}
-            >
-              <Flashlight size={22} weight={torchOn ? 'fill' : 'regular'} aria-hidden />
-            </button>
-          )}
+        <div className="absolute top-2 left-2 flex gap-2">
           <button
             type="button"
             onClick={toggleSound}
